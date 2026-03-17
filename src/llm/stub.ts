@@ -10,7 +10,7 @@ import type {
 } from '../types';
 import { buildAgentMessages, buildChatMessages } from './messages';
 import { convertToolCallsToActions, parseLLMResponse, stripCodeBlocks } from './parser';
-import { getAnthropicProvider, getModel } from './provider';
+import { getAnthropicProvider, getModel, getReasoningEffort } from './provider';
 import {
 	AGENT_SYSTEM_PROMPT,
 	buildImplementPrompt,
@@ -30,6 +30,11 @@ export async function generateSessionTitle(userMessage: string): Promise<string>
 			model: anthropic(model),
 			system: 'Generate a very short title (2-5 words, max 30 chars) for a chat conversation based on the user\'s first message. Return ONLY the title, nothing else. No quotes, no punctuation at the end.',
 			prompt: userMessage,
+			providerOptions: {
+				openai: {
+					reasoningEffort: getReasoningEffort(),
+				},
+			},
 		});
 		const title = text.trim().slice(0, 30);
 		return title || 'New Chat';
@@ -60,6 +65,11 @@ export async function callLLMForImplement(
 			model: anthropic(model),
 			system: IMPLEMENT_SYSTEM_PROMPT,
 			prompt: userPrompt,
+			providerOptions: {
+				openai: {
+					reasoningEffort: getReasoningEffort(),
+				},
+			},
 		});
 
 		const newContent = stripCodeBlocks(text);
@@ -119,6 +129,11 @@ export async function callLLMForChat(
 			system: CHAT_SYSTEM_PROMPT,
 			messages,
 			abortSignal,
+			providerOptions: {
+				openai: {
+					reasoningEffort: getReasoningEffort(),
+				},
+			},
 		});
 		console.log('[Flixa] chat response text:', text);
 		console.log('[Flixa] chat response text length:', text.length);
@@ -161,6 +176,11 @@ export async function callLLMForAgent(
 			messages,
 			tools: agentTools,
 			abortSignal,
+			providerOptions: {
+				openai: {
+					reasoningEffort: getReasoningEffort(),
+				},
+			},
 		});
 		log('[Flixa] agent response text:', result.text);
 		log(

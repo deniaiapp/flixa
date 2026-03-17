@@ -7,6 +7,7 @@ import type {
 	UsageCategory,
 	UsageResponse,
 } from './types';
+import { log } from '../logger';
 import { canUseTier, getModelTierRequirement } from './types';
 
 const CACHE_DURATION_MS = 5 * 60 * 1000;
@@ -21,7 +22,7 @@ function getDeniAiBaseUrl(): string {
 
 export function getFlixaApiBaseUrl(): string {
 	const config = vscode.workspace.getConfiguration('flixa');
-	return config.get<string>('flixaApiBaseUrl') || 'https://flixa-api.deniai.app';
+	return config.get<string>('flixaApiBaseUrl') || 'https://api.flixa.engineer';
 }
 
 export function getBillingUrl(): string {
@@ -252,10 +253,21 @@ export class UsageService {
 				body: JSON.stringify({ action: 'initiate' }),
 			});
 			if (!res.ok) {
+				const responseText = await res.text();
+				log(
+					'[Flixa] loginWithDeviceAuth initiate failed',
+					JSON.stringify({
+						status: res.status,
+						statusText: res.statusText,
+						baseUrl,
+						responseText,
+					})
+				);
 				throw new Error(`HTTP ${res.status}`);
 			}
 			initiateResponse = (await res.json()) as DeviceAuthInitiateResponse;
 		} catch (error) {
+			log('[Flixa] loginWithDeviceAuth initiate error', error);
 			vscode.window.showErrorMessage(
 				'Deni AI: Failed to initiate login. Please try again.'
 			);
@@ -307,6 +319,10 @@ export class UsageService {
 							});
 
 							if (res.status === 410) {
+								log(
+									'[Flixa] loginWithDeviceAuth poll expired',
+									JSON.stringify({ deviceCode })
+								);
 								vscode.window.showErrorMessage(
 									'Deni AI: Login expired. Please try again.'
 								);
@@ -315,11 +331,34 @@ export class UsageService {
 							}
 
 							if (!res.ok) {
-								continue;
+								const responseText = await res.text();
+								log(
+									'[Flixa] loginWithDeviceAuth poll failed',
+									JSON.stringify({
+										status: res.status,
+										statusText: res.statusText,
+										baseUrl,
+										deviceCode,
+										responseText,
+									})
+								);
+								vscode.window.showErrorMessage(
+									'Deni AI: Login failed. Please try again.'
+								);
+								resolve(false);
+								return;
 							}
 
 							const pollResponse =
 								(await res.json()) as DeviceAuthPollResponse;
+							log(
+								'[Flixa] loginWithDeviceAuth poll response',
+								JSON.stringify({
+									deviceCode,
+									approved: pollResponse.approved,
+									hasApiKey: !!pollResponse.apiKey,
+								})
+							);
 
 							if (pollResponse.approved && pollResponse.apiKey) {
 								await this.setApiKey(pollResponse.apiKey);
@@ -329,8 +368,8 @@ export class UsageService {
 								resolve(true);
 								return;
 							}
-						} catch {
-							// Network error, continue polling
+						} catch (error) {
+							log('[Flixa] loginWithDeviceAuth poll error', error);
 						}
 					}
 

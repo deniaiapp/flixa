@@ -5,12 +5,13 @@ import { setModelAccessDefinitions, type ModelAccessDefinition } from "../usage/
 const FLIXA_BASE_URL = getFlixaApiBaseUrl();
 
 const OPENAI_BASE_URL = `${FLIXA_BASE_URL}/v1/agent/`;
-const DEFAULT_MODEL = "openai/gpt-5.2-codex";
+const DEFAULT_MODEL = "openai/gpt-5.4";
+const DEFAULT_REASONING_EFFORT = "medium";
 const MODELS_CACHE_DURATION_MS = 5 * 60 * 1000;
 const FALLBACK_MODEL_DEFINITIONS: ModelAccessDefinition[] = [
   {
     id: DEFAULT_MODEL,
-    label: "GPT-5.2 Codex",
+    label: "GPT-5.4",
     description: "OpenAI flagship coding model",
     tags: ["coding", "fast"],
     premium: false,
@@ -19,11 +20,14 @@ const FALLBACK_MODEL_DEFINITIONS: ModelAccessDefinition[] = [
 ];
 const FALLBACK_MODELS = FALLBACK_MODEL_DEFINITIONS.map((model) => model.id);
 
+export type ReasoningEffort = "low" | "medium" | "high";
+
 let _apiKey: string | undefined;
 let _cachedModels: string[] | null = null;
 let _cachedModelDefinitions: ModelAccessDefinition[] | null = null;
 let _modelsFetchedAt = 0;
 let _selectedModel = DEFAULT_MODEL;
+let _selectedReasoningEffort: ReasoningEffort = DEFAULT_REASONING_EFFORT;
 
 export function setApiKey(apiKey: string | undefined): void {
   _apiKey = apiKey;
@@ -44,6 +48,11 @@ export function getAnthropicProvider() {
 export function getModel(): string {
   console.log("[Flixa] Using model:", _selectedModel);
   return _selectedModel;
+}
+
+export function getReasoningEffort(): ReasoningEffort {
+  console.log("[Flixa] Using reasoning effort:", _selectedReasoningEffort);
+  return _selectedReasoningEffort;
 }
 
 function withCurrentModel(models: string[]): string[] {
@@ -200,4 +209,17 @@ export function getModelDefinitions(): ModelAccessDefinition[] {
 
 export async function setModel(model: string): Promise<void> {
   _selectedModel = model || DEFAULT_MODEL;
+}
+
+export async function setReasoningEffort(reasoningEffort: string): Promise<void> {
+  if (
+    reasoningEffort === "low" ||
+    reasoningEffort === "medium" ||
+    reasoningEffort === "high"
+  ) {
+    _selectedReasoningEffort = reasoningEffort;
+    return;
+  }
+
+  _selectedReasoningEffort = DEFAULT_REASONING_EFFORT;
 }

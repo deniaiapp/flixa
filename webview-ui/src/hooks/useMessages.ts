@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react';
-import { DEFAULT_MODEL } from '../constants';
-import type { ChatMessage, ChatSession, FileChange, ModelDefinition, UsageData } from '../types';
+import { DEFAULT_MODEL, DEFAULT_REASONING_EFFORT } from '../constants';
+import type {
+	ChatMessage,
+	ChatSession,
+	FileChange,
+	ModelDefinition,
+	ReasoningEffort,
+	UsageData,
+} from '../types';
 
 export interface UseMessagesReturn {
 	messages: ChatMessage[];
@@ -9,6 +16,7 @@ export interface UseMessagesReturn {
 	agentMode: boolean;
 	approvalMode: string;
 	selectedModel: string;
+	selectedReasoningEffort: ReasoningEffort;
 	availableModels: string[];
 	modelDefinitions: ModelDefinition[];
 	isLoading: boolean;
@@ -20,6 +28,7 @@ export interface UseMessagesReturn {
 	setAgentMode: (mode: boolean) => void;
 	setApprovalMode: (mode: string) => void;
 	setSelectedModel: (model: string) => void;
+	setSelectedReasoningEffort: (reasoningEffort: ReasoningEffort) => void;
 }
 
 export function useMessages(): UseMessagesReturn {
@@ -29,6 +38,8 @@ export function useMessages(): UseMessagesReturn {
 	const [agentMode, setAgentMode] = useState(true);
 	const [approvalMode, setApprovalMode] = useState('AUTO_APPROVE');
 	const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
+	const [selectedReasoningEffort, setSelectedReasoningEffort] =
+		useState<ReasoningEffort>(DEFAULT_REASONING_EFFORT as ReasoningEffort);
 	const [availableModels, setAvailableModels] = useState<string[]>([DEFAULT_MODEL]);
 	const [modelDefinitions, setModelDefinitions] = useState<ModelDefinition[]>([
 		{ id: DEFAULT_MODEL, label: 'GPT-5.2 Codex', description: '', tags: [], tier: 'free' },
@@ -52,6 +63,9 @@ export function useMessages(): UseMessagesReturn {
 					setApprovalMode(data.approvalMode);
 					if (data.selectedModel) {
 						setSelectedModel(data.selectedModel);
+					}
+					if (data.selectedReasoningEffort) {
+						setSelectedReasoningEffort(data.selectedReasoningEffort);
 					}
 					if (data.availableModels) {
 						setAvailableModels(data.availableModels);
@@ -97,6 +111,7 @@ export function useMessages(): UseMessagesReturn {
 		agentMode,
 		approvalMode,
 		selectedModel,
+		selectedReasoningEffort,
 		availableModels,
 		modelDefinitions,
 		isLoading,
@@ -108,5 +123,6 @@ export function useMessages(): UseMessagesReturn {
 		setAgentMode,
 		setApprovalMode,
 		setSelectedModel,
+		setSelectedReasoningEffort,
 	};
 }

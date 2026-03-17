@@ -35,6 +35,7 @@ export interface ChatSession {
 
 export type Tier = 'free' | 'plus' | 'pro';
 export type ModelTierRequirement = 'free' | 'plus' | 'pro';
+export type ReasoningEffort = 'low' | 'medium' | 'high';
 
 export interface ModelDefinition {
   id: string;
@@ -70,6 +71,8 @@ export interface AppState {
   currentSessionId: string;
   agentMode: boolean;
   approvalMode: string;
+  selectedModel: string;
+  selectedReasoningEffort: ReasoningEffort;
   isLoading: boolean;
   agentRunning: boolean;
   usageData: UsageData | null;

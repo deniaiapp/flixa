@@ -7,6 +7,7 @@ export interface UseVSCodeReturn {
 	toggleAgentMode: (enabled: boolean) => void;
 	setApprovalMode: (mode: string) => void;
 	setModel: (model: string) => void;
+	setReasoningEffort: (reasoningEffort: string) => void;
 	switchChat: (sessionId: string) => void;
 	newChat: () => void;
 	deleteChat: (sessionId: string) => void;
@@ -32,6 +33,10 @@ export function useVSCode(): UseVSCodeReturn {
 
 	const setModel = useCallback((model: string) => {
 		vscode.postMessage({ type: 'setModel', model });
+	}, []);
+
+	const setReasoningEffort = useCallback((reasoningEffort: string) => {
+		vscode.postMessage({ type: 'setReasoningEffort', reasoningEffort });
 	}, []);
 
 	const switchChat = useCallback((sessionId: string) => {
@@ -71,6 +76,7 @@ export function useVSCode(): UseVSCodeReturn {
 		toggleAgentMode,
 		setApprovalMode,
 		setModel,
+		setReasoningEffort,
 		switchChat,
 		newChat,
 		deleteChat,

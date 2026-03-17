@@ -15,6 +15,7 @@ import type {
   ImageAttachment,
   ModelDefinition,
   ModelTierRequirement,
+  ReasoningEffort,
 } from "../types";
 import { canUseTier } from "../types";
 
@@ -27,6 +28,7 @@ interface InputAreaProps {
   agentMode: boolean;
   approvalMode: string;
   selectedModel: string;
+  selectedReasoningEffort: ReasoningEffort;
   availableModels: string[];
   modelDefinitions: ModelDefinition[];
   isLoading: boolean;
@@ -41,6 +43,7 @@ interface InputAreaProps {
   onModeChange: (mode: string) => void;
   onApprovalChange: (mode: string) => void;
   onModelChange: (model: string) => void;
+  onReasoningEffortChange: (reasoningEffort: ReasoningEffort) => void;
   onStop: () => void;
   usageData: UsageData | null;
   isLoggedIn: boolean;
@@ -193,6 +196,28 @@ const approvalOptions = [
   },
 ];
 
+const reasoningEffortOptions: Array<{
+  value: ReasoningEffort;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "low",
+    label: "Low",
+    description: "Lower reasoning effort for faster responses.",
+  },
+  {
+    value: "medium",
+    label: "Medium",
+    description: "Balanced reasoning effort.",
+  },
+  {
+    value: "high",
+    label: "High",
+    description: "Higher reasoning effort for harder tasks.",
+  },
+];
+
 
 const getUsageColorClass = (usageData: UsageData): string => {
   const basic = usageData.usage.find((u) => u.category === "basic");
@@ -220,6 +245,7 @@ export function InputArea({
   agentMode,
   approvalMode,
   selectedModel,
+  selectedReasoningEffort,
   availableModels,
   modelDefinitions,
   isLoading,
@@ -232,6 +258,7 @@ export function InputArea({
   onModeChange,
   onApprovalChange,
   onModelChange,
+  onReasoningEffortChange,
   onStop,
   usageData,
   isLoggedIn,
@@ -493,8 +520,8 @@ export function InputArea({
           sessions.map((session) => (
             <div
               key={session.id}
-              className={`flex items-center justify-between group hover:bg-menu-selected-bg border-b border-menu-separator last:border-b-0 ${
-                session.id === currentSessionId ? "bg-menu-selected-bg" : ""
+              className={`flex items-center justify-between group hover:bg-surface-hover border-b border-menu-separator last:border-b-0 ${
+                session.id === currentSessionId ? "bg-surface-hover" : ""
               }`}
             >
               <button
@@ -551,6 +578,13 @@ export function InputArea({
     return getModelLabel(selectedModel);
   };
 
+  const getCurrentReasoningEffortLabel = () => {
+    return (
+      reasoningEffortOptions.find((option) => option.value === selectedReasoningEffort)?.label ??
+      "Medium"
+    );
+  };
+
   const getCurrentModeIcon = () => {
     return agentMode ? <AgentIcon /> : <ChatIcon />;
   };
@@ -597,7 +631,7 @@ export function InputArea({
           <div className="py-1">
             <button
               type="button"
-              className="w-full px-3 py-2 cursor-pointer transition-colors hover:bg-menu-selected-bg text-xs text-left flex items-center justify-between text-menu-foreground"
+              className="w-full px-3 py-2 cursor-pointer transition-colors hover:bg-surface-hover text-xs text-left flex items-center justify-between text-menu-foreground"
               onClick={() => setActiveSubmenu("mode")}
             >
               <div className="flex items-center gap-2">
@@ -609,7 +643,7 @@ export function InputArea({
             {agentMode && (
               <button
                 type="button"
-                className="w-full px-3 py-2 cursor-pointer transition-colors hover:bg-menu-selected-bg text-xs text-left flex items-center justify-between text-menu-foreground border-t border-menu-separator"
+                className="w-full px-3 py-2 cursor-pointer transition-colors hover:bg-surface-hover text-xs text-left flex items-center justify-between text-menu-foreground border-t border-menu-separator"
                 onClick={() => setActiveSubmenu("approval")}
               >
                 <div className="flex items-center gap-2">
@@ -621,10 +655,18 @@ export function InputArea({
             )}
             <button
               type="button"
-              className="w-full px-3 py-2 cursor-pointer transition-colors hover:bg-menu-selected-bg text-xs text-left flex items-center justify-between text-menu-foreground border-t border-menu-separator"
+              className="w-full px-3 py-2 cursor-pointer transition-colors hover:bg-surface-hover text-xs text-left flex items-center justify-between text-menu-foreground border-t border-menu-separator"
               onClick={() => setActiveSubmenu("model")}
             >
               <span>Model: {getCurrentModelLabel()}</span>
+              <ChevronIcon />
+            </button>
+            <button
+              type="button"
+              className="w-full px-3 py-2 cursor-pointer transition-colors hover:bg-surface-hover text-xs text-left flex items-center justify-between text-menu-foreground border-t border-menu-separator"
+              onClick={() => setActiveSubmenu("reasoning")}
+            >
+              <span>Reasoning: {getCurrentReasoningEffortLabel()}</span>
               <ChevronIcon />
             </button>
           </div>
@@ -632,7 +674,7 @@ export function InputArea({
           <div className="py-1">
             <button
               type="button"
-              className="w-full px-3 py-2 cursor-pointer transition-colors hover:bg-menu-selected-bg text-xs text-left text-foreground-subtle flex items-center gap-2"
+              className="w-full px-3 py-2 cursor-pointer transition-colors hover:bg-surface-hover text-xs text-left text-foreground-subtle flex items-center gap-2"
               onClick={() => setActiveSubmenu(null)}
             >
               <svg
@@ -656,9 +698,9 @@ export function InputArea({
               <button
                 key={option.value}
                 type="button"
-                className={`w-full px-3 py-2 cursor-pointer transition-colors hover:bg-menu-selected-bg text-xs text-left flex items-center gap-2 ${
+                className={`w-full px-3 py-2 cursor-pointer transition-colors hover:bg-surface-hover text-xs text-left flex items-center gap-2 ${
                   (agentMode ? "agent" : "chat") === option.value
-                    ? "bg-menu-selected-bg text-foreground"
+                    ? "bg-surface-hover text-foreground"
                     : "text-menu-foreground"
                 }`}
                 onClick={() => {
@@ -681,7 +723,7 @@ export function InputArea({
           <div className="py-1">
             <button
               type="button"
-              className="w-full px-3 py-2 cursor-pointer transition-colors hover:bg-menu-selected-bg text-xs text-left text-foreground-subtle flex items-center gap-2"
+              className="w-full px-3 py-2 cursor-pointer transition-colors hover:bg-surface-hover text-xs text-left text-foreground-subtle flex items-center gap-2"
               onClick={() => setActiveSubmenu(null)}
             >
               <svg
@@ -705,9 +747,9 @@ export function InputArea({
               <button
                 key={option.value}
                 type="button"
-                className={`w-full px-3 py-2 cursor-pointer transition-colors hover:bg-menu-selected-bg text-xs text-left flex items-center gap-2 ${
+                className={`w-full px-3 py-2 cursor-pointer transition-colors hover:bg-surface-hover text-xs text-left flex items-center gap-2 ${
                   approvalMode === option.value
-                    ? "bg-menu-selected-bg text-foreground"
+                    ? "bg-surface-hover text-foreground"
                     : "text-menu-foreground"
                 }`}
                 onClick={() => {
@@ -730,7 +772,7 @@ export function InputArea({
           <div className="py-1">
             <button
               type="button"
-              className="w-full px-3 py-2 cursor-pointer transition-colors hover:bg-menu-selected-bg text-xs text-left text-foreground-subtle flex items-center gap-2"
+              className="w-full px-3 py-2 cursor-pointer transition-colors hover:bg-surface-hover text-xs text-left text-foreground-subtle flex items-center gap-2"
               onClick={() => setActiveSubmenu(null)}
             >
               <svg
@@ -768,9 +810,9 @@ export function InputArea({
                     key={option.value}
                     type="button"
                     title={getModelTooltip(option)}
-                    className={`w-full px-3 py-2 cursor-pointer transition-colors hover:bg-menu-selected-bg text-xs text-left ${
+                    className={`w-full px-3 py-2 cursor-pointer transition-colors hover:bg-surface-hover text-xs text-left ${
                       selectedModel === option.value
-                        ? "bg-menu-selected-bg text-foreground"
+                        ? "bg-surface-hover text-foreground"
                         : "text-menu-foreground"
                     } ${option.locked ? "opacity-60" : ""}`}
                     onClick={() => {
@@ -815,6 +857,52 @@ export function InputArea({
                 ))
               )}
             </div>
+          </div>
+        ) : activeSubmenu === "reasoning" ? (
+          <div className="py-1">
+            <button
+              type="button"
+              className="w-full px-3 py-2 cursor-pointer transition-colors hover:bg-surface-hover text-xs text-left text-foreground-subtle flex items-center gap-2"
+              onClick={() => setActiveSubmenu(null)}
+            >
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
+              <span>Back</span>
+            </button>
+            <div className="border-t border-menu-separator" />
+            {reasoningEffortOptions.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`w-full px-3 py-2 cursor-pointer transition-colors hover:bg-surface-hover text-xs text-left ${
+                  selectedReasoningEffort === option.value
+                    ? "bg-surface-hover text-foreground"
+                    : "text-menu-foreground"
+                }`}
+                onClick={() => {
+                  onReasoningEffortChange(option.value);
+                  setActiveSubmenu(null);
+                  setIsSettingsOpen(false);
+                }}
+              >
+                <div className="font-medium">{option.label}</div>
+                <div className="text-[10px] text-foreground-subtle leading-tight mt-0.5">
+                  {option.description}
+                </div>
+              </button>
+            ))}
           </div>
         ) : null}
       </div>,

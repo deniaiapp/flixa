@@ -13,6 +13,7 @@ export default function App() {
 		agentMode,
 		approvalMode,
 		selectedModel,
+		selectedReasoningEffort,
 		availableModels,
 		modelDefinitions,
 		isLoading,
@@ -24,6 +25,7 @@ export default function App() {
 		setAgentMode,
 		setApprovalMode,
 		setSelectedModel,
+		setSelectedReasoningEffort,
 	} = useMessages();
 
 	const {
@@ -31,6 +33,7 @@ export default function App() {
 		toggleAgentMode,
 		setApprovalMode: setApprovalModeVSCode,
 		setModel: setModelVSCode,
+		setReasoningEffort: setReasoningEffortVSCode,
 		switchChat,
 		newChat,
 		deleteChat,
@@ -74,6 +77,11 @@ export default function App() {
 	const handleModelChange = (model: string) => {
 		setSelectedModel(model);
 		setModelVSCode(model);
+	};
+
+	const handleReasoningEffortChange = (reasoningEffort: 'low' | 'medium' | 'high') => {
+		setSelectedReasoningEffort(reasoningEffort);
+		setReasoningEffortVSCode(reasoningEffort);
 	};
 
 	const handleSessionChange = (sessionId: string) => {
@@ -122,6 +130,7 @@ export default function App() {
 				onSessionChange={handleSessionChange}
 				approvalMode={approvalMode}
 				selectedModel={selectedModel}
+				selectedReasoningEffort={selectedReasoningEffort}
 				availableModels={availableModels}
 				modelDefinitions={modelDefinitions}
 				isLoading={isLoading}
@@ -134,6 +143,7 @@ export default function App() {
 				onModeChange={handleModeChange}
 				onApprovalChange={handleApprovalChange}
 				onModelChange={handleModelChange}
+				onReasoningEffortChange={handleReasoningEffortChange}
 				onNewChat={handleNewChat}
 				onDeleteChat={handleDeleteChat}
 				onStop={handleStop}

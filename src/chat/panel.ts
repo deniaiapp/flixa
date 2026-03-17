@@ -5,7 +5,14 @@ import { executeAgentActions } from '../agent/executor';
 import { showDiffPreview } from '../diff/preview';
 import { applyDiffToContent, validateDiff } from '../diff/validator';
 import { callLLMForAgent, callLLMForChat, generateSessionTitle } from '../llm/stub';
-import { getAvailableModels, getModel, getModelDefinitions, setModel } from '../llm/provider';
+import {
+	getAvailableModels,
+	getModel,
+	getModelDefinitions,
+	getReasoningEffort,
+	setModel,
+	setReasoningEffort,
+} from '../llm/provider';
 import type {
 	ActionExecutionResult,
 	AgentAction,
@@ -104,6 +111,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 				this._updateState();
 			} else if (data.type === 'setModel') {
 				await setModel(data.model);
+				this._updateState();
+			} else if (data.type === 'setReasoningEffort') {
+				await setReasoningEffort(data.reasoningEffort);
 				this._updateState();
 			} else if (data.type === 'stopAgent') {
 				this._stopRequested = true;
@@ -779,6 +789,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 				agentMode: this._agentMode,
 				approvalMode: this._approvalMode,
 				selectedModel: getModel(),
+				selectedReasoningEffort: getReasoningEffort(),
 				availableModels,
 				modelDefinitions,
 				isLoggedIn,

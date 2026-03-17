@@ -133,7 +133,7 @@
         },
         "flixa.flixaApiBaseUrl": {
           "type": "string",
-          "default": "https://flixa-api.deniai.app",
+          "default": "https://api.flixa.engineer",
           "description": "Base URL for Flixa API"
         }
       }
