@@ -2,12 +2,12 @@
   "name": "flixa",
   "displayName": "Flixa",
   "description": "AI-powered code implementation assistant",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "publisher": "deniai",
   "icon": "assets/flixa.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/deniai-app/flixa"
+    "url": "https://github.com/deniaiapp/flixa"
   },
   "engines": {
     "vscode": "^1.85.0"
@@ -122,6 +122,7 @@
             "package-lock.json",
             "yarn.lock",
             "pnpm-lock.yaml",
+            "bun.lock",
             "bun.lockb"
           ],
           "description": "Patterns to exclude from file list"
@@ -193,7 +194,7 @@
         {
           "id": "flixa-sidebar",
           "title": "Flixa",
-          "icon": "$(comment-discussion)"
+          "icon": "assets/flixa-sidebar.svg"
         }
       ]
     },
@@ -202,7 +203,8 @@
         {
           "type": "webview",
           "id": "flixa.chatView",
-          "name": "Chat"
+          "name": "Chat",
+          "icon": "assets/flixa-sidebar.svg"
         }
       ]
     }
