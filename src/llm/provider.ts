@@ -74,8 +74,8 @@ function withCurrentModelDefinition(
   return [{ id: currentModel, label: currentModel, tags: [], tier: "free" }, ...modelDefinitions];
 }
 
-function normalizeTier(value: unknown): "free" | "plus" | "pro" | undefined {
-  if (value === "free" || value === "plus" || value === "pro") {
+function normalizeTier(value: unknown): "free" | "plus" | "pro" | "max" | undefined {
+  if (value === "free" || value === "plus" || value === "pro" || value === "max") {
     return value;
   }
   return undefined;

@@ -33,8 +33,8 @@ export interface ChatSession {
   name: string;
 }
 
-export type Tier = 'free' | 'plus' | 'pro';
-export type ModelTierRequirement = 'free' | 'plus' | 'pro';
+export type Tier = 'free' | 'plus' | 'pro' | "max";
+export type ModelTierRequirement = 'free' | 'plus' | 'pro' | "max";
 export type ReasoningEffort = 'low' | 'medium' | 'high';
 
 export interface ModelDefinition {
@@ -87,10 +87,13 @@ export function canUseTier(userTier: Tier | null, requiredTier: ModelTierRequire
     return true;
   }
   if (requiredTier === 'plus') {
-    return userTier === 'plus' || userTier === 'pro';
+    return userTier === 'plus' || userTier === 'pro' || userTier === 'max';
   }
   if (requiredTier === 'pro') {
-    return userTier === 'pro';
+    return userTier === 'pro' || userTier === 'max';
+  }
+  if (requiredTier === 'max') {
+    return userTier === 'max';
   }
   return false;
 }
