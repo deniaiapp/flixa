@@ -3,6 +3,42 @@ import { log } from '../logger';
 import { formatSessionResults } from '../utils/format';
 import { formatAutoContext } from '../autoContext';
 
+function buildReferencedFilesText(
+	mentionedFiles?: Array<{ reference: string; filePath: string; content: string }>
+): string {
+	if (!mentionedFiles || mentionedFiles.length === 0) {
+		return '';
+	}
+
+	return mentionedFiles
+		.map(
+			(file) =>
+				`Referenced file (${file.reference}): ${file.filePath}\n\`\`\`\n${file.content}\n\`\`\``
+		)
+		.join('\n\n');
+}
+
+function buildUserContextText(
+	message: { activeSelection?: string; activeFilePath?: string; mentionedFiles?: Array<{ reference: string; filePath: string; content: string }> }
+): string {
+	let content = '';
+
+	if (message.activeSelection) {
+		if (message.activeFilePath) {
+			content += `Selected code from ${message.activeFilePath}:\n\`\`\`\n${message.activeSelection}\n\`\`\`\n\n`;
+		} else {
+			content += `Selected code:\n\`\`\`\n${message.activeSelection}\n\`\`\`\n\n`;
+		}
+	}
+
+	const referencedFilesText = buildReferencedFilesText(message.mentionedFiles);
+	if (referencedFilesText) {
+		content += `${referencedFilesText}\n\n`;
+	}
+
+	return content;
+}
+
 export function buildChatMessages(
 	context: ChatContext
 ): Array<{ role: 'user' | 'assistant'; content: string }> {
@@ -23,9 +59,11 @@ export function buildChatMessages(
 				if (context.activeFilePath) {
 					content += `Active file: ${context.activeFilePath}\nLanguage: ${context.languageId}\n\n`;
 				}
-				if (context.activeSelection) {
-					content += `Selected code:\n\`\`\`\n${context.activeSelection}\n\`\`\`\n\n`;
-				}
+				content += buildUserContextText({
+					activeSelection: msg.activeSelection ?? context.activeSelection,
+					activeFilePath: msg.activeFilePath ?? context.activeFilePath,
+					mentionedFiles: msg.mentionedFiles ?? context.mentionedFiles,
+				});
 				if (context.activeFileText) {
 					content += `Full file content:\n\`\`\`\n${context.activeFileText}\n\`\`\`\n\n`;
 				}
@@ -37,7 +75,10 @@ export function buildChatMessages(
 				}
 				messages.push({ role: 'user', content });
 			} else {
-				messages.push({ role: 'user', content: msg.content });
+				messages.push({
+					role: 'user',
+					content: `${msg.content}\n\n${buildUserContextText(msg)}`.trim(),
+				});
 			}
 		} else if (msg.role === 'assistant') {
 			messages.push({ role: 'assistant', content: msg.content });
@@ -70,15 +111,20 @@ export function buildAgentMessages(
 				if (context.activeFilePath) {
 					content += `Active file: ${context.activeFilePath}\nLanguage: ${context.languageId}\n\n`;
 				}
-				if (context.activeSelection) {
-					content += `Selected code:\n\`\`\`\n${context.activeSelection}\n\`\`\`\n\n`;
-				}
+				content += buildUserContextText({
+					activeSelection: msg.activeSelection ?? context.activeSelection,
+					activeFilePath: msg.activeFilePath ?? context.activeFilePath,
+					mentionedFiles: msg.mentionedFiles ?? context.mentionedFiles,
+				});
 				if (context.activeFileText) {
 					content += `Full file content:\n\`\`\`\n${context.activeFileText}\n\`\`\`\n\n`;
 				}
 				messages.push({ role: 'user', content });
 			} else {
-				messages.push({ role: 'user', content: msg.content });
+				messages.push({
+					role: 'user',
+					content: `${msg.content}\n\n${buildUserContextText(msg)}`.trim(),
+				});
 			}
 		} else if (msg.role === 'assistant') {
 			if (msg.content.startsWith('[Agent - Step')) {

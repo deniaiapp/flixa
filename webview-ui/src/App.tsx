@@ -22,6 +22,10 @@ export default function App() {
 		usageData,
 		isLoggedIn,
 		changedFiles,
+		workspaceFiles,
+		activeFilePath,
+		activeSelection,
+		activeSelectionLabel,
 		setAgentMode,
 		setApprovalMode,
 		setSelectedModel,
@@ -144,6 +148,10 @@ export default function App() {
 				onApprovalChange={handleApprovalChange}
 				onModelChange={handleModelChange}
 				onReasoningEffortChange={handleReasoningEffortChange}
+				workspaceFiles={workspaceFiles}
+				activeFilePath={activeFilePath}
+				activeSelection={activeSelection}
+				activeSelectionLabel={activeSelectionLabel}
 				onNewChat={handleNewChat}
 				onDeleteChat={handleDeleteChat}
 				onStop={handleStop}

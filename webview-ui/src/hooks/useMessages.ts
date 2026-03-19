@@ -25,6 +25,10 @@ export interface UseMessagesReturn {
 	usageData: UsageData | null;
 	isLoggedIn: boolean;
 	changedFiles: FileChange[];
+	workspaceFiles: string[];
+	activeFilePath: string;
+	activeSelection: string;
+	activeSelectionLabel: string;
 	setAgentMode: (mode: boolean) => void;
 	setApprovalMode: (mode: string) => void;
 	setSelectedModel: (model: string) => void;
@@ -50,6 +54,10 @@ export function useMessages(): UseMessagesReturn {
 	const [usageData, setUsageData] = useState<UsageData | null>(null);
 	const [isLoggedIn, setIsLoggedIn] = useState(false);
 	const [changedFiles, setChangedFiles] = useState<FileChange[]>([]);
+	const [workspaceFiles, setWorkspaceFiles] = useState<string[]>([]);
+	const [activeFilePath, setActiveFilePath] = useState('');
+	const [activeSelection, setActiveSelection] = useState('');
+	const [activeSelectionLabel, setActiveSelectionLabel] = useState('');
 
 	useEffect(() => {
 		const handleMessage = (event: MessageEvent) => {
@@ -76,6 +84,9 @@ export function useMessages(): UseMessagesReturn {
 					if (data.isLoggedIn !== undefined) {
 						setIsLoggedIn(data.isLoggedIn);
 					}
+					if (data.workspaceFiles) {
+						setWorkspaceFiles(data.workspaceFiles);
+					}
 					break;
 				case 'setLoading':
 					setIsLoading(data.loading);
@@ -96,6 +107,11 @@ export function useMessages(): UseMessagesReturn {
 					break;
 				case 'updateChangedFiles':
 					setChangedFiles(data.files || []);
+					break;
+				case 'updateEditorContext':
+					setActiveFilePath(data.activeFilePath || '');
+					setActiveSelection(data.activeSelection || '');
+					setActiveSelectionLabel(data.activeSelectionLabel || '');
 					break;
 			}
 		};
@@ -120,6 +136,10 @@ export function useMessages(): UseMessagesReturn {
 		usageData,
 		isLoggedIn,
 		changedFiles,
+		workspaceFiles,
+		activeFilePath,
+		activeSelection,
+		activeSelectionLabel,
 		setAgentMode,
 		setApprovalMode,
 		setSelectedModel,

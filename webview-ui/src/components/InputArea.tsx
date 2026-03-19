@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import type { ReactNode } from "react";
 import type {
   ChatSession,
   UsageData,
@@ -18,6 +19,83 @@ import type {
   ReasoningEffort,
 } from "../types";
 import { canUseTier } from "../types";
+
+function getBaseName(filePath: string): string {
+  const normalized = filePath.replace(/\\/g, "/");
+  const parts = normalized.split("/");
+  return parts[parts.length - 1] || filePath;
+}
+
+function formatSelectionChipLabel(label: string): string {
+  const separatorIndex = label.indexOf(":");
+  if (separatorIndex === -1) {
+    return getBaseName(label);
+  }
+  const filePath = label.slice(0, separatorIndex);
+  const suffix = label.slice(separatorIndex);
+  return `${getBaseName(filePath)}${suffix}`;
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+function renderHighlightedText(text: string, workspaceFiles: string[]): ReactNode[] {
+  const validFiles = new Set(workspaceFiles);
+  const parts: ReactNode[] = [];
+  const pattern = /@([A-Za-z0-9_./-]+)/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(text)) !== null) {
+    const fullMatch = match[0];
+    const reference = match[1];
+    const start = match.index;
+    const end = start + fullMatch.length;
+
+    if (start > lastIndex) {
+      parts.push(
+        <span key={`text-${lastIndex}`}>{text.slice(lastIndex, start)}</span>,
+      );
+    }
+
+    const isValid = validFiles.has(reference);
+    parts.push(
+      <span
+        key={`mention-${start}`}
+        className={isValid ? "text-accent" : undefined}
+      >
+        {fullMatch}
+      </span>,
+    );
+
+    lastIndex = end;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(<span key={`text-${lastIndex}`}>{text.slice(lastIndex)}</span>);
+  }
+
+  if (parts.length === 0) {
+    parts.push(<span key="empty">{text}</span>);
+  }
+
+  return parts;
+}
+
+const FileIcon = () => (
+  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8zm0 0v5h5"
+    />
+  </svg>
+);
 
 interface InputAreaProps {
   sessions: ChatSession[];
@@ -44,6 +122,10 @@ interface InputAreaProps {
   onApprovalChange: (mode: string) => void;
   onModelChange: (model: string) => void;
   onReasoningEffortChange: (reasoningEffort: ReasoningEffort) => void;
+  workspaceFiles: string[];
+  activeFilePath: string;
+  activeSelection: string;
+  activeSelectionLabel: string;
   onStop: () => void;
   usageData: UsageData | null;
   isLoggedIn: boolean;
@@ -233,7 +315,7 @@ const getUsageColorClass = (usageData: UsageData): string => {
   if (worstPct <= 10) {
     return "bg-warning/20 text-warning";
   }
-  return "bg-surface-hover text-foreground-subtle hover:text-foreground";
+  return "border border-input-border text-foreground-subtle hover:text-foreground";
 };
 
 export function InputArea({
@@ -259,6 +341,10 @@ export function InputArea({
   onApprovalChange,
   onModelChange,
   onReasoningEffortChange,
+  workspaceFiles,
+  activeFilePath,
+  activeSelection,
+  activeSelectionLabel,
   onStop,
   usageData,
   isLoggedIn,
@@ -276,6 +362,49 @@ export function InputArea({
   const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
   const [settingsPosition, setSettingsPosition] = useState({ bottom: 0, left: 0 });
   const [modelSearch, setModelSearch] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const [mentionMenuPosition, setMentionMenuPosition] = useState({
+    top: 0,
+    left: 0,
+    width: 0,
+    openAbove: false,
+  });
+
+  const syncTextareaHeight = () => {
+    if (!textareaRef.current) {
+      return;
+    }
+
+    textareaRef.current.style.height = "auto";
+    const nextHeight = Math.min(textareaRef.current.scrollHeight, 200);
+    textareaRef.current.style.height = `${nextHeight}px`;
+    textareaRef.current.style.overflowY =
+      textareaRef.current.scrollHeight > 200 ? "auto" : "hidden";
+  };
+
+  const syncTextareaScroll = () => {
+    const textarea = textareaRef.current;
+    const mirror = document.getElementById("input-text-mirror");
+    if (!textarea || !mirror) {
+      return;
+    }
+
+    mirror.scrollTop = textarea.scrollTop;
+    mirror.scrollLeft = textarea.scrollLeft;
+  };
+
+  const mentionMatch = text.match(/(?:^|\s)@([A-Za-z0-9_./-]*)$/);
+  const mentionQuery = mentionMatch?.[1] ?? "";
+  const mentionSuggestions =
+    mentionMatch
+      ? workspaceFiles
+          .filter((file) => file.toLowerCase().includes(mentionQuery.toLowerCase()))
+          .slice(0, 8)
+      : [];
+  const mentionedFiles = Array.from(
+    new Set((text.match(/@([A-Za-z0-9_./-]+)/g) ?? []).map((match) => match.slice(1))),
+  );
 
   const userTier = usageData?.tier ?? null;
   const getModelDefinition = (modelId: string): ModelDefinition | undefined => {
@@ -412,12 +541,69 @@ export function InputArea({
     }
   }, [isHistoryOpen]);
 
+  useEffect(() => {
+    const updateMentionMenuPosition = () => {
+      if (!textareaRef.current || mentionSuggestions.length === 0) {
+        return;
+      }
+
+      const rect = textareaRef.current.getBoundingClientRect();
+      const menuHeight = Math.min(mentionSuggestions.length, 8) * 36 + 4;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const openAbove = spaceBelow < menuHeight + 8 && rect.top > spaceBelow;
+
+      setMentionMenuPosition({
+        top: openAbove ? rect.top - 4 : rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+        openAbove,
+      });
+    };
+
+    updateMentionMenuPosition();
+
+    if (mentionSuggestions.length === 0) {
+      return;
+    }
+
+    window.addEventListener("resize", updateMentionMenuPosition);
+    window.addEventListener("scroll", updateMentionMenuPosition, true);
+    return () => {
+      window.removeEventListener("resize", updateMentionMenuPosition);
+      window.removeEventListener("scroll", updateMentionMenuPosition, true);
+    };
+  }, [mentionSuggestions.length, text, activeSelectionLabel, activeFilePath]);
+
+  useEffect(() => {
+    syncTextareaHeight();
+    syncTextareaScroll();
+  }, [text]);
+
   const handleOpenFromHistory = (sessionId: string) => {
     onSessionChange(sessionId);
     setIsHistoryOpen(false);
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (mentionSuggestions.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setMentionIndex((prev) => (prev + 1) % mentionSuggestions.length);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setMentionIndex((prev) => (prev - 1 + mentionSuggestions.length) % mentionSuggestions.length);
+        return;
+      }
+      if (e.key === "Tab" || e.key === "Enter") {
+        if (mentionMatch) {
+          e.preventDefault();
+          applyMention(mentionSuggestions[mentionIndex] ?? mentionSuggestions[0]);
+          return;
+        }
+      }
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -434,8 +620,26 @@ export function InputArea({
 
   const handleTextChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     onTextChange(e.target.value);
-    e.target.style.height = "auto";
-    e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px";
+    setMentionIndex(0);
+    syncTextareaHeight();
+  };
+
+  const applyMention = (filePath: string) => {
+    const nextText = text.replace(/(?:^|\s)@([A-Za-z0-9_./-]*)$/, (match) => {
+      const prefix = match.startsWith(" ") ? " " : "";
+      return `${prefix}@${filePath} `;
+    });
+    onTextChange(nextText);
+    setMentionIndex(0);
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+      if (textareaRef.current) {
+        const length = nextText.length;
+        textareaRef.current.selectionStart = length;
+        textareaRef.current.selectionEnd = length;
+        syncTextareaScroll();
+      }
+    });
   };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -564,6 +768,36 @@ export function InputArea({
             </div>
           ))
         )}
+      </div>,
+      document.body,
+    );
+
+  const mentionMenu =
+    mentionSuggestions.length > 0 &&
+    createPortal(
+      <div
+        className="fixed z-[9999] border border-input-border rounded-md bg-menu-bg overflow-hidden"
+        style={{
+          top: mentionMenuPosition.top,
+          left: mentionMenuPosition.left,
+          width: mentionMenuPosition.width,
+          transform: mentionMenuPosition.openAbove ? "translateY(-100%)" : undefined,
+        }}
+      >
+        {mentionSuggestions.map((file, index) => (
+          <button
+            key={file}
+            type="button"
+            onClick={() => applyMention(file)}
+            className={`w-full px-2.5 py-2 text-left text-xs transition-colors ${
+              index === mentionIndex
+                ? "bg-surface-hover text-foreground"
+                : "text-menu-foreground hover:bg-surface-hover"
+            }`}
+          >
+            @{file}
+          </button>
+        ))}
       </div>,
       document.body,
     );
@@ -948,16 +1182,53 @@ export function InputArea({
             ))}
           </div>
         )}
-        <textarea
-          value={text}
-          onChange={handleTextChange}
-          onKeyDown={handleKeyDown}
-          onPaste={handlePaste}
-          placeholder="Plan, @ for context, / for commands"
-          rows={1}
-          disabled={isLoading}
-          className="w-full px-2.5 py-2 bg-transparent text-input-foreground resize-none min-h-[36px] max-h-[160px] text-xs leading-relaxed outline-none placeholder:text-input-placeholder disabled:opacity-50 disabled:cursor-not-allowed"
-        />
+        {(activeFilePath || activeSelection || mentionedFiles.length > 0) && (
+          <div className="px-2.5 pt-2">
+            <div className="flex gap-1.5 overflow-x-auto whitespace-nowrap pb-1">
+              {(activeSelectionLabel || activeFilePath) && (
+                <div className="px-1 py-0.5 rounded-md text-[9px] text-foreground border border-input-border inline-flex items-center gap-1.5 shrink-0">
+                  <FileIcon />
+                  <span>{activeSelectionLabel ? formatSelectionChipLabel(activeSelectionLabel) : getBaseName(activeFilePath)}</span>
+                </div>
+              )}
+              {mentionedFiles.map((file) => (
+                <button
+                  key={file}
+                  type="button"
+                  onClick={() => applyMention(file)}
+                  className="px-1 py-0.5 rounded-md text-[9px] text-foreground border border-input-border hover:bg-surface-hover inline-flex items-center gap-1.5 shrink-0"
+                >
+                  <FileIcon />
+                  <span>{getBaseName(file)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        <div className="relative">
+          {text.length > 0 && (
+            <div
+              id="input-text-mirror"
+              aria-hidden="true"
+              className="absolute inset-0 px-2.5 py-2 text-xs leading-relaxed whitespace-pre-wrap break-words overflow-hidden pointer-events-none select-none"
+            >
+              <span className="invisible">{escapeHtml("")}</span>
+              <span className="text-input-foreground">{renderHighlightedText(text, workspaceFiles)}</span>
+            </div>
+          )}
+          <textarea
+            ref={textareaRef}
+            value={text}
+            onChange={handleTextChange}
+            onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
+            onScroll={syncTextareaScroll}
+            placeholder="Plan, @file for context, / for commands"
+            rows={1}
+            disabled={isLoading}
+            className={`w-full px-2.5 py-2 bg-transparent resize-none min-h-[36px] max-h-[160px] text-xs leading-relaxed outline-none placeholder:text-input-placeholder disabled:opacity-50 disabled:cursor-not-allowed ${text.length > 0 ? "text-transparent caret-input-foreground" : "text-input-foreground"}`}
+          />
+        </div>
         <input
           ref={fileInputRef}
           type="file"
@@ -1081,6 +1352,7 @@ export function InputArea({
         </div>
       </div>
       {historyMenu}
+      {mentionMenu}
       {settingsMenu}
     </div>
   );

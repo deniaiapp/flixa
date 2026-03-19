@@ -15,6 +15,12 @@ export interface ImplementRequest {
 	languageId: string;
 }
 
+export interface ReferencedContextFile {
+	reference: string;
+	filePath: string;
+	content: string;
+}
+
 export interface ChatHistoryMessage {
 	role: 'user' | 'assistant';
 	content: string;
@@ -33,6 +39,10 @@ export interface SessionMessage {
 	role: 'user' | 'assistant' | 'system' | 'result';
 	content: string;
 	results?: SerializedActionResult[];
+	activeSelection?: string;
+	activeFilePath?: string;
+	activeSelectionLabel?: string;
+	mentionedFiles?: ReferencedContextFile[];
 }
 
 export interface AutoContextData {
@@ -53,6 +63,7 @@ export interface ChatContext {
 	history: ChatHistoryMessage[];
 	sessionMessages: SessionMessage[];
 	autoContext: AutoContextData;
+	mentionedFiles: ReferencedContextFile[];
 }
 
 export interface LLMResponse {

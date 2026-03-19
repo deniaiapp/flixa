@@ -19,6 +19,12 @@ export interface ImageAttachment {
   name?: string;
 }
 
+export interface ReferencedContextFile {
+  reference: string;
+  filePath: string;
+  content: string;
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system' | 'result' | 'executing';
   content: string;
@@ -26,6 +32,10 @@ export interface ChatMessage {
   results?: ActionResult[];
   executingAction?: string;
   executingOutput?: string;
+  activeSelection?: string;
+  activeFilePath?: string;
+  activeSelectionLabel?: string;
+  mentionedFiles?: ReferencedContextFile[];
 }
 
 export interface ChatSession {
@@ -77,6 +87,10 @@ export interface AppState {
   agentRunning: boolean;
   usageData: UsageData | null;
   isLoggedIn: boolean;
+  workspaceFiles?: string[];
+  activeFilePath?: string;
+  activeSelection?: string;
+  activeSelectionLabel?: string;
 }
 
 export function canUseTier(userTier: Tier | null, requiredTier: ModelTierRequirement): boolean {

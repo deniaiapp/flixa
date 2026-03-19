@@ -36,6 +36,7 @@ export type {
 	ChatHistoryMessage,
 	ImplementRequest,
 	LLMResponse,
+	ReferencedContextFile,
 	ScopeInfo,
 	SerializedActionResult,
 	SessionMessage,

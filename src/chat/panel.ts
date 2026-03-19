@@ -24,7 +24,7 @@ import type {
 	SerializedActionResult,
 } from '../types';
 import { describeAction } from '../utils/format';
-import { gatherChatContext } from './context';
+import { gatherChatContext, resolveMentionedFiles } from './context';
 import { SessionManager, type ChatMessage, type ChatSession } from './session';
 import { getWebviewHtml } from './webview';
 import type { UsageService } from '../usage/service';
@@ -54,6 +54,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 	private _currentAbortController?: AbortController;
 	private _usageService?: UsageService;
 	private _changedFiles: Map<string, TrackedFile> = new Map();
+	private _workspaceFiles: string[] = [];
 
 	constructor(
 		extensionUri: vscode.Uri,
@@ -65,6 +66,23 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 		this._sessionManager = new SessionManager(context);
 		this._storePendingDiff = storePendingDiff;
 		this._usageService = usageService;
+		context.subscriptions.push(
+			vscode.window.onDidChangeActiveTextEditor(() => {
+				void this._sendEditorContext();
+			}),
+			vscode.window.onDidChangeTextEditorSelection(() => {
+				void this._sendEditorContext();
+			}),
+			vscode.workspace.onDidSaveTextDocument(() => {
+				void this._refreshWorkspaceFiles();
+			}),
+			vscode.workspace.onDidCreateFiles(() => {
+				void this._refreshWorkspaceFiles();
+			}),
+			vscode.workspace.onDidDeleteFiles(() => {
+				void this._refreshWorkspaceFiles();
+			}),
+		);
 	}
 
 	public clearHistory(): void {
@@ -94,10 +112,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
 		webviewView.webview.onDidReceiveMessage(async (data) => {
 			if (data.type === 'ready') {
+				await this._refreshWorkspaceFiles();
 				this._updateState();
 				this._updateMessages();
 				this._updateSessions();
 				this._sendChangedFiles();
+				await this._sendEditorContext();
 				if (this._usageService) {
 					this.updateUsage(this._usageService.getCachedUsage());
 				}
@@ -252,7 +272,25 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 			}
 		}
 
-		this._sessionManager.pushMessage({ role: 'user', content: message });
+		const editor = vscode.window.activeTextEditor;
+		const activeSelection =
+			editor && !editor.selection.isEmpty
+				? editor.document.getText(editor.selection)
+				: '';
+		const activeFilePath = editor ? this._toRelativePath(editor.document.uri.fsPath) : '';
+		const activeSelectionLabel = editor
+			? this._getSelectionLabel(editor)
+			: '';
+		const mentionedFiles = await resolveMentionedFiles(message);
+
+		this._sessionManager.pushMessage({
+			role: 'user',
+			content: message,
+			activeSelection,
+			activeFilePath,
+			activeSelectionLabel,
+			mentionedFiles,
+		});
 		this._updateMessages();
 
 		if (isFirstMessage) {
@@ -793,8 +831,73 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 				availableModels,
 				modelDefinitions,
 				isLoggedIn,
+				workspaceFiles: this._workspaceFiles,
 			});
 		} catch { }
+	}
+
+	private async _refreshWorkspaceFiles(): Promise<void> {
+		try {
+			const workspaceFiles = await vscode.workspace.findFiles(
+				'**/*',
+				'**/{node_modules,.git,out,dist,build}/**',
+				2000
+			);
+			const workspaceFolders = vscode.workspace.workspaceFolders;
+			const workspaceRoot = workspaceFolders?.[0]?.uri.fsPath;
+			this._workspaceFiles = workspaceFiles
+				.map((file) =>
+					workspaceRoot
+						? path.relative(workspaceRoot, file.fsPath).replace(/\\/g, '/')
+						: file.fsPath.replace(/\\/g, '/')
+				)
+				.sort((a, b) => a.localeCompare(b));
+			this._updateState();
+		} catch {
+			this._workspaceFiles = [];
+		}
+	}
+
+	private async _sendEditorContext(): Promise<void> {
+		if (!this._view) {
+			return;
+		}
+		try {
+			const editor = vscode.window.activeTextEditor;
+			const activeFilePath = editor ? this._toRelativePath(editor.document.uri.fsPath) : '';
+			const activeSelection =
+				editor && !editor.selection.isEmpty
+					? editor.document.getText(editor.selection)
+					: '';
+			const activeSelectionLabel = editor ? this._getSelectionLabel(editor) : '';
+			this._view.webview.postMessage({
+				type: 'updateEditorContext',
+				activeFilePath,
+				activeSelection,
+				activeSelectionLabel,
+			});
+		} catch { }
+	}
+
+	private _toRelativePath(filePath: string): string {
+		const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+		if (!workspaceRoot) {
+			return filePath.replace(/\\/g, '/');
+		}
+		return path.relative(workspaceRoot, filePath).replace(/\\/g, '/');
+	}
+
+	private _getSelectionLabel(editor: vscode.TextEditor): string {
+		const relativePath = this._toRelativePath(editor.document.uri.fsPath);
+		if (editor.selection.isEmpty) {
+			return relativePath;
+		}
+
+		const startLine = editor.selection.start.line + 1;
+		const endLine = editor.selection.end.line + 1;
+		return startLine === endLine
+			? `${relativePath}:${startLine}`
+			: `${relativePath}:${startLine}-${endLine}`;
 	}
 
 	public async updateUsage(data: import('../usage/types').UsageResponse | null): Promise<void> {

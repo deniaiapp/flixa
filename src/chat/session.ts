@@ -1,5 +1,5 @@
 import type * as vscode from 'vscode';
-import type { SerializedActionResult, SessionMessage } from '../types';
+import type { ReferencedContextFile, SerializedActionResult, SessionMessage } from '../types';
 
 export interface ChatMessage {
 	role: 'user' | 'assistant' | 'system' | 'result' | 'executing';
@@ -7,6 +7,10 @@ export interface ChatMessage {
 	results?: SerializedActionResult[];
 	executingAction?: string;
 	executingOutput?: string;
+	activeSelection?: string;
+	activeFilePath?: string;
+	activeSelectionLabel?: string;
+	mentionedFiles?: ReferencedContextFile[];
 }
 
 export interface ChatSession {
@@ -142,6 +146,10 @@ export class SessionManager {
 				role: m.role as 'user' | 'assistant' | 'result',
 				content: m.content,
 				results: m.results,
+				activeSelection: m.activeSelection,
+				activeFilePath: m.activeFilePath,
+				activeSelectionLabel: m.activeSelectionLabel,
+				mentionedFiles: m.mentionedFiles,
 			}));
 	}
 }
