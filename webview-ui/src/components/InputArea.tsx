@@ -38,9 +38,9 @@ function formatSelectionChipLabel(label: string): string {
 
 function escapeHtml(text: string): string {
   return text
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 function renderHighlightedText(text: string, workspaceFiles: string[]): ReactNode[] {
@@ -352,12 +352,10 @@ export function InputArea({
   onLogin,
   onOpenBilling,
 }: InputAreaProps) {
-  const [isCompact, setIsCompact] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const historyButtonRef = useRef<HTMLButtonElement>(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
   const [historyPosition, setHistoryPosition] = useState({ top: 0, left: 0 });
-  const containerRef = useRef<HTMLDivElement>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
   const [settingsPosition, setSettingsPosition] = useState({ bottom: 0, left: 0 });
@@ -479,20 +477,6 @@ export function InputArea({
     }
     return parts.join("\n");
   };
-
-  useEffect(() => {
-    const checkWidth = () => {
-      if (containerRef.current) {
-        setIsCompact(containerRef.current.offsetWidth < 300);
-      }
-    };
-    checkWidth();
-    const resizeObserver = new ResizeObserver(checkWidth);
-    if (containerRef.current) {
-      resizeObserver.observe(containerRef.current);
-    }
-    return () => resizeObserver.disconnect();
-  }, []);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -1148,7 +1132,7 @@ export function InputArea({
     );
 
   return (
-    <div className="p-2.5" ref={containerRef}>
+    <div className="p-2.5">
       <div
         className="bg-input-bg border border-input-border rounded-lg overflow-hidden"
         onDrop={handleDrop}

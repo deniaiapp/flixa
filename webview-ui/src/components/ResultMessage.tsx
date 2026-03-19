@@ -1,4 +1,5 @@
 import { useId, useState } from 'react';
+import type { ReactNode } from 'react';
 import type { ActionResult } from '../types';
 
 interface ResultMessageProps {
@@ -70,7 +71,7 @@ const BlockedIcon = () => (
   </svg>
 );
 
-function getToolInfo(action: string): { name: string; target: string; icon: JSX.Element } {
+function getToolInfo(action: string): { name: string; target: string; icon: ReactNode } {
   const lowerAction = action.toLowerCase();
 
   if (lowerAction.startsWith('read:') || lowerAction.startsWith('read ')) {

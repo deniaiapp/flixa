@@ -13,7 +13,7 @@ describe('Message', () => {
 		render(<Message message={message} />);
 
 		const messageElement = screen.getByText('Hello, assistant!');
-		expect(messageElement).toBeInTheDocument();
+		expect(messageElement).toBeTruthy();
 		expect(messageElement.className).toContain('bg-accent');
 		expect(messageElement.className).toContain('rounded-2xl');
 	});
@@ -27,7 +27,7 @@ describe('Message', () => {
 		render(<Message message={message} />);
 
 		const messageElement = screen.getByText('Hello, user!');
-		expect(messageElement).toBeInTheDocument();
+		expect(messageElement).toBeTruthy();
 		expect(messageElement.className).toContain('bg-surface-2');
 		expect(messageElement.className).toContain('rounded-2xl');
 	});
@@ -41,7 +41,7 @@ describe('Message', () => {
 		render(<Message message={message} />);
 
 		const messageElement = screen.getByText('System notification');
-		expect(messageElement).toBeInTheDocument();
+		expect(messageElement).toBeTruthy();
 		expect(messageElement.className).toContain('text-[11px]');
 	});
 
@@ -92,7 +92,7 @@ describe('Message', () => {
 		render(<Message message={message} />);
 
 		const messageElement = screen.getByText('Action completed');
-		expect(messageElement).toBeInTheDocument();
+		expect(messageElement).toBeTruthy();
 		expect(messageElement.className).toContain('text-[11px]');
 	});
 
@@ -105,7 +105,7 @@ describe('Message', () => {
 		render(<Message message={message} />);
 
 		const messageElement = screen.getByText('Running task...');
-		expect(messageElement).toBeInTheDocument();
+		expect(messageElement).toBeTruthy();
 		expect(messageElement.className).toContain('text-[11px]');
 	});
 
@@ -117,7 +117,7 @@ describe('Message', () => {
 
 		render(<Message message={message} />);
 
-		expect(screen.getByText('You')).toBeInTheDocument();
+		expect(screen.getByText('You')).toBeTruthy();
 	});
 
 	it('should show Flixa label for assistant messages', () => {
@@ -128,6 +128,6 @@ describe('Message', () => {
 
 		render(<Message message={message} />);
 
-		expect(screen.getByText('Flixa')).toBeInTheDocument();
+		expect(screen.getByText('Flixa')).toBeTruthy();
 	});
 });

@@ -368,56 +368,25 @@ export async function executeGrepSearchAction(
 			};
 		}
 
-		const cancellation = new vscode.CancellationTokenSource();
-		abortSignal?.addEventListener('abort', () => cancellation.cancel());
-
-		const matches: Array<{ uri: vscode.Uri; line: number }> = [];
-		const query: vscode.TextSearchQuery = {
-			pattern: action.query,
-			isRegExp: true,
-			isCaseSensitive: action.case_sensitive === true,
-		};
-
-		await vscode.workspace.findTextInFiles(
-			query,
-			{
-				include: includePattern,
-				exclude: excludePattern,
-				maxResults: 50,
-			},
-			(result) => {
-				if (abortSignal?.aborted || matches.length >= 50) {
-					return;
-				}
-				if ('ranges' in result) {
-					const ranges = Array.isArray(result.ranges)
-						? result.ranges
-						: [result.ranges];
-					for (const range of ranges) {
-						if (matches.length >= 50) break;
-						matches.push({ uri: result.uri, line: range.start.line });
-					}
-				}
-			},
-			cancellation.token
-		);
-
 		const results: string[] = [];
-		const documentCache = new Map<string, vscode.TextDocument>();
+		const files = await vscode.workspace.findFiles(includePattern, excludePattern, 200);
+		const flags = action.case_sensitive === true ? 'g' : 'gi';
+		const searchPattern = new RegExp(action.query, flags);
 
-		for (const match of matches) {
-			if (abortSignal?.aborted) break;
-			if (results.length >= 50) break;
+		for (const file of files) {
+			if (abortSignal?.aborted || results.length >= 50) break;
 			try {
-				const cacheKey = match.uri.fsPath;
-				let document = documentCache.get(cacheKey);
-				if (!document) {
-					document = await vscode.workspace.openTextDocument(match.uri);
-					documentCache.set(cacheKey, document);
+				const document = await vscode.workspace.openTextDocument(file);
+				for (let lineIndex = 0; lineIndex < document.lineCount; lineIndex += 1) {
+					if (abortSignal?.aborted || results.length >= 50) break;
+					const lineText = document.lineAt(lineIndex).text;
+					searchPattern.lastIndex = 0;
+					if (!searchPattern.test(lineText)) {
+						continue;
+					}
+					const relativePath = path.relative(workspaceRoot, file.fsPath);
+					results.push(`${relativePath}:${lineIndex + 1}: ${lineText.trim()}`);
 				}
-				const lineText = document.lineAt(match.line).text.trim();
-				const relativePath = path.relative(workspaceRoot, match.uri.fsPath);
-				results.push(`${relativePath}:${match.line + 1}: ${lineText}`);
 			} catch {
 				// Skip files that can't be read
 			}

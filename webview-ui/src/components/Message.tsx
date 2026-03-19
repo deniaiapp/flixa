@@ -153,11 +153,13 @@ export function Message({ message }: MessageProps) {
                   <span>
                     {message.activeSelectionLabel
                       ? formatSelectionChipLabel(message.activeSelectionLabel)
-                      : getBaseName(message.activeFilePath)}
+                      : message.activeFilePath
+                        ? getBaseName(message.activeFilePath)
+                        : ""}
                   </span>
                 </div>
               )}
-              {message.mentionedFiles.map((file) => (
+              {(message.mentionedFiles ?? []).map((file) => (
                 <div
                   key={`${file.reference}-${file.filePath}`}
                   className="px-2 py-1 rounded-[6px] text-foreground-muted text-[11px] leading-none border border-input-border inline-flex items-center gap-1.5"

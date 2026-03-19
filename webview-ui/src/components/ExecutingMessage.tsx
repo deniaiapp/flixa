@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { ChatMessage } from '../types';
 
 interface ExecutingMessageProps {
@@ -40,7 +41,7 @@ const WriteIcon = () => (
   </svg>
 );
 
-function getToolInfo(action: string): { name: string; target: string; icon: JSX.Element } {
+function getToolInfo(action: string): { name: string; target: string; icon: ReactNode } {
   const lowerAction = action.toLowerCase();
 
   if (lowerAction.startsWith('read:') || lowerAction.startsWith('read ')) {
