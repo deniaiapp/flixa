@@ -1,6 +1,45 @@
 import * as vscode from 'vscode';
 import type { UsageService } from './service';
+import type { Tier, UsageCategory } from './types';
 import { getBillingUrl } from './service';
+
+const PAID_USAGE_LIMIT_LABELS: Record<
+	Exclude<Tier, 'free'>,
+	Record<UsageCategory, string>
+> = {
+	plus: {
+		basic: '20m',
+		premium: '5m',
+	},
+	pro: {
+		basic: '50m',
+		premium: '15m',
+	},
+	max: {
+		basic: '120m',
+		premium: '40m',
+	},
+};
+
+function formatUsageLimitLabel(
+	tier: Tier,
+	category: UsageCategory,
+	limit: number
+): string {
+	if (tier === 'free') {
+		return `${limit.toLocaleString()} requests`;
+	}
+
+	return PAID_USAGE_LIMIT_LABELS[tier][category];
+}
+
+function formatUsageRemainingLabel(tier: Tier, remaining: number): string {
+	if (tier === 'free') {
+		return `${remaining.toLocaleString()} requests remaining`;
+	}
+
+	return `${remaining.toLocaleString()}m remaining`;
+}
 
 export async function showUsageDetailPanel(
 	usageService: UsageService
@@ -78,8 +117,8 @@ async function showUsageQuickPick(
 		const categoryLabel =
 			usage.category.charAt(0).toUpperCase() + usage.category.slice(1);
 		items.push({
-			label: `$(graph) ${categoryLabel}: ${usage.used.toLocaleString()}/${usage.limit.toLocaleString()}`,
-			description: `${bar} ${usage.remaining.toLocaleString()} remaining`,
+			label: `$(graph) ${categoryLabel}: ${usage.used.toLocaleString()}/${formatUsageLimitLabel(data.tier, usage.category, usage.limit)}`,
+			description: `${bar} ${formatUsageRemainingLabel(data.tier, usage.remaining)}`,
 		});
 	}
 

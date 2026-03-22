@@ -300,6 +300,40 @@ const reasoningEffortOptions: Array<{
   },
 ];
 
+const PAID_USAGE_LIMIT_LABELS: Record<
+  Exclude<Tier, "free">,
+  Record<"basic" | "premium", string>
+> = {
+  plus: {
+    basic: "20m",
+    premium: "5m",
+  },
+  pro: {
+    basic: "50m",
+    premium: "15m",
+  },
+  max: {
+    basic: "120m",
+    premium: "40m",
+  },
+};
+
+function getTierLabel(tier: Tier): string {
+  return tier.charAt(0).toUpperCase() + tier.slice(1);
+}
+
+function formatUsageLimitLabel(
+  tier: Tier,
+  category: "basic" | "premium",
+  limit: number,
+): string {
+  if (tier === "free") {
+    return `${limit.toLocaleString()} requests`;
+  }
+
+  return PAID_USAGE_LIMIT_LABELS[tier][category];
+}
+
 
 const getUsageColorClass = (usageData: UsageData): string => {
   const basic = usageData.usage.find((u) => u.category === "basic");
@@ -1279,9 +1313,13 @@ export function InputArea({
                 )}`}
                 title="View usage details"
               >
-                {usageData.tier.charAt(0).toUpperCase() + usageData.tier.slice(1)} |{" "}
+                {getTierLabel(usageData.tier)} |{" "}
                 {usageData.usage.find((u) => u.category === "basic")?.used ?? 0}/
-                {usageData.usage.find((u) => u.category === "basic")?.limit ?? 0}
+                {formatUsageLimitLabel(
+                  usageData.tier,
+                  "basic",
+                  usageData.usage.find((u) => u.category === "basic")?.limit ?? 0,
+                )}
               </button>
             )}
           </div>

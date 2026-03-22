@@ -1,9 +1,47 @@
 import * as vscode from 'vscode';
 import type { UsageService } from './service';
-import type { UsageResponse } from './types';
+import type { Tier, UsageCategory, UsageResponse } from './types';
 
 function formatNumber(n: number): string {
 	return n.toLocaleString();
+}
+
+const PAID_USAGE_LIMIT_LABELS: Record<
+	Exclude<Tier, 'free'>,
+	Record<UsageCategory, string>
+> = {
+	plus: {
+		basic: '20m',
+		premium: '5m',
+	},
+	pro: {
+		basic: '50m',
+		premium: '15m',
+	},
+	max: {
+		basic: '120m',
+		premium: '40m',
+	},
+};
+
+function formatUsageLimitLabel(
+	tier: Tier,
+	category: UsageCategory,
+	limit: number
+): string {
+	if (tier === 'free') {
+		return `${formatNumber(limit)} requests`;
+	}
+
+	return PAID_USAGE_LIMIT_LABELS[tier][category];
+}
+
+function formatUsageRemainingLabel(tier: Tier, remaining: number): string {
+	if (tier === 'free') {
+		return `${formatNumber(remaining)} requests remaining`;
+	}
+
+	return `${formatNumber(remaining)}m remaining`;
 }
 
 export class UsageStatusBarItem {
@@ -116,12 +154,12 @@ export class UsageStatusBarItem {
 		];
 		if (basic) {
 			tooltipLines.push(
-				`Basic: ${formatNumber(basic.used)}/${formatNumber(basic.limit)} (${formatNumber(basic.remaining)} remaining)`
+				`Basic: ${formatNumber(basic.used)}/${formatUsageLimitLabel(data.tier, basic.category, basic.limit)} (${formatUsageRemainingLabel(data.tier, basic.remaining)})`
 			);
 		}
 		if (premium) {
 			tooltipLines.push(
-				`Premium: ${formatNumber(premium.used)}/${formatNumber(premium.limit)} (${formatNumber(premium.remaining)} remaining)`
+				`Premium: ${formatNumber(premium.used)}/${formatUsageLimitLabel(data.tier, premium.category, premium.limit)} (${formatUsageRemainingLabel(data.tier, premium.remaining)})`
 			);
 		}
 		if (data.periodEnd) {
