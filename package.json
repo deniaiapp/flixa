@@ -2,7 +2,7 @@
   "name": "flixa",
   "displayName": "Flixa",
   "description": "AI-powered code implementation assistant",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "publisher": "deniai",
   "icon": "assets/flixa.png",
   "repository": {
@@ -221,20 +221,20 @@
     "test:coverage": "bun test --coverage"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.2",
-    "@ai-sdk/openai": "^3.0.2",
-    "@anthropic-ai/sdk": "^0.71.2",
-    "ai": "^6.0.5",
-    "oxfmt": "^0.27.0",
-    "zod": "^4.3.4"
+    "@ai-sdk/anthropic": "^3.0.68",
+    "@ai-sdk/openai": "^3.0.52",
+    "@anthropic-ai/sdk": "^0.86.1",
+    "ai": "^6.0.154",
+    "oxfmt": "^0.44.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/bun": "^1.3.6",
+    "@types/bun": "^1.3.11",
     "@types/json-schema": "^7.0.15",
-    "@types/node": "^25.0.3",
-    "@types/vscode": "1.85.0",
-    "oxlint": "^1.42.0",
-    "tailwindcss": "^4.1.0",
-    "typescript": "^5.9.3"
+    "@types/node": "^25.5.2",
+    "@types/vscode": "1.105.0",
+    "oxlint": "^1.59.0",
+    "tailwindcss": "^4.2.2",
+    "typescript": "^6.0.2"
   }
 }
