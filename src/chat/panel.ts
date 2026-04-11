@@ -4,7 +4,7 @@ import * as path from 'path';
 import { executeAgentActions } from '../agent/executor';
 import { showDiffPreview } from '../diff/preview';
 import { applyDiffToContent, validateDiff } from '../diff/validator';
-import { callLLMForAgent, callLLMForChat, generateSessionTitle } from '../llm/stub';
+import { callLLMForAgent, callLLMForChat, callLLMForSuggestion, generateSessionTitle } from '../llm/stub';
 import {
 	getAvailableModels,
 	getModel,
@@ -55,6 +55,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 	private _usageService?: UsageService;
 	private _changedFiles: Map<string, TrackedFile> = new Map();
 	private _workspaceFiles: string[] = [];
+	private _activeFilePath: string = '';
+	private _activeSelection: string = '';
+	private _suggestionAbortController?: AbortController;
 
 	constructor(
 		extensionUri: vscode.Uri,
@@ -175,6 +178,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 				this._keepFile(data.filePath);
 			} else if (data.type === 'keepAll') {
 				this._keepAll();
+			} else if (data.type === 'requestSuggestion') {
+				void this._handleSuggestionRequest(data.text as string, data.requestId as string);
 			}
 		});
 	}
@@ -870,6 +875,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 					? editor.document.getText(editor.selection)
 					: '';
 			const activeSelectionLabel = editor ? this._getSelectionLabel(editor) : '';
+			this._activeFilePath = activeFilePath;
+			this._activeSelection = activeSelection;
 			this._view.webview.postMessage({
 				type: 'updateEditorContext',
 				activeFilePath,
@@ -898,6 +905,33 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 		return startLine === endLine
 			? `${relativePath}:${startLine}`
 			: `${relativePath}:${startLine}-${endLine}`;
+	}
+
+	private async _handleSuggestionRequest(text: string, requestId: string): Promise<void> {
+		if (!this._view) {
+			return;
+		}
+		this._suggestionAbortController?.abort();
+		this._suggestionAbortController = new AbortController();
+		const abortSignal = this._suggestionAbortController.signal;
+
+		const suggestion = await callLLMForSuggestion(
+			text,
+			this._activeFilePath,
+			this._activeSelection,
+			abortSignal
+		);
+
+		if (abortSignal.aborted || !this._view) {
+			return;
+		}
+		try {
+			this._view.webview.postMessage({
+				type: 'inlineSuggestion',
+				suggestion,
+				requestId,
+			});
+		} catch { }
 	}
 
 	public async updateUsage(data: import('../usage/types').UsageResponse | null): Promise<void> {

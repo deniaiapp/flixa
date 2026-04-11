@@ -132,6 +132,9 @@ interface InputAreaProps {
   onUsageClick: () => void;
   onLogin: () => void;
   onOpenBilling: () => void;
+  inlineSuggestion?: string;
+  onRequestSuggestion: (text: string) => void;
+  onClearSuggestion: () => void;
 }
 
 const ChatIcon = () => (
@@ -385,6 +388,9 @@ export function InputArea({
   onUsageClick,
   onLogin,
   onOpenBilling,
+  inlineSuggestion = '',
+  onRequestSuggestion,
+  onClearSuggestion,
 }: InputAreaProps) {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const historyButtonRef = useRef<HTMLButtonElement>(null);
@@ -402,6 +408,7 @@ export function InputArea({
     width: 0,
     openAbove: false,
   });
+  const [isCursorAtEnd, setIsCursorAtEnd] = useState(true);
 
   const syncTextareaHeight = () => {
     if (!textareaRef.current) {
@@ -597,6 +604,19 @@ export function InputArea({
     syncTextareaScroll();
   }, [text]);
 
+  useEffect(() => {
+    if (text.length < 3 || isLoading) {
+      return;
+    }
+    if (!isCursorAtEnd) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      onRequestSuggestion(text);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [text, isLoading, isCursorAtEnd, onRequestSuggestion]);
+
   const handleOpenFromHistory = (sessionId: string) => {
     onSessionChange(sessionId);
     setIsHistoryOpen(false);
@@ -622,6 +642,21 @@ export function InputArea({
         }
       }
     }
+    if (e.key === "Tab" && inlineSuggestion && isCursorAtEnd) {
+      e.preventDefault();
+      const newText = text + inlineSuggestion;
+      onTextChange(newText);
+      onClearSuggestion();
+      requestAnimationFrame(() => {
+        if (textareaRef.current) {
+          textareaRef.current.selectionStart = newText.length;
+          textareaRef.current.selectionEnd = newText.length;
+          setIsCursorAtEnd(true);
+          syncTextareaScroll();
+        }
+      });
+      return;
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -639,7 +674,14 @@ export function InputArea({
   const handleTextChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     onTextChange(e.target.value);
     setMentionIndex(0);
+    setIsCursorAtEnd(e.target.selectionStart === e.target.value.length);
     syncTextareaHeight();
+  };
+
+  const handleCursorChange = () => {
+    if (textareaRef.current) {
+      setIsCursorAtEnd(textareaRef.current.selectionStart === text.length);
+    }
   };
 
   const applyMention = (filePath: string) => {
@@ -1232,6 +1274,9 @@ export function InputArea({
             >
               <span className="invisible">{escapeHtml("")}</span>
               <span className="text-input-foreground">{renderHighlightedText(text, workspaceFiles)}</span>
+              {inlineSuggestion && isCursorAtEnd && (
+                <span className="text-input-placeholder opacity-60">{inlineSuggestion}</span>
+              )}
             </div>
           )}
           <textarea
@@ -1241,6 +1286,8 @@ export function InputArea({
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
             onScroll={syncTextareaScroll}
+            onClick={handleCursorChange}
+            onSelect={handleCursorChange}
             placeholder="Plan, @file for context, / for commands"
             rows={1}
             disabled={isLoading}
