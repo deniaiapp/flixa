@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
 import { InputArea } from './components/InputArea';
 import { MessageList } from './components/MessageList';
 import { FilesChanged } from './components/FilesChanged';
@@ -26,6 +26,9 @@ export default function App() {
 		activeFilePath,
 		activeSelection,
 		activeSelectionLabel,
+		inlineSuggestion,
+		lastSuggestionRequestId,
+		clearInlineSuggestion,
 		setAgentMode,
 		setApprovalMode,
 		setSelectedModel,
@@ -46,11 +49,27 @@ export default function App() {
 		showUsageDetail,
 		login,
 		openBilling,
+		requestSuggestion,
 	} = useVSCode();
 
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 	const [inputText, setInputText] = useState('');
 	const [inputImages, setInputImages] = useState<ImageAttachment[]>([]);
+
+	const suggestionRequestIdRef = useRef('');
+
+	const displaySuggestion = lastSuggestionRequestId === suggestionRequestIdRef.current ? inlineSuggestion : '';
+
+	const handleRequestSuggestion = useCallback((text: string) => {
+		const requestId = `${Date.now()}-${Math.random()}`;
+		suggestionRequestIdRef.current = requestId;
+		requestSuggestion(text, requestId);
+	}, [requestSuggestion]);
+
+	const handleInputTextChange = (text: string) => {
+		setInputText(text);
+		clearInlineSuggestion();
+	};
 
 	useEffect(() => {
 		ready();
@@ -65,6 +84,7 @@ export default function App() {
 		sendMessage(text, images);
 		setInputText('');
 		setInputImages([]);
+		clearInlineSuggestion();
 	};
 
 	const handleModeChange = (mode: string) => {
@@ -141,7 +161,7 @@ export default function App() {
 				agentRunning={agentRunning}
 				text={inputText}
 				images={inputImages}
-				onTextChange={setInputText}
+				onTextChange={handleInputTextChange}
 				onImagesChange={setInputImages}
 				onSendMessage={handleSendMessage}
 				onModeChange={handleModeChange}
@@ -160,6 +180,9 @@ export default function App() {
 				onUsageClick={handleUsageClick}
 				onLogin={handleLogin}
 				onOpenBilling={handleOpenBilling}
+				inlineSuggestion={displaySuggestion}
+				onRequestSuggestion={handleRequestSuggestion}
+				onClearSuggestion={clearInlineSuggestion}
 			/>
 		</div>
 	);
