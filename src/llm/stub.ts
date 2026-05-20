@@ -1,5 +1,4 @@
-import { generateObject, generateText } from 'ai';
-import { z } from 'zod';
+import { generateText } from 'ai';
 import { agentTools } from '../agent/tools';
 import { log } from '../logger';
 import type {
@@ -16,7 +15,6 @@ import {
 	buildImplementPrompt,
 	CHAT_SYSTEM_PROMPT,
 	IMPLEMENT_SYSTEM_PROMPT,
-	SUGGESTION_SYSTEM_PROMPT,
 } from './prompts';
 
 export { getAnthropicProvider } from './provider';
@@ -230,42 +228,5 @@ export async function callLLMForAgent(
 			message: `[API Error] ${message}`,
 			diff: '',
 		};
-	}
-}
-
-export async function callLLMForSuggestion(
-	inputText: string,
-	activeFilePath: string,
-	activeSelection: string,
-	abortSignal?: AbortSignal
-): Promise<string> {
-	const anthropic = getAnthropicProvider();
-	const model = getModel();
-
-	const contextParts: string[] = [];
-	if (activeFilePath) {
-		contextParts.push(`Active file: ${activeFilePath}`);
-	}
-	if (activeSelection) {
-		contextParts.push(`Selected code:\n${activeSelection.slice(0, 200)}`);
-	}
-	const context = contextParts.length > 0 ? `\n\nContext:\n${contextParts.join('\n')}` : '';
-
-	try {
-		const { text } = await generateText({
-			model: anthropic(model),
-			system: SUGGESTION_SYSTEM_PROMPT,
-			prompt: `Complete this message: "${inputText}"${context}`,
-			maxTokens: 40,
-			abortSignal,
-			providerOptions: {
-				openai: {
-					reasoningEffort: 'low',
-				},
-			},
-		});
-		return text.trim();
-	} catch {
-		return '';
 	}
 }

@@ -238,31 +238,31 @@ describe('formatSessionResults', () => {
 		expect(formatted).toContain(longOutput);
 	});
 
-	it('should not include empty output', () => {
+	it('should include empty output marker for output actions', () => {
 		const results: SerializedActionResult[] = [
 			{ action: 'Shell: npm test', success: true, output: '' },
 		];
 		const formatted = formatSessionResults(results);
 
-		expect(formatted).not.toContain('Output:');
+		expect(formatted).toContain('Output: <no files or terminal output>');
 	});
 
-	it('should not include whitespace-only output', () => {
+	it('should include empty output marker for whitespace-only output actions', () => {
 		const results: SerializedActionResult[] = [
 			{ action: 'Shell: npm test', success: true, output: '   \n  ' },
 		];
 		const formatted = formatSessionResults(results);
 
-		expect(formatted).not.toContain('Output:');
+		expect(formatted).toContain('Output: <no files or terminal output>');
 	});
 
-	it('should not include "(no output)" marker', () => {
+	it('should normalize "(no output)" marker for output actions', () => {
 		const results: SerializedActionResult[] = [
 			{ action: 'Shell: npm test', success: true, output: '(no output)' },
 		];
 		const formatted = formatSessionResults(results);
 
-		expect(formatted).not.toContain('Output:');
+		expect(formatted).toContain('Output: <no files or terminal output>');
 	});
 
 	it('should format multiple results', () => {

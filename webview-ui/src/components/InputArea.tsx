@@ -132,9 +132,6 @@ interface InputAreaProps {
   onUsageClick: () => void;
   onLogin: () => void;
   onOpenBilling: () => void;
-  inlineSuggestion?: string;
-  onRequestSuggestion: (text: string) => void;
-  onClearSuggestion: () => void;
 }
 
 const ChatIcon = () => (
@@ -388,9 +385,6 @@ export function InputArea({
   onUsageClick,
   onLogin,
   onOpenBilling,
-  inlineSuggestion = '',
-  onRequestSuggestion,
-  onClearSuggestion,
 }: InputAreaProps) {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const historyButtonRef = useRef<HTMLButtonElement>(null);
@@ -408,7 +402,7 @@ export function InputArea({
     width: 0,
     openAbove: false,
   });
-  const [isCursorAtEnd, setIsCursorAtEnd] = useState(true);
+  const [, setIsCursorAtEnd] = useState(true);
 
   const syncTextareaHeight = () => {
     if (!textareaRef.current) {
@@ -604,18 +598,6 @@ export function InputArea({
     syncTextareaScroll();
   }, [text]);
 
-  useEffect(() => {
-    if (text.length < 3 || isLoading) {
-      return;
-    }
-    if (!isCursorAtEnd) {
-      return;
-    }
-    const timer = setTimeout(() => {
-      onRequestSuggestion(text);
-    }, 800);
-    return () => clearTimeout(timer);
-  }, [text, isLoading, isCursorAtEnd, onRequestSuggestion]);
 
   const handleOpenFromHistory = (sessionId: string) => {
     onSessionChange(sessionId);
@@ -641,21 +623,6 @@ export function InputArea({
           return;
         }
       }
-    }
-    if (e.key === "Tab" && inlineSuggestion && isCursorAtEnd) {
-      e.preventDefault();
-      const newText = text + inlineSuggestion;
-      onTextChange(newText);
-      onClearSuggestion();
-      requestAnimationFrame(() => {
-        if (textareaRef.current) {
-          textareaRef.current.selectionStart = newText.length;
-          textareaRef.current.selectionEnd = newText.length;
-          setIsCursorAtEnd(true);
-          syncTextareaScroll();
-        }
-      });
-      return;
     }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -1274,9 +1241,6 @@ export function InputArea({
             >
               <span className="invisible">{escapeHtml("")}</span>
               <span className="text-input-foreground">{renderHighlightedText(text, workspaceFiles)}</span>
-              {inlineSuggestion && isCursorAtEnd && (
-                <span className="text-input-placeholder opacity-60">{inlineSuggestion}</span>
-              )}
             </div>
           )}
           <textarea

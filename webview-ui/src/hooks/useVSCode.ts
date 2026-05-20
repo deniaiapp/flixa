@@ -16,7 +16,6 @@ export interface UseVSCodeReturn {
 	showUsageDetail: () => void;
 	login: () => void;
 	openBilling: () => void;
-	requestSuggestion: (text: string, requestId: string) => void;
 }
 
 export function useVSCode(): UseVSCodeReturn {
@@ -72,10 +71,6 @@ export function useVSCode(): UseVSCodeReturn {
 		vscode.postMessage({ type: 'openBilling' });
 	}, []);
 
-	const requestSuggestion = useCallback((text: string, requestId: string) => {
-		vscode.postMessage({ type: 'requestSuggestion', text, requestId });
-	}, []);
-
 	return {
 		sendMessage,
 		toggleAgentMode,
@@ -90,6 +85,5 @@ export function useVSCode(): UseVSCodeReturn {
 		showUsageDetail,
 		login,
 		openBilling,
-		requestSuggestion,
 	};
 }

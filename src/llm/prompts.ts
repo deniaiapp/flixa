@@ -163,21 +163,6 @@ Given their partial input, return ONLY the text completion (what comes after wha
 Keep it very short (under 15 words). If you cannot determine a meaningful completion, return empty string.
 Do not repeat the user's text. Do not add explanations.`;
 
-export const SAFETY_CHECK_PROMPT = `You are a security validation AI.
-Decide whether the following shell command is SAFE to execute in a developer local workspace.
-
-Allowed:
-- Package manager commands (e.g., npm, yarn, pnpm, pip, brew, apt, etc.)
-- curl and other network or API commands
-- Typical day-to-day developer and system commands
-
-Reply in JSON only:
-{
-  "verdict": "SAFE" | "UNSAFE",
-  "reason": string
-}
-
-Command:`;
 
 export function buildImplementPrompt(
   filePath: string,

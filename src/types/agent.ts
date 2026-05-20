@@ -233,7 +233,7 @@ export function getActionCategory(action: AgentAction): ActionCategory {
 export function requiresApproval(
 	action: AgentAction,
 	mode: ApprovalMode,
-	allowlist: AllowlistConfig = DEFAULT_ALLOWLIST
+	_allowlist: AllowlistConfig = DEFAULT_ALLOWLIST
 ): boolean {
 	// ALL_APPROVE: YOLO mode - no approval needed
 	if (mode === 'ALL_APPROVE') {

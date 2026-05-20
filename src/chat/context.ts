@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { ChatContext, ChatHistoryMessage, SessionMessage, SerializedActionResult, AutoContextData } from '../types';
+import type { ChatContext, ChatHistoryMessage, SessionMessage, SerializedActionResult } from '../types';
 import { gatherAutoContext } from '../autoContext';
 import { getWorkspaceRoot } from '../utils/workspace';
 import * as fs from 'fs/promises';

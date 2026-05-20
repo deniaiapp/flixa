@@ -1,4 +1,4 @@
-import type { ChatContext, SerializedActionResult } from '../types';
+import type { ChatContext } from '../types';
 import { log } from '../logger';
 import { formatSessionResults } from '../utils/format';
 import { formatAutoContext } from '../autoContext';

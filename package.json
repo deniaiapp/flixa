@@ -215,10 +215,10 @@
     "build:ext": "bun build ./src/extension.ts --outdir ./out --target node --format cjs --minify --external vscode",
     "build:webview": "cd webview-ui && npm run build",
     "watch": "tsc -watch -p ./",
-    "lint": "eslint src --ext ts",
-    "test": "bun test",
-    "test:watch": "bun test --watch",
-    "test:coverage": "bun test --coverage"
+    "lint": "oxlint src",
+    "test": "bun test src webview-ui/src",
+    "test:watch": "bun test --watch src webview-ui/src",
+    "test:coverage": "bun test --coverage src webview-ui/src"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.68",

@@ -29,13 +29,10 @@ export interface UseMessagesReturn {
 	activeFilePath: string;
 	activeSelection: string;
 	activeSelectionLabel: string;
-	inlineSuggestion: string;
-	lastSuggestionRequestId: string;
 	setAgentMode: (mode: boolean) => void;
 	setApprovalMode: (mode: string) => void;
 	setSelectedModel: (model: string) => void;
 	setSelectedReasoningEffort: (reasoningEffort: ReasoningEffort) => void;
-	clearInlineSuggestion: () => void;
 }
 
 export function useMessages(): UseMessagesReturn {
@@ -61,8 +58,6 @@ export function useMessages(): UseMessagesReturn {
 	const [activeFilePath, setActiveFilePath] = useState('');
 	const [activeSelection, setActiveSelection] = useState('');
 	const [activeSelectionLabel, setActiveSelectionLabel] = useState('');
-	const [inlineSuggestion, setInlineSuggestion] = useState('');
-	const [lastSuggestionRequestId, setLastSuggestionRequestId] = useState('');
 
 	useEffect(() => {
 		const handleMessage = (event: MessageEvent) => {
@@ -118,10 +113,6 @@ export function useMessages(): UseMessagesReturn {
 					setActiveSelection(data.activeSelection || '');
 					setActiveSelectionLabel(data.activeSelectionLabel || '');
 					break;
-				case 'inlineSuggestion':
-					setLastSuggestionRequestId(data.requestId || '');
-					setInlineSuggestion(data.suggestion || '');
-					break;
 			}
 		};
 
@@ -149,12 +140,9 @@ export function useMessages(): UseMessagesReturn {
 		activeFilePath,
 		activeSelection,
 		activeSelectionLabel,
-		inlineSuggestion,
-		lastSuggestionRequestId,
 		setAgentMode,
 		setApprovalMode,
 		setSelectedModel,
 		setSelectedReasoningEffort,
-		clearInlineSuggestion: () => setInlineSuggestion(''),
 	};
 }

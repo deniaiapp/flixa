@@ -16,40 +16,6 @@ import {
 import { checkShellCommandSafety } from '../safetyChecker';
 
 /**
- * Patterns that indicate an interactive prompt waiting for user input
- */
-const INTERACTIVE_PROMPT_PATTERNS = [
-	// Yes/No prompts
-	/\[y\/n\]\s*:?\s*$/i,
-	/\[Y\/n\]\s*:?\s*$/i,
-	/\[y\/N\]\s*:?\s*$/i,
-	/\(y\/n\)\s*:?\s*$/i,
-	/\(Y\/n\)\s*:?\s*$/i,
-	/\(y\/N\)\s*:?\s*$/i,
-	/yes\/no\s*:?\s*$/i,
-	/\[yes\/no\]\s*:?\s*$/i,
-	/continue\?\s*\[y\/n\]/i,
-	/proceed\?\s*\[y\/n\]/i,
-	/confirm\?\s*\[y\/n\]/i,
-	/are you sure\?\s*\[y\/n\]/i,
-	/do you want to continue\?\s*$/i,
-	/press enter to continue/i,
-	/hit enter to continue/i,
-	// npm specific
-	/is this ok\?\s*\(yes\)/i,
-	/ok to proceed\?\s*\(yes\)/i,
-	// git specific
-	/\(y\/n\/e\/d\/a\/\?\)\s*$/i,
-	// General input prompts
-	/:\s*$/,
-	/\?\s*$/,
-	/enter.*:\s*$/i,
-	/input.*:\s*$/i,
-	/password:\s*$/i,
-	/passphrase.*:\s*$/i,
-];
-
-/**
  * Detect if output ends with an interactive prompt
  */
 function detectInteractivePrompt(output: string): { isPrompt: boolean; promptType: 'yesno' | 'enter' | 'input' | 'select' } {

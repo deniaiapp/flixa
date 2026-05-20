@@ -28,8 +28,8 @@ describe('Message', () => {
 
 		const messageElement = screen.getByText('Hello, user!');
 		expect(messageElement).toBeTruthy();
-		expect(messageElement.className).toContain('bg-surface-2');
-		expect(messageElement.className).toContain('rounded-2xl');
+		expect(messageElement.closest('[class*="text-foreground"]')).not.toBeNull();
+		expect(screen.getByText('Flixa')).toBeTruthy();
 	});
 
 	it('should render system message with correct styling', () => {
@@ -70,7 +70,7 @@ describe('Message', () => {
 		expect(wrapper).not.toBeNull();
 	});
 
-	it('should have max width constraint on wrapper', () => {
+	it('should render inside full width wrapper', () => {
 		const message: ChatMessage = {
 			role: 'user',
 			content: 'Test message',
@@ -79,7 +79,7 @@ describe('Message', () => {
 		render(<Message message={message} />);
 
 		const messageElement = screen.getByText('Test message');
-		const wrapper = messageElement.closest('.max-w-\\[85\\%\\]');
+		const wrapper = messageElement.closest('.w-full');
 		expect(wrapper).not.toBeNull();
 	});
 

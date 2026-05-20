@@ -4,7 +4,6 @@ import type {
 	ApprovalMode,
 	PendingDiff,
 	AllowlistConfig,
-	DEFAULT_ALLOWLIST,
 } from '../types';
 import { requiresApproval } from '../types';
 import {
@@ -23,7 +22,7 @@ import {
 	executeEditFileNewAction,
 	executeDeleteFileNewAction,
 } from './actions';
-import { requestManualApproval, requestIndividualApproval } from './approval';
+import { requestIndividualApproval } from './approval';
 import { describeAction } from '../utils/format';
 
 export interface ExecuteActionsOptions {
