@@ -70,10 +70,13 @@ export function MessageList({
     <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
       {messages.map((msg, idx) => {
         const key = `${idPrefix}-${msg.role}-${idx}`;
+        if (msg.role === "assistant" && msg.tool_calls?.length && !msg.content) {
+          return null;
+        }
         if (msg.role === "executing" && msg.executingAction) {
           return <ExecutingMessage key={key} message={msg} />;
         }
-        if (msg.role === "result" && msg.results) {
+        if ((msg.role === "result" || msg.role === "tool") && msg.results) {
           return <ResultMessage key={key} results={msg.results} />;
         }
         return <Message key={key} message={msg} />;

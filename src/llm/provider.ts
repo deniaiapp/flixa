@@ -40,7 +40,7 @@ export function getApiKey(): string | undefined {
   return _apiKey;
 }
 
-export function getAnthropicProvider() {
+export function getFlixaProvider() {
   console.log("[Flixa] Creating OpenAI provider with base URL:", OPENAI_BASE_URL);
   return createOpenAI({ apiKey: _apiKey || "anonymous", baseURL: OPENAI_BASE_URL }).chat;
 }
@@ -88,6 +88,13 @@ function normalizeTags(value: unknown): string[] | undefined {
   return value.filter((tag): tag is string => typeof tag === "string");
 }
 
+function normalizeTokenUsageMultiplier(value: unknown): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return undefined;
+  }
+  return value;
+}
+
 function extractModelDefinition(model: unknown): ModelAccessDefinition | null {
   if (typeof model === "string") {
     return { id: model, label: model, tags: [] };
@@ -102,6 +109,7 @@ function extractModelDefinition(model: unknown): ModelAccessDefinition | null {
         tags: normalizeTags(record.tags) ?? [],
         premium: typeof record.premium === "boolean" ? record.premium : undefined,
         tier: normalizeTier(record.tier),
+        tokenUsageMultiplier: normalizeTokenUsageMultiplier(record.tokenUsageMultiplier),
       };
     }
   }

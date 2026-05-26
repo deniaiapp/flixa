@@ -158,12 +158,6 @@ Move on to the next logical step in the workflow.
 - Use backticks for code references
 - State assumptions and continue; don't stop for approval unless blocked`;
 
-export const SUGGESTION_SYSTEM_PROMPT = `You are completing a user's message in a coding chat interface.
-Given their partial input, return ONLY the text completion (what comes after what they wrote).
-Keep it very short (under 15 words). If you cannot determine a meaningful completion, return empty string.
-Do not repeat the user's text. Do not add explanations.`;
-
-
 export function buildImplementPrompt(
   filePath: string,
   languageId: string,

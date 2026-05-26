@@ -1,14 +1,23 @@
 import * as vscode from 'vscode';
-import type { ChatContext, ChatHistoryMessage, SessionMessage, SerializedActionResult } from '../types';
+import type {
+	ChatCompletionToolCall,
+	ChatContext,
+	ChatHistoryMessage,
+	SerializedActionResult,
+	SerializedToolResult,
+	SessionMessage,
+} from '../types';
 import { gatherAutoContext } from '../autoContext';
 import { getWorkspaceRoot } from '../utils/workspace';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
 export interface ChatMessage {
-	role: 'user' | 'assistant' | 'system' | 'result' | 'executing';
+	role: 'user' | 'assistant' | 'system' | 'result' | 'tool' | 'executing';
 	content: string;
 	results?: SerializedActionResult[];
+	tool_calls?: ChatCompletionToolCall[];
+	toolResults?: SerializedToolResult[];
 	executingAction?: string;
 	executingOutput?: string;
 }

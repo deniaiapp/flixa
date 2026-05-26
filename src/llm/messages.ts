@@ -1,4 +1,5 @@
-import type { ChatContext } from '../types';
+import type { ModelMessage } from 'ai';
+import type { ChatCompletionToolCall, ChatContext } from '../types';
 import { log } from '../logger';
 import { formatSessionResults } from '../utils/format';
 import { formatAutoContext } from '../autoContext';
@@ -37,6 +38,14 @@ function buildUserContextText(
 	}
 
 	return content;
+}
+
+function parseToolArguments(toolCall: ChatCompletionToolCall): unknown {
+	try {
+		return JSON.parse(toolCall.function.arguments);
+	} catch {
+		return {};
+	}
 }
 
 export function buildChatMessages(
@@ -91,10 +100,8 @@ export function buildChatMessages(
 	return messages;
 }
 
-export function buildAgentMessages(
-	context: ChatContext
-): Array<{ role: 'user' | 'assistant'; content: string }> {
-	const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+export function buildAgentMessages(context: ChatContext): ModelMessage[] {
+	const messages: ModelMessage[] = [];
 
 	let isFirstUserMessage = true;
 	for (const msg of context.sessionMessages) {
@@ -130,7 +137,37 @@ export function buildAgentMessages(
 			if (msg.content.startsWith('[Agent - Step')) {
 				continue;
 			}
-			messages.push({ role: 'assistant', content: msg.content });
+			if (msg.tool_calls && msg.tool_calls.length > 0) {
+				messages.push({
+					role: 'assistant',
+					content: [
+						...(msg.content.trim()
+							? [{ type: 'text' as const, text: msg.content }]
+							: []),
+						...msg.tool_calls.map((toolCall) => ({
+							type: 'tool-call' as const,
+							toolCallId: toolCall.id,
+							toolName: toolCall.function.name,
+							input: parseToolArguments(toolCall),
+						})),
+					],
+				});
+			} else {
+				messages.push({ role: 'assistant', content: msg.content });
+			}
+		} else if (msg.role === 'tool' && msg.toolResults) {
+			messages.push({
+				role: 'tool',
+				content: msg.toolResults.map((toolResult) => ({
+					type: 'tool-result' as const,
+					toolCallId: toolResult.tool_call_id,
+					toolName: toolResult.toolName,
+					output: {
+						type: 'text' as const,
+						value: toolResult.content,
+					},
+				})),
+			});
 		} else if (msg.role === 'result' && msg.results) {
 			const resultsText = formatSessionResults(msg.results);
 			log('[Flixa] agent result message to AI:', resultsText);

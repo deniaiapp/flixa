@@ -1,10 +1,18 @@
 import type * as vscode from 'vscode';
-import type { ReferencedContextFile, SerializedActionResult, SessionMessage } from '../types';
+import type {
+	ChatCompletionToolCall,
+	ReferencedContextFile,
+	SerializedActionResult,
+	SerializedToolResult,
+	SessionMessage,
+} from '../types';
 
 export interface ChatMessage {
-	role: 'user' | 'assistant' | 'system' | 'result' | 'executing';
+	role: 'user' | 'assistant' | 'system' | 'result' | 'tool' | 'executing';
 	content: string;
 	results?: SerializedActionResult[];
+	tool_calls?: ChatCompletionToolCall[];
+	toolResults?: SerializedToolResult[];
 	executingAction?: string;
 	executingOutput?: string;
 	activeSelection?: string;
@@ -140,12 +148,17 @@ export class SessionManager {
 		return this.getMessages()
 			.filter(
 				(m) =>
-					m.role === 'user' || m.role === 'assistant' || m.role === 'result'
+					m.role === 'user' ||
+					m.role === 'assistant' ||
+					m.role === 'result' ||
+					m.role === 'tool'
 			)
 			.map((m) => ({
-				role: m.role as 'user' | 'assistant' | 'result',
+				role: m.role as 'user' | 'assistant' | 'result' | 'tool',
 				content: m.content,
 				results: m.results,
+				tool_calls: m.tool_calls,
+				toolResults: m.toolResults,
 				activeSelection: m.activeSelection,
 				activeFilePath: m.activeFilePath,
 				activeSelectionLabel: m.activeSelectionLabel,

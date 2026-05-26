@@ -1,7 +1,7 @@
 import { generateText } from "ai";
 import * as vscode from "vscode";
 import { log } from "../logger";
-import { getAnthropicProvider } from "../llm/stub";
+import { getFlixaProvider } from "../llm/stub";
 import type { SafetyCheckResult } from "../types";
 
 function getModel(): string {
@@ -13,7 +13,7 @@ export async function checkShellCommandSafety(
 	command: string,
 	aiReason?: string,
 ): Promise<SafetyCheckResult> {
-	const anthropic = getAnthropicProvider();
+	const flixa = getFlixaProvider();
 	const model = getModel();
 
 	const aiReasonSection = aiReason 
@@ -60,7 +60,7 @@ ${command}`;
 
 	try {
 		const { text } = await generateText({
-			model: anthropic(model),
+			model: flixa(model),
 			prompt,
 		});
 

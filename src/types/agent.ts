@@ -1,3 +1,5 @@
+import type { ChatCompletionToolCall } from './chat';
+
 /**
  * Approval modes for agent actions:
  * - 'ALL_APPROVE': All actions execute immediately without any approval (YOLO mode)
@@ -155,6 +157,7 @@ export interface AgentResponse {
 	type: 'agent';
 	message: string;
 	actions: AgentAction[];
+	toolCalls?: ChatCompletionToolCall[];
 }
 
 export interface ActionExecutionResult {
