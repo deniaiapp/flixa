@@ -46,6 +46,7 @@ export default function App() {
 		showUsageDetail,
 		login,
 		openBilling,
+		openExternalUrl,
 	} = useVSCode();
 
 	const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -122,6 +123,10 @@ export default function App() {
 		openBilling();
 	};
 
+	const handleOpenExternalUrl = (url: string) => {
+		openExternalUrl(url);
+	};
+
 	return (
 		<div className="flex flex-col h-full">
 			<MessageList
@@ -164,6 +169,7 @@ export default function App() {
 				onUsageClick={handleUsageClick}
 				onLogin={handleLogin}
 				onOpenBilling={handleOpenBilling}
+				onOpenExternalUrl={handleOpenExternalUrl}
 			/>
 		</div>
 	);

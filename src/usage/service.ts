@@ -3,8 +3,10 @@ import type {
 	CachedUsage,
 	DeviceAuthInitiateResponse,
 	DeviceAuthPollResponse,
+	QuotaExceededErrorMeta,
 	Tier,
 	UsageCategory,
+	UsageItem,
 	UsageResponse,
 } from './types';
 import { log } from '../logger';
@@ -27,6 +29,101 @@ export function getFlixaApiBaseUrl(): string {
 
 export function getBillingUrl(): string {
 	return `${getDeniAiBaseUrl()}/settings/billing`;
+}
+
+function getCategoryLabel(category: UsageCategory | undefined): string {
+	if (category === 'basic') {
+		return 'Basic';
+	}
+	if (category === 'premium') {
+		return 'Premium';
+	}
+	return 'Free';
+}
+
+export async function showQuotaExceededDialog(
+	error: QuotaExceededErrorMeta,
+	onAfterAction?: () => Promise<void>
+): Promise<void> {
+	const title =
+		error.tier === 'free'
+			? `${getCategoryLabel(error.category)} limit reached`
+			: 'Usage limit reached';
+	const message = `${title}: ${error.message}`;
+	const canVerify = error.canVerifyForBoost === true;
+	const canUpgrade = error.canUpgrade === true;
+	const primaryAction = canVerify ? 'Verify card' : canUpgrade ? 'Upgrade' : 'Close';
+	const actions = [primaryAction];
+
+	if (canVerify && canUpgrade) {
+		actions.push('Upgrade');
+	} else if (primaryAction !== 'Close') {
+		actions.push('Close');
+	}
+
+	const selected = await vscode.window.showErrorMessage(
+		message,
+		{ modal: true },
+		...actions
+	);
+
+	if (selected === 'Verify card' && error.verifyUrl) {
+		vscode.env.openExternal(vscode.Uri.parse(error.verifyUrl));
+	} else if (selected === 'Upgrade' && error.upgradeUrl) {
+		vscode.env.openExternal(vscode.Uri.parse(error.upgradeUrl));
+	}
+
+	if (onAfterAction) {
+		await onAfterAction();
+	}
+}
+
+function normalizeUsageItem(item: Partial<UsageItem>): UsageItem | null {
+	if (
+		(item.category !== 'basic' && item.category !== 'premium') ||
+		typeof item.limit !== 'number' ||
+		typeof item.used !== 'number'
+	) {
+		return null;
+	}
+
+	return {
+		category: item.category,
+		limit: item.limit,
+		used: item.used,
+		unit: typeof item.unit === 'string' ? item.unit : 'tokens',
+		remaining:
+			typeof item.remaining === 'number'
+				? item.remaining
+				: Math.max(item.limit - item.used, 0),
+		periodStart: typeof item.periodStart === 'string' ? item.periodStart : '',
+		periodEnd: typeof item.periodEnd === 'string' ? item.periodEnd : '',
+	};
+}
+
+function normalizeUsageResponse(payload: unknown): UsageResponse {
+	const record = payload as Partial<UsageResponse>;
+	const usage = Array.isArray(record.usage)
+		? record.usage
+			.map((item) => normalizeUsageItem(item as Partial<UsageItem>))
+			.filter((item): item is UsageItem => !!item)
+		: [];
+
+	return {
+		tier: record.tier ?? 'free',
+		planId: record.planId ?? null,
+		status: record.status ?? null,
+		periodEnd: record.periodEnd ?? usage[0]?.periodEnd ?? null,
+		maxModeEnabled: record.maxModeEnabled ?? false,
+		maxModeEligible: record.maxModeEligible ?? false,
+		isTeam: record.isTeam ?? false,
+		hasVerifiedPaymentMethod: record.hasVerifiedPaymentMethod ?? false,
+		cardVerifiedAt: record.cardVerifiedAt ?? null,
+		cardFunding: record.cardFunding ?? null,
+		verifyUrl: record.verifyUrl ?? null,
+		upgradeUrl: record.upgradeUrl ?? null,
+		usage,
+	};
 }
 
 export class UsageService {
@@ -107,16 +204,26 @@ export class UsageService {
 
 		try {
 			const apiBaseUrl = getFlixaApiBaseUrl();
-			console.log('[Flixa] fetchUsage - fetching from:', `${apiBaseUrl}/v1/deni/usage`);
-			const response = await fetch(`${apiBaseUrl}/v1/deni/usage`, {
-				headers: {
-					Authorization: `Bearer ${apiKey}`,
-				},
-			});
+			const endpoints = [
+				`${apiBaseUrl}/v1/deni/billing-status`,
+				`${apiBaseUrl}/v1/deni/usage`,
+			];
+			let response: Response | null = null;
+			for (const endpoint of endpoints) {
+				console.log('[Flixa] fetchUsage - fetching from:', endpoint);
+				response = await fetch(endpoint, {
+					headers: {
+						Authorization: `Bearer ${apiKey}`,
+					},
+				});
+				if (response.status !== 404) {
+					break;
+				}
+			}
 
-			console.log('[Flixa] fetchUsage - response status:', response.status);
+			console.log('[Flixa] fetchUsage - response status:', response?.status);
 
-			if (response.status === 401) {
+			if (response?.status === 401) {
 				await this.logout();
 				vscode.window.showErrorMessage(
 					'Deni AI: API key is invalid or expired. Please log in again.'
@@ -124,11 +231,11 @@ export class UsageService {
 				return null;
 			}
 
-			if (!response.ok) {
-				throw new Error(`HTTP ${response.status}`);
+			if (!response || !response.ok) {
+				throw new Error(`HTTP ${response?.status ?? 'unknown'}`);
 			}
 
-			const data = (await response.json()) as UsageResponse;
+			const data = normalizeUsageResponse(await response.json());
 			console.log('[Flixa] fetchUsage - data:', JSON.stringify(data));
 			this._cache = {
 				data,
@@ -160,7 +267,7 @@ export class UsageService {
 	}
 
 	async refreshAfterSend(category: UsageCategory): Promise<void> {
-		this.incrementUsage(category);
+		void category;
 		setTimeout(() => {
 			this.fetchUsage(true);
 		}, 1000);

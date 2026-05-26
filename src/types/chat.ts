@@ -26,6 +26,21 @@ export interface ChatHistoryMessage {
 	content: string;
 }
 
+export interface ChatCompletionToolCall {
+	id: string;
+	type: 'function';
+	function: {
+		name: string;
+		arguments: string;
+	};
+}
+
+export interface SerializedToolResult {
+	tool_call_id: string;
+	toolName: string;
+	content: string;
+}
+
 export interface SerializedActionResult {
 	action: string;
 	success: boolean;
@@ -36,9 +51,11 @@ export interface SerializedActionResult {
 }
 
 export interface SessionMessage {
-	role: 'user' | 'assistant' | 'system' | 'result';
+	role: 'user' | 'assistant' | 'system' | 'result' | 'tool';
 	content: string;
 	results?: SerializedActionResult[];
+	tool_calls?: ChatCompletionToolCall[];
+	toolResults?: SerializedToolResult[];
 	activeSelection?: string;
 	activeFilePath?: string;
 	activeSelectionLabel?: string;
@@ -71,4 +88,5 @@ export interface LLMResponse {
 	message: string;
 	diff?: string;
 	newContent?: string;
+	quotaExceeded?: import('../usage/types').QuotaExceededErrorMeta;
 }

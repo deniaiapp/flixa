@@ -22,12 +22,13 @@ import type {
 	LLMResponse,
 	PendingDiff,
 	SerializedActionResult,
+	SerializedToolResult,
 } from '../types';
 import { describeAction } from '../utils/format';
 import { gatherChatContext, resolveMentionedFiles } from './context';
-import { SessionManager, type ChatMessage, type ChatSession } from './session';
+import { SessionManager } from './session';
 import { getWebviewHtml } from './webview';
-import type { UsageService } from '../usage/service';
+import { showQuotaExceededDialog, type UsageService } from '../usage/service';
 import { isPremiumModel, type UsageCategory } from '../usage/types';
 
 interface TrackedFile {
@@ -121,6 +122,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 				this._sendChangedFiles();
 				await this._sendEditorContext();
 				if (this._usageService) {
+					await this._usageService.fetchUsage(true);
 					this.updateUsage(this._usageService.getCachedUsage());
 				}
 			} else if (data.type === 'sendMessage') {
@@ -160,8 +162,14 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 				vscode.commands.executeCommand('flixa.login');
 			} else if (data.type === 'openBilling') {
 				if (this._usageService) {
-					const billingUrl = this._usageService.getBillingUrl();
+					const billingUrl =
+						this._usageService.getCachedUsage()?.upgradeUrl ??
+						this._usageService.getBillingUrl();
 					vscode.env.openExternal(vscode.Uri.parse(billingUrl));
+				}
+			} else if (data.type === 'openExternalUrl') {
+				if (typeof data.url === 'string') {
+					vscode.env.openExternal(vscode.Uri.parse(data.url));
 				}
 			} else if (data.type === 'openFile') {
 				const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -242,37 +250,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 		const usageCategory: UsageCategory = isPremiumModel(currentModel)
 			? 'premium'
 			: 'basic';
-
-		if (this._usageService) {
-			console.log('[Flixa] Checking quota for category:', usageCategory);
-			const quotaCheck = this._usageService.checkQuotaAndWarn(usageCategory);
-			console.log('[Flixa] Quota check result:', quotaCheck);
-			if (!quotaCheck.canProceed) {
-				if (quotaCheck.maxModeEligible) {
-					const action = await vscode.window.showWarningMessage(
-						`Deni AI: ${usageCategory} quota exhausted. Enable Max Mode to continue (additional charges apply).`,
-						'Enable Max Mode',
-						'Upgrade Plan'
-					);
-					if (action === 'Upgrade Plan') {
-						vscode.env.openExternal(
-							vscode.Uri.parse(this._usageService.getBillingUrl())
-						);
-					}
-				} else {
-					const action = await vscode.window.showErrorMessage(
-						`Deni AI: ${usageCategory} quota exhausted. Please upgrade your plan.`,
-						'Upgrade Plan'
-					);
-					if (action === 'Upgrade Plan') {
-						vscode.env.openExternal(
-							vscode.Uri.parse(this._usageService.getBillingUrl())
-						);
-					}
-				}
-				return;
-			}
-		}
 
 		const editor = vscode.window.activeTextEditor;
 		const activeSelection =
@@ -439,6 +416,24 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 		}
 	}
 
+	private _formatToolResult(result: ActionExecutionResult): string {
+		const action = describeAction(result.action);
+		if (result.rejected) {
+			return `[REJECTED] ${action}: ${result.rejectionReason ?? 'Rejected'}`;
+		}
+		if (!result.success) {
+			const lines = [`[FAILED] ${action}: ${result.error ?? 'Unknown error'}`];
+			if (result.output && result.output.trim() && result.output !== '(no output)') {
+				lines.push(result.output);
+			}
+			return lines.join('\n');
+		}
+		if (result.output && result.output.trim()) {
+			return result.output;
+		}
+		return `[SUCCESS] ${action}`;
+	}
+
 	private async _revertFile(relativePath: string): Promise<void> {
 		const tracked = this._changedFiles.get(relativePath);
 		if (!tracked) {
@@ -550,6 +545,15 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
 				if (response.type !== 'agent') {
 					console.log('[Flixa] agent response non-agent', response.message);
+					if (response.quotaExceeded) {
+						this._sessionManager.pushMessage({
+							role: 'assistant',
+							content: response.message,
+						});
+						this._updateMessages();
+						await this._handleQuotaExceeded(response.quotaExceeded);
+						break;
+					}
 					const retryable =
 						response.message.startsWith('[API Error]') ||
 						response.message === 'Empty response' ||
@@ -691,11 +695,37 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 					})
 				);
 
-				this._sessionManager.pushMessage({
-					role: 'result',
-					content: '',
-					results: serializedResults,
-				});
+				if (agentResponse.toolCalls && agentResponse.toolCalls.length > 0) {
+					this._sessionManager.pushMessage({
+						role: 'assistant',
+						content: agentResponse.message,
+						tool_calls: agentResponse.toolCalls,
+					});
+
+					const toolResults: SerializedToolResult[] = agentResponse.toolCalls.map((toolCall, index) => {
+						const result = results[index];
+						return {
+							tool_call_id: toolCall.id,
+							toolName: toolCall.function.name,
+							content: result
+								? this._formatToolResult(result)
+								: `[FAILED] ${toolCall.function.name}: Missing tool execution result`,
+						};
+					});
+
+					this._sessionManager.pushMessage({
+						role: 'tool',
+						content: '',
+						results: serializedResults,
+						toolResults,
+					});
+				} else {
+					this._sessionManager.pushMessage({
+						role: 'result',
+						content: '',
+						results: serializedResults,
+					});
+				}
 				this._updateMessages();
 			}
 		} finally {
@@ -721,6 +751,16 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 			this._currentAbortController = undefined;
 		}
 		this._sendStreamingUpdate('');
+
+		if (response.quotaExceeded) {
+			this._sessionManager.pushMessage({
+				role: 'assistant',
+				content: response.message,
+			});
+			this._updateMessages();
+			await this._handleQuotaExceeded(response.quotaExceeded);
+			return;
+		}
 
 		if (response.type === 'diff' && response.diff) {
 			const activeFilePath = context.activeFilePath;
@@ -916,5 +956,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 				isLoggedIn,
 			});
 		} catch { }
+	}
+
+	private async _handleQuotaExceeded(
+		error: import('../usage/types').QuotaExceededErrorMeta
+	): Promise<void> {
+		await showQuotaExceededDialog(error, async () => {
+			await this._usageService?.fetchUsage(true);
+		});
 	}
 }

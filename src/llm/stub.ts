@@ -3,13 +3,15 @@ import { agentTools } from '../agent/tools';
 import { log } from '../logger';
 import type {
 	AgentResponse,
+	ChatCompletionToolCall,
 	ChatContext,
 	ImplementRequest,
 	LLMResponse,
 } from '../types';
+import type { QuotaExceededErrorMeta } from '../usage/types';
 import { buildAgentMessages, buildChatMessages } from './messages';
 import { convertToolCallsToActions, parseLLMResponse, stripCodeBlocks } from './parser';
-import { getAnthropicProvider, getModel, getReasoningEffort } from './provider';
+import { getFlixaProvider, getModel, getReasoningEffort } from './provider';
 import {
 	AGENT_SYSTEM_PROMPT,
 	buildImplementPrompt,
@@ -17,16 +19,146 @@ import {
 	IMPLEMENT_SYSTEM_PROMPT,
 } from './prompts';
 
-export { getAnthropicProvider } from './provider';
+export { getFlixaProvider } from './provider';
 export { parseLLMResponse, parseAgentResponse } from './parser';
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return !!value && typeof value === 'object';
+}
+
+function normalizeQuotaExceededError(value: unknown): QuotaExceededErrorMeta | null {
+	if (!isRecord(value)) {
+		return null;
+	}
+
+	const error = isRecord(value.error) ? value.error : value;
+	if (error.code !== 'USAGE_LIMIT_EXCEEDED') {
+		return null;
+	}
+
+	return {
+		message: typeof error.message === 'string' ? error.message : 'Usage limit exceeded.',
+		type: typeof error.type === 'string' ? error.type : 'quota_exceeded',
+		param: null,
+		code: 'USAGE_LIMIT_EXCEEDED',
+		category:
+			error.category === 'basic' || error.category === 'premium'
+				? error.category
+				: undefined,
+		tier:
+			error.tier === 'free' ||
+			error.tier === 'plus' ||
+			error.tier === 'pro' ||
+			error.tier === 'max'
+				? error.tier
+				: undefined,
+		canVerifyForBoost:
+			typeof error.canVerifyForBoost === 'boolean'
+				? error.canVerifyForBoost
+				: undefined,
+		canUpgrade:
+			typeof error.canUpgrade === 'boolean' ? error.canUpgrade : undefined,
+		verifyUrl: typeof error.verifyUrl === 'string' ? error.verifyUrl : undefined,
+		upgradeUrl:
+			typeof error.upgradeUrl === 'string' ? error.upgradeUrl : undefined,
+	};
+}
+
+function tryParseJsonObject(text: string): unknown {
+	try {
+		return JSON.parse(text);
+	} catch {
+		return null;
+	}
+}
+
+function extractQuotaExceededError(error: unknown): QuotaExceededErrorMeta | null {
+	const direct = normalizeQuotaExceededError(error);
+	if (direct) {
+		return direct;
+	}
+
+	if (error instanceof Error) {
+		const fromMessage = normalizeQuotaExceededError(tryParseJsonObject(error.message));
+		if (fromMessage) {
+			return fromMessage;
+		}
+	}
+
+	if (!isRecord(error)) {
+		return null;
+	}
+
+	const keys = [
+		'data',
+		'body',
+		'responseBody',
+		'response',
+		'cause',
+		'error',
+		'value',
+	];
+	for (const key of keys) {
+		const value = error[key];
+		const nested =
+			typeof value === 'string'
+				? normalizeQuotaExceededError(tryParseJsonObject(value))
+				: extractQuotaExceededError(value);
+		if (nested) {
+			return nested;
+		}
+	}
+
+	return null;
+}
+
+function serializeToolArguments(input: unknown): string {
+	try {
+		return JSON.stringify(input ?? {});
+	} catch {
+		return '{}';
+	}
+}
+
+function serializeToolCall(toolCall: {
+	toolCallId: string;
+	toolName: string;
+	input: unknown;
+}): ChatCompletionToolCall {
+	return {
+		id: toolCall.toolCallId,
+		type: 'function',
+		function: {
+			name: toolCall.toolName,
+			arguments: serializeToolArguments(toolCall.input),
+		},
+	};
+}
+
+function convertExecutableToolCalls(
+	toolCalls: Array<{ toolCallId: string; toolName: string; input: unknown }>
+): { actions: AgentResponse['actions']; toolCalls: ChatCompletionToolCall[] } {
+	const actions: AgentResponse['actions'] = [];
+	const chatToolCalls: ChatCompletionToolCall[] = [];
+
+	for (const toolCall of toolCalls) {
+		const convertedActions = convertToolCallsToActions([toolCall]);
+		for (const action of convertedActions) {
+			actions.push(action);
+			chatToolCalls.push(serializeToolCall(toolCall));
+		}
+	}
+
+	return { actions, toolCalls: chatToolCalls };
+}
+
 export async function generateSessionTitle(userMessage: string): Promise<string> {
-	const anthropic = getAnthropicProvider();
+	const flixa = getFlixaProvider();
 	const model = getModel();
 
 	try {
 		const { text } = await generateText({
-			model: anthropic(model),
+			model: flixa(model),
 			system: 'Generate a very short title (2-5 words, max 30 chars) for a chat conversation based on the user\'s first message. Return ONLY the title, nothing else. No quotes, no punctuation at the end.',
 			prompt: userMessage,
 			providerOptions: {
@@ -45,7 +177,7 @@ export async function generateSessionTitle(userMessage: string): Promise<string>
 export async function callLLMForImplement(
 	request: ImplementRequest
 ): Promise<LLMResponse> {
-	const anthropic = getAnthropicProvider();
+	const flixa = getFlixaProvider();
 	const model = getModel();
 
 	const hasSelection = request.scopeText && request.scopeText !== request.fullFileText;
@@ -61,7 +193,7 @@ export async function callLLMForImplement(
 
 	try {
 		const { text } = await generateText({
-			model: anthropic(model),
+			model: flixa(model),
 			system: IMPLEMENT_SYSTEM_PROMPT,
 			prompt: userPrompt,
 			providerOptions: {
@@ -105,9 +237,11 @@ export async function callLLMForImplement(
 		};
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
+		const quotaExceeded = extractQuotaExceededError(error) ?? undefined;
 		return {
 			type: 'message',
-			message: `Error calling API: ${message}`,
+			message: quotaExceeded?.message ?? `Error calling API: ${message}`,
+			quotaExceeded,
 		};
 	}
 }
@@ -117,14 +251,14 @@ export async function callLLMForChat(
 	onTextUpdate?: (text: string) => void,
 	abortSignal?: AbortSignal
 ): Promise<LLMResponse> {
-	const anthropic = getAnthropicProvider();
+	const flixa = getFlixaProvider();
 	const model = getModel();
 
 	const messages = buildChatMessages(context);
 
 	try {
 		const { text } = await generateText({
-			model: anthropic(model),
+			model: flixa(model),
 			system: CHAT_SYSTEM_PROMPT,
 			messages,
 			abortSignal,
@@ -144,10 +278,12 @@ export async function callLLMForChat(
 		return parseLLMResponse(text);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
+		const quotaExceeded = extractQuotaExceededError(error) ?? undefined;
 		return {
 			type: 'message',
-			message: `Error calling API: ${message}`,
+			message: quotaExceeded?.message ?? `Error calling API: ${message}`,
 			diff: '',
+			quotaExceeded,
 		};
 	}
 }
@@ -163,14 +299,14 @@ export async function callLLMForAgent(
 	onTextUpdate?: (text: string) => void,
 	abortSignal?: AbortSignal
 ): Promise<AgentResponse | LLMResponse> {
-	const anthropic = getAnthropicProvider();
+	const flixa = getFlixaProvider();
 	const model = getModel();
 
 	const messages = buildAgentMessages(context);
 
 	try {
 		const result = await generateText({
-			model: anthropic(model),
+			model: flixa(model),
 			system: AGENT_SYSTEM_PROMPT,
 			messages,
 			tools: agentTools,
@@ -196,12 +332,14 @@ export async function callLLMForAgent(
 
 		// Process all tool calls
 		if (toolCalls && toolCalls.length > 0) {
-			const actions = convertToolCallsToActions(toolCalls);
+			const { actions, toolCalls: chatToolCalls } =
+				convertExecutableToolCalls(toolCalls);
 
 			return {
 				type: 'agent',
-				message: result.text || 'Executing actions...',
+				message: result.text || '',
 				actions,
+				toolCalls: chatToolCalls,
 			};
 		}
 
@@ -223,10 +361,12 @@ export async function callLLMForAgent(
 	} catch (error) {
 		console.error('[Flixa] callLLMForAgent error:', error);
 		const message = error instanceof Error ? error.message : String(error);
+		const quotaExceeded = extractQuotaExceededError(error) ?? undefined;
 		return {
 			type: 'message',
-			message: `[API Error] ${message}`,
+			message: quotaExceeded?.message ?? `[API Error] ${message}`,
 			diff: '',
+			quotaExceeded,
 		};
 	}
 }

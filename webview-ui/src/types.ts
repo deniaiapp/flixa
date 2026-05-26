@@ -7,6 +7,21 @@ export interface ActionResult {
   error?: string;
 }
 
+export interface ChatCompletionToolCall {
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
+
+export interface ToolResult {
+  tool_call_id: string;
+  toolName: string;
+  content: string;
+}
+
 export interface FileChange {
   filePath: string;
   status: 'modified' | 'created' | 'deleted';
@@ -26,10 +41,12 @@ export interface ReferencedContextFile {
 }
 
 export interface ChatMessage {
-  role: 'user' | 'assistant' | 'system' | 'result' | 'executing';
+  role: 'user' | 'assistant' | 'system' | 'result' | 'tool' | 'executing';
   content: string;
   images?: ImageAttachment[];
   results?: ActionResult[];
+  tool_calls?: ChatCompletionToolCall[];
+  toolResults?: ToolResult[];
   executingAction?: string;
   executingOutput?: string;
   activeSelection?: string;
@@ -54,12 +71,14 @@ export interface ModelDefinition {
   tags?: string[];
   premium?: boolean;
   tier?: ModelTierRequirement;
+  tokenUsageMultiplier?: number;
 }
 
 export interface UsageItem {
   category: 'basic' | 'premium';
   limit: number;
   used: number;
+  unit: string;
   remaining: number;
   periodStart: string;
   periodEnd: string;
@@ -72,6 +91,11 @@ export interface UsageData {
   periodEnd: string | null;
   maxModeEnabled: boolean;
   maxModeEligible: boolean;
+  hasVerifiedPaymentMethod: boolean;
+  cardVerifiedAt: string | null;
+  cardFunding: string | null;
+  verifyUrl: string | null;
+  upgradeUrl: string | null;
   usage: UsageItem[];
 }
 

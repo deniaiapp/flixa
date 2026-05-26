@@ -6,6 +6,7 @@ export interface UsageItem {
   category: UsageCategory;
   limit: number;
   used: number;
+  unit: string;
   remaining: number;
   periodStart: string;
   periodEnd: string;
@@ -19,13 +20,31 @@ export interface UsageResponse {
   maxModeEnabled: boolean;
   maxModeEligible: boolean;
   isTeam: boolean;
+  hasVerifiedPaymentMethod: boolean;
+  cardVerifiedAt: string | null;
+  cardFunding: string | null;
+  verifyUrl: string | null;
+  upgradeUrl: string | null;
   usage: UsageItem[];
+}
+
+export interface QuotaExceededErrorMeta {
+  message: string;
+  type: string;
+  param: null;
+  code: "USAGE_LIMIT_EXCEEDED";
+  category?: UsageCategory;
+  tier?: Tier;
+  canVerifyForBoost?: boolean;
+  canUpgrade?: boolean;
+  verifyUrl?: string;
+  upgradeUrl?: string;
 }
 
 export interface UsageErrorResponse {
   error: {
     message: string;
-    type: "authentication_error" | "server_error";
+    type: "authentication_error" | "server_error" | "quota_exceeded";
     param: null;
     code:
       | "missing_auth_header"
@@ -33,7 +52,8 @@ export interface UsageErrorResponse {
       | "invalid_key"
       | "expired_key"
       | "db_error"
-      | "usage_fetch_error";
+      | "usage_fetch_error"
+      | "USAGE_LIMIT_EXCEEDED";
   };
 }
 
@@ -62,6 +82,7 @@ export interface ModelAccessDefinition {
   label?: string;
   description?: string;
   tags?: string[];
+  tokenUsageMultiplier?: number;
 }
 
 const FALLBACK_PREMIUM_MODELS = new Set<string>([

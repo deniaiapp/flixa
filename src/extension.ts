@@ -6,7 +6,7 @@ import { showDiffPreview } from './diff/preview';
 import { applyPendingDiff } from './diff/apply';
 import { PendingDiff, ImplementRequest, ApprovalMode } from './types';
 import { setOutputChannel } from './logger';
-import { UsageService, UsageStatusBarItem, showUsageDetailPanel } from './usage';
+import { UsageService, UsageStatusBarItem, showQuotaExceededDialog, showUsageDetailPanel } from './usage';
 import { setApiKey } from './llm/provider';
 
 let pendingDiff: PendingDiff | null = null;
@@ -48,6 +48,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   if (isLoggedIn) {
     usageService.fetchUsage();
   }
+
+  context.subscriptions.push(
+    vscode.window.onDidChangeWindowState(async (state) => {
+      if (state.focused && usageService && await usageService.isLoggedIn()) {
+        await usageService.fetchUsage(true);
+      }
+    })
+  );
 
   const codeLensProvider = new FlixaCodeLensProvider();
   const codeLensDisposable = vscode.languages.registerCodeLensProvider(
@@ -238,6 +246,13 @@ async function handleImplement(
 
       const response = await callLLMForImplement(request);
 
+      if (response.quotaExceeded) {
+        await showQuotaExceededDialog(response.quotaExceeded, async () => {
+          await usageService?.fetchUsage(true);
+        });
+        return;
+      }
+
       if (response.type === 'message') {
         vscode.window.showErrorMessage(`Flixa: ${response.message}`);
         return;
@@ -304,6 +319,13 @@ async function handleInlineEdit(): Promise<void> {
       };
 
       const response = await callLLMForImplement(request);
+
+      if (response.quotaExceeded) {
+        await showQuotaExceededDialog(response.quotaExceeded, async () => {
+          await usageService?.fetchUsage(true);
+        });
+        return;
+      }
 
       if (response.type === 'message') {
         vscode.window.showErrorMessage(`Flixa: ${response.message}`);

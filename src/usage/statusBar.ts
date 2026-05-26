@@ -1,47 +1,18 @@
 import * as vscode from 'vscode';
 import type { UsageService } from './service';
-import type { Tier, UsageCategory, UsageResponse } from './types';
+import type { UsageResponse } from './types';
 
-function formatNumber(n: number): string {
-	return n.toLocaleString();
-}
-
-const PAID_USAGE_LIMIT_LABELS: Record<
-	Exclude<Tier, 'free'>,
-	Record<UsageCategory, string>
-> = {
-	plus: {
-		basic: '20m',
-		premium: '5m',
-	},
-	pro: {
-		basic: '50m',
-		premium: '15m',
-	},
-	max: {
-		basic: '120m',
-		premium: '40m',
-	},
-};
-
-function formatUsageLimitLabel(
-	tier: Tier,
-	category: UsageCategory,
-	limit: number
-): string {
-	if (tier === 'free') {
-		return `${formatNumber(limit)} requests`;
+function formatUsageAmount(value: number, unit: string): string {
+	if (unit === 'tokens') {
+		if (value >= 1_000_000) {
+			return `${(value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1)}M`;
+		}
+		if (value >= 1_000) {
+			return `${(value / 1_000).toFixed(value % 1_000 === 0 ? 0 : 1)}K`;
+		}
 	}
 
-	return PAID_USAGE_LIMIT_LABELS[tier][category];
-}
-
-function formatUsageRemainingLabel(tier: Tier, remaining: number): string {
-	if (tier === 'free') {
-		return `${formatNumber(remaining)} requests remaining`;
-	}
-
-	return `${formatNumber(remaining)}m remaining`;
+	return value.toLocaleString();
 }
 
 export class UsageStatusBarItem {
@@ -154,12 +125,17 @@ export class UsageStatusBarItem {
 		];
 		if (basic) {
 			tooltipLines.push(
-				`Basic: ${formatNumber(basic.used)}/${formatUsageLimitLabel(data.tier, basic.category, basic.limit)} (${formatUsageRemainingLabel(data.tier, basic.remaining)})`
+				`Basic: ${formatUsageAmount(basic.used, basic.unit)}/${formatUsageAmount(basic.limit, basic.unit)} ${basic.unit} (${formatUsageAmount(basic.remaining, basic.unit)} ${basic.unit} remaining)`
 			);
 		}
 		if (premium) {
 			tooltipLines.push(
-				`Premium: ${formatNumber(premium.used)}/${formatUsageLimitLabel(data.tier, premium.category, premium.limit)} (${formatUsageRemainingLabel(data.tier, premium.remaining)})`
+				`Premium: ${formatUsageAmount(premium.used, premium.unit)}/${formatUsageAmount(premium.limit, premium.unit)} ${premium.unit} (${formatUsageAmount(premium.remaining, premium.unit)} ${premium.unit} remaining)`
+			);
+		}
+		if (data.tier === 'free' && data.hasVerifiedPaymentMethod) {
+			tooltipLines.push(
+				`Card verified${data.cardFunding ? `: ${data.cardFunding}` : ''}`
 			);
 		}
 		if (data.periodEnd) {

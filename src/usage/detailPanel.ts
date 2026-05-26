@@ -1,44 +1,23 @@
 import * as vscode from 'vscode';
 import type { UsageService } from './service';
-import type { Tier, UsageCategory } from './types';
+import type { UsageItem } from './types';
 import { getBillingUrl } from './service';
 
-const PAID_USAGE_LIMIT_LABELS: Record<
-	Exclude<Tier, 'free'>,
-	Record<UsageCategory, string>
-> = {
-	plus: {
-		basic: '20m',
-		premium: '5m',
-	},
-	pro: {
-		basic: '50m',
-		premium: '15m',
-	},
-	max: {
-		basic: '120m',
-		premium: '40m',
-	},
-};
-
-function formatUsageLimitLabel(
-	tier: Tier,
-	category: UsageCategory,
-	limit: number
-): string {
-	if (tier === 'free') {
-		return `${limit.toLocaleString()} requests`;
+function formatUsageAmount(value: number, unit: string): string {
+	if (unit === 'tokens') {
+		if (value >= 1_000_000) {
+			return `${(value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1)}M`;
+		}
+		if (value >= 1_000) {
+			return `${(value / 1_000).toFixed(value % 1_000 === 0 ? 0 : 1)}K`;
+		}
 	}
 
-	return PAID_USAGE_LIMIT_LABELS[tier][category];
+	return value.toLocaleString();
 }
 
-function formatUsageRemainingLabel(tier: Tier, remaining: number): string {
-	if (tier === 'free') {
-		return `${remaining.toLocaleString()} requests remaining`;
-	}
-
-	return `${remaining.toLocaleString()}m remaining`;
+function formatUsageLabel(item: UsageItem): string {
+	return `${formatUsageAmount(item.used, item.unit)}/${formatUsageAmount(item.limit, item.unit)} ${item.unit}`;
 }
 
 export async function showUsageDetailPanel(
@@ -76,15 +55,10 @@ export async function showUsageDetailPanel(
 		return;
 	}
 
+	await usageService.fetchUsage(true);
 	const data = usageService.getCachedUsage();
 	if (!data) {
-		await usageService.fetchUsage(true);
-		const freshData = usageService.getCachedUsage();
-		if (!freshData) {
-			vscode.window.showErrorMessage('Failed to fetch usage data');
-			return;
-		}
-		await showUsageQuickPick(usageService, freshData);
+		vscode.window.showErrorMessage('Failed to fetch usage data');
 		return;
 	}
 
@@ -117,8 +91,24 @@ async function showUsageQuickPick(
 		const categoryLabel =
 			usage.category.charAt(0).toUpperCase() + usage.category.slice(1);
 		items.push({
-			label: `$(graph) ${categoryLabel}: ${usage.used.toLocaleString()}/${formatUsageLimitLabel(data.tier, usage.category, usage.limit)}`,
-			description: `${bar} ${formatUsageRemainingLabel(data.tier, usage.remaining)}`,
+			label: `$(graph) ${categoryLabel}: ${formatUsageLabel(usage)}`,
+			description: `${bar} ${formatUsageAmount(usage.remaining, usage.unit)} ${usage.unit} remaining`,
+		});
+	}
+
+	if (data.tier === 'free' && !data.hasVerifiedPaymentMethod && data.verifyUrl) {
+		items.push({
+			label: '$(credit-card) Verify card',
+			description: 'Increase your free limits',
+			alwaysShow: true,
+		});
+	} else if (data.tier === 'free' && data.hasVerifiedPaymentMethod) {
+		const verifiedAt = data.cardVerifiedAt
+			? new Date(data.cardVerifiedAt).toLocaleString()
+			: '';
+		items.push({
+			label: '$(check) Card verified',
+			description: [data.cardFunding, verifiedAt].filter(Boolean).join(' '),
 		});
 	}
 
@@ -180,7 +170,9 @@ async function showUsageQuickPick(
 			await showUsageQuickPick(usageService, freshData);
 		}
 	} else if (selected?.label === '$(link-external) Upgrade Plan') {
-		vscode.env.openExternal(vscode.Uri.parse(getBillingUrl()));
+		vscode.env.openExternal(vscode.Uri.parse(data.upgradeUrl ?? getBillingUrl()));
+	} else if (selected?.label === '$(credit-card) Verify card' && data.verifyUrl) {
+		vscode.env.openExternal(vscode.Uri.parse(data.verifyUrl));
 	} else if (selected?.label === '$(sign-out) Logout') {
 		await usageService.logout();
 		vscode.window.showInformationMessage('Deni AI: Logged out');

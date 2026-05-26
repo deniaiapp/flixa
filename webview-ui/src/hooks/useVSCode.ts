@@ -16,6 +16,7 @@ export interface UseVSCodeReturn {
 	showUsageDetail: () => void;
 	login: () => void;
 	openBilling: () => void;
+	openExternalUrl: (url: string) => void;
 }
 
 export function useVSCode(): UseVSCodeReturn {
@@ -71,6 +72,10 @@ export function useVSCode(): UseVSCodeReturn {
 		vscode.postMessage({ type: 'openBilling' });
 	}, []);
 
+	const openExternalUrl = useCallback((url: string) => {
+		vscode.postMessage({ type: 'openExternalUrl', url });
+	}, []);
+
 	return {
 		sendMessage,
 		toggleAgentMode,
@@ -85,5 +90,6 @@ export function useVSCode(): UseVSCodeReturn {
 		showUsageDetail,
 		login,
 		openBilling,
+		openExternalUrl,
 	};
 }

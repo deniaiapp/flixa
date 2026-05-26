@@ -132,6 +132,7 @@ interface InputAreaProps {
   onUsageClick: () => void;
   onLogin: () => void;
   onOpenBilling: () => void;
+  onOpenExternalUrl: (url: string) => void;
 }
 
 const ChatIcon = () => (
@@ -300,38 +301,25 @@ const reasoningEffortOptions: Array<{
   },
 ];
 
-const PAID_USAGE_LIMIT_LABELS: Record<
-  Exclude<Tier, "free">,
-  Record<"basic" | "premium", string>
-> = {
-  plus: {
-    basic: "20m",
-    premium: "5m",
-  },
-  pro: {
-    basic: "50m",
-    premium: "15m",
-  },
-  max: {
-    basic: "120m",
-    premium: "40m",
-  },
-};
-
 function getTierLabel(tier: Tier): string {
   return tier.charAt(0).toUpperCase() + tier.slice(1);
 }
 
-function formatUsageLimitLabel(
-  tier: Tier,
-  category: "basic" | "premium",
-  limit: number,
-): string {
-  if (tier === "free") {
-    return `${limit.toLocaleString()} requests`;
+function formatUsageAmount(value: number, unit: string): string {
+  if (unit === "tokens") {
+    if (value >= 1_000_000) {
+      return `${(value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1)}M`;
+    }
+    if (value >= 1_000) {
+      return `${(value / 1_000).toFixed(value % 1_000 === 0 ? 0 : 1)}K`;
+    }
   }
 
-  return PAID_USAGE_LIMIT_LABELS[tier][category];
+  return value.toLocaleString();
+}
+
+function formatUsageItemLabel(item: UsageData["usage"][number]): string {
+  return `${formatUsageAmount(item.used, item.unit)}/${formatUsageAmount(item.limit, item.unit)} ${item.unit}`;
 }
 
 
@@ -385,6 +373,7 @@ export function InputArea({
   onUsageClick,
   onLogin,
   onOpenBilling,
+  onOpenExternalUrl,
 }: InputAreaProps) {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const historyButtonRef = useRef<HTMLButtonElement>(null);
@@ -440,6 +429,13 @@ export function InputArea({
   );
 
   const userTier = usageData?.tier ?? null;
+  const basicUsage = usageData?.usage.find((u) => u.category === "basic") ?? null;
+  const shouldShowVerifyBoost =
+    usageData?.tier === "free" &&
+    usageData.hasVerifiedPaymentMethod === false &&
+    !!usageData.verifyUrl;
+  const shouldShowCardVerified =
+    usageData?.tier === "free" && usageData.hasVerifiedPaymentMethod === true;
   const getModelDefinition = (modelId: string): ModelDefinition | undefined => {
     return modelDefinitions.find((model) => model.id === modelId);
   };
@@ -450,6 +446,20 @@ export function InputArea({
   const getModelTierRequirement = (modelId: string): ModelTierRequirement => {
     const definition = getModelDefinition(modelId);
     return definition?.tier ?? "free";
+  };
+  const getModelTokenUsageMultiplier = (modelId: string): number => {
+    const definition = getModelDefinition(modelId);
+    return definition?.tokenUsageMultiplier ?? 1;
+  };
+  const renderTokenUsageMultiplierBadge = (multiplier: number) => {
+    if (multiplier <= 1) {
+      return null;
+    }
+    return (
+      <span className="shrink-0 rounded border border-warning-border bg-warning-bg px-1 py-0.5 text-[9px] leading-none text-warning whitespace-nowrap">
+        {multiplier}x token usage
+      </span>
+    );
   };
   const isModelLocked = (model: string, tier: Tier | null, loggedIn: boolean): boolean => {
     if (!loggedIn) {
@@ -486,6 +496,7 @@ export function InputArea({
       label: getModelLabel(model),
       description: def?.description ?? "",
       tags: def?.tags ?? [],
+      tokenUsageMultiplier: getModelTokenUsageMultiplier(model),
       locked: isModelLocked(model, userTier, isLoggedIn),
       lockMessage: getModelLockMessage(model, isLoggedIn),
     };
@@ -597,7 +608,6 @@ export function InputArea({
     syncTextareaHeight();
     syncTextareaScroll();
   }, [text]);
-
 
   const handleOpenFromHistory = (sessionId: string) => {
     onSessionChange(sessionId);
@@ -923,7 +933,10 @@ export function InputArea({
               className="w-full px-3 py-2 cursor-pointer transition-colors hover:bg-surface-hover text-xs text-left flex items-center justify-between text-menu-foreground border-t border-menu-separator"
               onClick={() => setActiveSubmenu("model")}
             >
-              <span>Model: {getCurrentModelLabel()}</span>
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="truncate">Model: {getCurrentModelLabel()}</span>
+                {renderTokenUsageMultiplierBadge(getModelTokenUsageMultiplier(selectedModel))}
+              </span>
               <ChevronIcon />
             </button>
             <button
@@ -1096,8 +1109,11 @@ export function InputArea({
                       setIsSettingsOpen(false);
                     }}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">{option.label}</span>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="truncate font-medium">{option.label}</span>
+                        {renderTokenUsageMultiplierBadge(option.tokenUsageMultiplier)}
+                      </span>
                       {option.locked && (
                         <span className="flex items-center gap-1 text-[10px] text-foreground-subtle">
                           <svg
@@ -1324,14 +1340,29 @@ export function InputArea({
                 )}`}
                 title="View usage details"
               >
-                {getTierLabel(usageData.tier)} |{" "}
-                {usageData.usage.find((u) => u.category === "basic")?.used ?? 0}/
-                {formatUsageLimitLabel(
-                  usageData.tier,
-                  "basic",
-                  usageData.usage.find((u) => u.category === "basic")?.limit ?? 0,
-                )}
+                {getTierLabel(usageData.tier)}
+                {basicUsage ? ` | ${formatUsageItemLabel(basicUsage)}` : ""}
               </button>
+            )}
+            {shouldShowVerifyBoost && usageData?.verifyUrl && (
+              <span className="ml-1 inline-flex items-center gap-1 text-[10px] text-foreground-subtle">
+                <span>Verify your card to increase your free limits.</span>
+                <button
+                  type="button"
+                  onClick={() => onOpenExternalUrl(usageData.verifyUrl as string)}
+                  className="px-1.5 py-0.5 rounded border border-input-border hover:text-foreground hover:bg-surface-hover transition-all"
+                >
+                  Verify card
+                </button>
+              </span>
+            )}
+            {shouldShowCardVerified && (
+              <span
+                className="ml-1 px-1.5 py-0.5 text-[10px] rounded border border-input-border text-foreground-subtle"
+                title={usageData.cardFunding ?? "Card verified"}
+              >
+                Card verified{usageData.cardFunding ? ` ${usageData.cardFunding}` : ""}
+              </span>
             )}
           </div>
           <div className="flex items-center gap-0.5">
