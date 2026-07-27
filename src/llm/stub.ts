@@ -1,5 +1,10 @@
 import { generateText } from 'ai';
 import { agentTools } from '../agent/tools';
+import {
+	extractApiErrorCode,
+	getClientSignalUserMessage,
+	logMissingClientSignal,
+} from '../api/flixaClientHeaders';
 import { log } from '../logger';
 import type {
 	AgentResponse,
@@ -110,6 +115,30 @@ function extractQuotaExceededError(error: unknown): QuotaExceededErrorMeta | nul
 	}
 
 	return null;
+}
+
+function resolveLlmApiError(
+	error: unknown,
+	requestPath: string,
+	fallbackPrefix: string
+): { message: string; quotaExceeded?: QuotaExceededErrorMeta } {
+	const quotaExceeded = extractQuotaExceededError(error) ?? undefined;
+	if (quotaExceeded) {
+		return { message: quotaExceeded.message, quotaExceeded };
+	}
+
+	const code = extractApiErrorCode(error);
+	if (code === 'missing_client_signal') {
+		logMissingClientSignal(requestPath);
+	}
+
+	const clientMessage = code ? getClientSignalUserMessage(code) : null;
+	if (clientMessage) {
+		return { message: clientMessage };
+	}
+
+	const message = error instanceof Error ? error.message : String(error);
+	return { message: `${fallbackPrefix}${message}` };
 }
 
 function serializeToolArguments(input: unknown): string {
@@ -236,12 +265,15 @@ export async function callLLMForImplement(
 			newContent,
 		};
 	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		const quotaExceeded = extractQuotaExceededError(error) ?? undefined;
+		const resolved = resolveLlmApiError(
+			error,
+			'/v1/agent/chat/completions',
+			'Error calling API: '
+		);
 		return {
 			type: 'message',
-			message: quotaExceeded?.message ?? `Error calling API: ${message}`,
-			quotaExceeded,
+			message: resolved.message,
+			quotaExceeded: resolved.quotaExceeded,
 		};
 	}
 }
@@ -277,13 +309,16 @@ export async function callLLMForChat(
 
 		return parseLLMResponse(text);
 	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		const quotaExceeded = extractQuotaExceededError(error) ?? undefined;
+		const resolved = resolveLlmApiError(
+			error,
+			'/v1/agent/chat/completions',
+			'Error calling API: '
+		);
 		return {
 			type: 'message',
-			message: quotaExceeded?.message ?? `Error calling API: ${message}`,
+			message: resolved.message,
 			diff: '',
-			quotaExceeded,
+			quotaExceeded: resolved.quotaExceeded,
 		};
 	}
 }
@@ -360,13 +395,16 @@ export async function callLLMForAgent(
 		};
 	} catch (error) {
 		console.error('[Flixa] callLLMForAgent error:', error);
-		const message = error instanceof Error ? error.message : String(error);
-		const quotaExceeded = extractQuotaExceededError(error) ?? undefined;
+		const resolved = resolveLlmApiError(
+			error,
+			'/v1/agent/chat/completions',
+			'[API Error] '
+		);
 		return {
 			type: 'message',
-			message: quotaExceeded?.message ?? `[API Error] ${message}`,
+			message: resolved.message,
 			diff: '',
-			quotaExceeded,
+			quotaExceeded: resolved.quotaExceeded,
 		};
 	}
 }

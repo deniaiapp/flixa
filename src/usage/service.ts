@@ -9,6 +9,12 @@ import type {
 	UsageItem,
 	UsageResponse,
 } from './types';
+import {
+	extractApiErrorCode,
+	getClientSignalUserMessage,
+	getFlixaClientHeaders,
+	logMissingClientSignal,
+} from '../api/flixaClientHeaders';
 import { log } from '../logger';
 import { canUseTier, getModelTierRequirement } from './types';
 
@@ -209,10 +215,13 @@ export class UsageService {
 				`${apiBaseUrl}/v1/deni/usage`,
 			];
 			let response: Response | null = null;
+			let usedEndpoint = endpoints[0];
 			for (const endpoint of endpoints) {
 				console.log('[Flixa] fetchUsage - fetching from:', endpoint);
+				usedEndpoint = endpoint;
 				response = await fetch(endpoint, {
 					headers: {
+						...getFlixaClientHeaders(),
 						Authorization: `Bearer ${apiKey}`,
 					},
 				});
@@ -223,8 +232,41 @@ export class UsageService {
 
 			console.log('[Flixa] fetchUsage - response status:', response?.status);
 
-			if (response?.status === 401) {
-				await this.logout();
+			if (response?.status === 401 || response?.status === 403) {
+				let errorCode: string | null = null;
+				try {
+					const body = (await response.json()) as unknown;
+					errorCode = extractApiErrorCode(body);
+				} catch {
+					// ignore
+				}
+
+				if (errorCode === 'missing_client_signal') {
+					logMissingClientSignal(usedEndpoint);
+				}
+
+				const clientMessage =
+					(errorCode && getClientSignalUserMessage(errorCode)) ||
+					(response.status === 401
+						? 'API key is invalid or expired. Please log in again.'
+						: null);
+
+				if (response.status === 401) {
+					await this.logout();
+				}
+
+				if (clientMessage) {
+					vscode.window.showErrorMessage(`Flixa: ${clientMessage}`);
+					return null;
+				}
+
+				if (response.status === 403) {
+					vscode.window.showErrorMessage(
+						'Flixa: Access denied. Please contact support.'
+					);
+					return null;
+				}
+
 				vscode.window.showErrorMessage(
 					'Deni AI: API key is invalid or expired. Please log in again.'
 				);

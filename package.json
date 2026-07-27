@@ -2,7 +2,7 @@
   "name": "flixa",
   "displayName": "Flixa",
   "description": "AI-powered code implementation assistant",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "publisher": "deniai",
   "icon": "assets/flixa.png",
   "repository": {

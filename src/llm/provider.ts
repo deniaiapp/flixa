@@ -1,17 +1,18 @@
 import { createOpenAI } from "@ai-sdk/openai";
+import { getFlixaClientHeaders } from "../api/flixaClientHeaders";
 import { getFlixaApiBaseUrl } from "../usage/service";
 import { setModelAccessDefinitions, type ModelAccessDefinition } from "../usage/types";
 
 const FLIXA_BASE_URL = getFlixaApiBaseUrl();
 
 const OPENAI_BASE_URL = `${FLIXA_BASE_URL}/v1/agent/`;
-const DEFAULT_MODEL = "openai/gpt-5.4";
+const DEFAULT_MODEL = "openai/gpt-5.5";
 const DEFAULT_REASONING_EFFORT = "medium";
 const MODELS_CACHE_DURATION_MS = 5 * 60 * 1000;
 const FALLBACK_MODEL_DEFINITIONS: ModelAccessDefinition[] = [
   {
     id: DEFAULT_MODEL,
-    label: "GPT-5.4",
+    label: "GPT-5.5",
     description: "OpenAI flagship coding model",
     tags: ["coding", "fast"],
     premium: false,
@@ -42,7 +43,11 @@ export function getApiKey(): string | undefined {
 
 export function getFlixaProvider() {
   console.log("[Flixa] Creating OpenAI provider with base URL:", OPENAI_BASE_URL);
-  return createOpenAI({ apiKey: _apiKey || "anonymous", baseURL: OPENAI_BASE_URL }).chat;
+  return createOpenAI({
+    apiKey: _apiKey || "anonymous",
+    baseURL: OPENAI_BASE_URL,
+    headers: getFlixaClientHeaders(),
+  }).chat;
 }
 
 export function getModel(): string {
@@ -170,7 +175,9 @@ export async function getAvailableModels(force = false): Promise<string[]> {
     return withCurrentModel(_cachedModels);
   }
 
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = {
+    ...getFlixaClientHeaders(),
+  };
   if (_apiKey) {
     headers.Authorization = `Bearer ${_apiKey}`;
   }
