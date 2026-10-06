@@ -208,9 +208,9 @@ body {
   margin-bottom: 0;
 }
 
-/* Shiki code blocks */
+/* Sugar High code blocks */
 .code-block-wrapper pre,
-.shiki-fallback {
+.sugar-high-block {
   margin: 0;
   padding: 0.75em 1em;
   overflow-x: auto;
@@ -220,44 +220,39 @@ body {
   font-family: var(--vscode-editor-font-family, monospace);
   font-size: 0.85em;
   line-height: 1.5;
-
-  line-height: 1.5;
   border-radius: 6px;
-}
-
-.shiki-fallback {
   background: var(--color-code-bg);
+  color: var(--sh-identifier);
 }
 
-.shiki-fallback code {
+.code-block-wrapper code {
   background: none;
   padding: 0;
 }
 
-/* Shiki theme support */
-.code-block-wrapper .shiki {
-  background-color: var(--color-code-bg) !important;
-}
-
-.code-block-wrapper .shiki code {
-  background: none;
-  padding: 0;
-}
-
-/* Light/dark theme support for shiki dual themes */
-@media (prefers-color-scheme: light) {
-  .code-block-wrapper .shiki,
-  .code-block-wrapper .shiki span {
-    color: var(--shiki-light) !important;
-    background-color: var(--shiki-light-bg) !important;
-  }
+.code-block-wrapper {
+  --sh-class: #6f42c1;
+  --sh-identifier: #24292e;
+  --sh-sign: #6a737d;
+  --sh-property: #005cc5;
+  --sh-entity: #6f42c1;
+  --sh-jsxliterals: #22863a;
+  --sh-string: #032f62;
+  --sh-keyword: #d73a49;
+  --sh-comment: #6a737d;
 }
 
 @media (prefers-color-scheme: dark) {
-  .code-block-wrapper .shiki,
-  .code-block-wrapper .shiki span {
-    color: var(--shiki-dark) !important;
-    background-color: var(--shiki-dark-bg) !important;
+  .code-block-wrapper {
+    --sh-class: #b392f0;
+    --sh-identifier: #e1e4e8;
+    --sh-sign: #959da5;
+    --sh-property: #79b8ff;
+    --sh-entity: #b392f0;
+    --sh-jsxliterals: #85e89d;
+    --sh-string: #9ecbff;
+    --sh-keyword: #f97583;
+    --sh-comment: #6a737d;
   }
 }
 
@@ -270,9 +265,15 @@ html[style*="--vscode-editor-background: #24292e"],
 html[style*="--vscode-editor-background: #1f1f1f"],
 html[style*="--vscode-editor-background: #0d1117"],
 html[style*="--vscode-editor-background: #272822"] {
-  .code-block-wrapper .shiki,
-  .code-block-wrapper .shiki span {
-    color: var(--shiki-dark) !important;
-    background-color: var(--shiki-dark-bg) !important;
+  .code-block-wrapper {
+    --sh-class: #b392f0;
+    --sh-identifier: #e1e4e8;
+    --sh-sign: #959da5;
+    --sh-property: #79b8ff;
+    --sh-entity: #b392f0;
+    --sh-jsxliterals: #85e89d;
+    --sh-string: #9ecbff;
+    --sh-keyword: #f97583;
+    --sh-comment: #6a737d;
   }
 }
