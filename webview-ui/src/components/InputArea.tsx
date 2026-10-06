@@ -318,6 +318,14 @@ export function InputArea({
   const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
   const [settingsPosition, setSettingsPosition] = useState({ bottom: 0, left: 0 });
   const [modelSearch, setModelSearch] = useState("");
+  const [modelTooltip, setModelTooltip] = useState<{
+    label: string;
+    description: string;
+    tags: string[];
+    bottom: number;
+    left: number;
+    width: number;
+  } | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [mentionIndex, setMentionIndex] = useState(0);
   const [mentionMenuPosition, setMentionMenuPosition] = useState({
@@ -427,7 +435,7 @@ export function InputArea({
       return null;
     }
     return (
-      <span className="shrink-0 rounded border border-warning-border bg-warning-bg px-1 py-0.5 text-[9px] leading-none text-warning whitespace-nowrap">
+      <span className="shrink-0 rounded border border-foreground/30 bg-foreground/10 px-1 py-0.5 text-[9px] leading-none text-foreground whitespace-nowrap">
         {multiplier}x token usage
       </span>
     );
@@ -473,27 +481,25 @@ export function InputArea({
     };
   });
   const normalizedModelSearch = modelSearch.trim().toLowerCase();
-  const filteredModelOptions = modelOptions.filter((option) => {
-    if (!normalizedModelSearch) {
-      return true;
-    }
-    return (
-      option.label.toLowerCase().includes(normalizedModelSearch) ||
-      option.value.toLowerCase().includes(normalizedModelSearch) ||
-      option.description.toLowerCase().includes(normalizedModelSearch) ||
-      option.tags.some((tag) => tag.toLowerCase().includes(normalizedModelSearch))
-    );
-  });
-  const getModelTooltip = (option: { description: string; tags: string[] }): string => {
-    const parts: string[] = [];
-    if (option.description) {
-      parts.push(option.description);
-    }
-    if (option.tags.length > 0) {
-      parts.push(`Tags: ${option.tags.join(", ")}`);
-    }
-    return parts.join("\n");
-  };
+  const filteredModelOptions = modelOptions
+    .filter((option) => {
+      if (!normalizedModelSearch) {
+        return true;
+      }
+      return (
+        option.label.toLowerCase().includes(normalizedModelSearch) ||
+        option.value.toLowerCase().includes(normalizedModelSearch) ||
+        option.description.toLowerCase().includes(normalizedModelSearch) ||
+        option.tags.some((tag) => tag.toLowerCase().includes(normalizedModelSearch))
+      );
+    })
+    .sort((a, b) => Number(a.locked) - Number(b.locked));
+
+	useEffect(() => {
+		if (!isSettingsOpen || activeSubmenu !== "model") {
+			setModelTooltip(null);
+		}
+	}, [isSettingsOpen, activeSubmenu]);
 
 	useEffect(() => {
 		const handleClickOutside = (e: MouseEvent) => {
@@ -1100,7 +1106,23 @@ export function InputArea({
                   <button
                     key={option.value}
                     type="button"
-                    title={getModelTooltip(option)}
+                    onMouseEnter={(e) => {
+                      if (!option.description && option.tags.length === 0) {
+                        setModelTooltip(null);
+                        return;
+                      }
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const width = Math.min(260, window.innerWidth - 16);
+                      setModelTooltip({
+                        label: option.label,
+                        description: option.description,
+                        tags: option.tags,
+                        bottom: window.innerHeight - rect.top + 6,
+                        left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)),
+                        width,
+                      });
+                    }}
+                    onMouseLeave={() => setModelTooltip(null)}
                     className={`w-full px-3 py-2 cursor-pointer transition-colors hover:bg-surface-hover text-xs text-left ${
                       selectedModel === option.value
                         ? "bg-surface-hover text-foreground"
@@ -1143,10 +1165,12 @@ export function InputArea({
                               d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
                             />
                           </svg>
-                          <span>{option.lockMessage}</span>
                         </span>
                       )}
                     </div>
+                    {option.locked && (
+                      <div className="mt-0.5 text-[10px] text-foreground-subtle">{option.lockMessage}</div>
+                    )}
                   </button>
                 ))
               )}
@@ -1202,6 +1226,36 @@ export function InputArea({
             ))}
           </div>
         ) : null}
+        {activeSubmenu === "model" && modelTooltip && (
+          <div
+            role="tooltip"
+            className="fixed z-[10000] pointer-events-none rounded-lg border border-menu-border bg-menu-bg px-3 py-2 text-xs text-menu-foreground shadow-[0_8px_24px_var(--color-shadow)] backdrop-blur-sm"
+            style={{
+              bottom: modelTooltip.bottom,
+              left: modelTooltip.left,
+              width: modelTooltip.width,
+            }}
+          >
+            <div className="font-semibold text-foreground">{modelTooltip.label}</div>
+            {modelTooltip.description && (
+              <div className="mt-1 text-[11px] leading-snug text-foreground-muted">
+                {modelTooltip.description}
+              </div>
+            )}
+            {modelTooltip.tags.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {modelTooltip.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="rounded-full border border-foreground/20 bg-foreground/10 px-1.5 py-0.5 text-[9px] leading-none text-foreground"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>,
       document.body,
     );
@@ -1311,6 +1365,27 @@ export function InputArea({
           <div className="flex items-center gap-0.5">
             <button
               type="button"
+              onClick={handleImageButtonClick}
+              className="p-1 text-foreground-subtle hover:text-foreground hover:bg-surface-hover rounded transition-all"
+              title="Attach Image"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
+            </button>
+            <button
+              type="button"
               ref={settingsButtonRef}
               onClick={() => {
                 setActiveSubmenu("model");
@@ -1337,27 +1412,6 @@ export function InputArea({
                 <SelectorChevronIcon />
               </button>
             )}
-            <button
-              type="button"
-              onClick={handleImageButtonClick}
-              className="p-1 text-foreground-subtle hover:text-foreground hover:bg-surface-hover rounded transition-all"
-              title="Attach Image"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
-            </button>
           </div>
           <div className="flex items-center gap-0.5">
             {agentRunning ? (
