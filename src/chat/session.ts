@@ -6,6 +6,7 @@ import type {
 	SerializedToolResult,
 	SessionMessage,
 } from '../types';
+import { isSlashCommandMessage } from './slashCommands';
 
 export interface ChatMessage {
 	role: 'user' | 'assistant' | 'system' | 'result' | 'tool' | 'executing';
@@ -26,6 +27,10 @@ export interface ChatSession {
 	name: string;
 	messages: ChatMessage[];
 	createdAt: number;
+	/** Canonical Responses input window after standalone compact (use as-is). */
+	compactedInput?: unknown[];
+	/** Length of getSessionMessages() at the time of last compact. */
+	compactedSessionMessageCount?: number;
 }
 
 export class SessionManager {
@@ -108,6 +113,8 @@ export class SessionManager {
 			name: `Chat ${this._sessions.length + 1}`,
 			messages: [],
 			createdAt: Date.now(),
+			compactedInput: undefined,
+			compactedSessionMessageCount: undefined,
 		};
 		this._sessions.unshift(session);
 		this._currentSessionId = id;
@@ -129,10 +136,44 @@ export class SessionManager {
 
 	clearHistory(): void {
 		this.setMessages([]);
+		this.clearCompactedInput();
 		this._saveSessions();
 	}
 
 	save(): void {
+		this._saveSessions();
+	}
+
+	getCompactedInput(): unknown[] | null {
+		const session = this.getCurrentSession();
+		if (!session?.compactedInput || session.compactedInput.length === 0) {
+			return null;
+		}
+		return session.compactedInput;
+	}
+
+	getCompactedSessionMessageCount(): number {
+		const session = this.getCurrentSession();
+		return session?.compactedSessionMessageCount ?? 0;
+	}
+
+	setCompactedInput(input: unknown[], sessionMessageCount: number): void {
+		const session = this.getCurrentSession();
+		if (!session) {
+			return;
+		}
+		session.compactedInput = input;
+		session.compactedSessionMessageCount = sessionMessageCount;
+		this._saveSessions();
+	}
+
+	clearCompactedInput(): void {
+		const session = this.getCurrentSession();
+		if (!session) {
+			return;
+		}
+		session.compactedInput = undefined;
+		session.compactedSessionMessageCount = undefined;
 		this._saveSessions();
 	}
 
@@ -148,10 +189,11 @@ export class SessionManager {
 		return this.getMessages()
 			.filter(
 				(m) =>
-					m.role === 'user' ||
-					m.role === 'assistant' ||
-					m.role === 'result' ||
-					m.role === 'tool'
+					(m.role === 'user' ||
+						m.role === 'assistant' ||
+						m.role === 'result' ||
+						m.role === 'tool') &&
+					!(m.role === 'user' && isSlashCommandMessage(m.content))
 			)
 			.map((m) => ({
 				role: m.role as 'user' | 'assistant' | 'result' | 'tool',

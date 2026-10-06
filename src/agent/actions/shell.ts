@@ -108,8 +108,8 @@ async function executeWithSpawn(
 	return new Promise((resolve) => {
 		let combined = '';
 		let settled = false;
-		let lastPromptCheck = '';
 		let promptDebounceTimer: NodeJS.Timeout | undefined;
+		let commandTimeout: NodeJS.Timeout | undefined;
 
 		const child = spawn(shell, [shellFlag, action.command], {
 			cwd: workspaceRoot || undefined,
@@ -120,6 +120,9 @@ async function executeWithSpawn(
 		const finalize = (result: ActionExecutionResult) => {
 			if (settled) return;
 			settled = true;
+			if (commandTimeout) {
+				clearTimeout(commandTimeout);
+			}
 			if (promptDebounceTimer) {
 				clearTimeout(promptDebounceTimer);
 			}
@@ -156,28 +159,24 @@ async function executeWithSpawn(
 			promptDebounceTimer = setTimeout(() => {
 				if (settled || !child.stdin?.writable) return;
 				
-				// Only check if output has stabilized (same as last check)
-				if (combined === lastPromptCheck) {
-					const { isPrompt, promptType } = detectInteractivePrompt(combined);
+				const { isPrompt, promptType } = detectInteractivePrompt(combined);
 					
-					if (isPrompt) {
-						console.log('[Flixa] Auto-responding to interactive prompt:', promptType);
-						try {
-							if (promptType === 'yesno') {
-								child.stdin.write('y\n');
-							} else if (promptType === 'enter' || promptType === 'select') {
-								// For select prompts, Enter selects the current/first option
-								child.stdin.write('\n');
-							} else if (promptType === 'input') {
-								// For password/passphrase prompts, send empty line to skip or fail gracefully
-								child.stdin.write('\n');
-							}
-						} catch (err) {
-							console.log('[Flixa] Failed to write to stdin:', err);
+				if (isPrompt) {
+					console.log('[Flixa] Auto-responding to interactive prompt:', promptType);
+					try {
+						if (promptType === 'yesno') {
+							child.stdin.write('y\n');
+						} else if (promptType === 'enter' || promptType === 'select') {
+							// For select prompts, Enter selects the current/first option
+							child.stdin.write('\n');
+						} else if (promptType === 'input') {
+							// For password/passphrase prompts, send empty line to skip or fail gracefully
+							child.stdin.write('\n');
 						}
+					} catch (err) {
+						console.log('[Flixa] Failed to write to stdin:', err);
 					}
 				}
-				lastPromptCheck = combined;
 			}, 300);
 		};
 
@@ -226,7 +225,7 @@ async function executeWithSpawn(
 			});
 		});
 
-		setTimeout(() => {
+		commandTimeout = setTimeout(() => {
 			if (settled) return;
 			child.kill();
 			finalize({
@@ -422,6 +421,9 @@ export async function executeShellAction(
 
 		if (onSafetyCheck) {
 			onSafetyCheck(actionDesc, false);
+		}
+		if (abortSignal?.aborted) {
+			return { action, success: false, error: 'Command cancelled' };
 		}
 
 		if (safetyResult.verdict === 'UNSAFE') {

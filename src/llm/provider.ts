@@ -2,17 +2,23 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { getFlixaClientHeaders } from "../api/flixaClientHeaders";
 import { getFlixaApiBaseUrl } from "../usage/service";
 import { setModelAccessDefinitions, type ModelAccessDefinition } from "../usage/types";
+import {
+  getAvailableReasoningEfforts,
+  isReasoningEffort,
+  normalizeReasoningEfforts,
+  type ReasoningEffort,
+} from "./reasoning";
 
 const FLIXA_BASE_URL = getFlixaApiBaseUrl();
 
 const OPENAI_BASE_URL = `${FLIXA_BASE_URL}/v1/agent/`;
-const DEFAULT_MODEL = "openai/gpt-5.5";
+const DEFAULT_MODEL = "openai/gpt-6-luna";
 const DEFAULT_REASONING_EFFORT = "medium";
 const MODELS_CACHE_DURATION_MS = 5 * 60 * 1000;
 const FALLBACK_MODEL_DEFINITIONS: ModelAccessDefinition[] = [
   {
     id: DEFAULT_MODEL,
-    label: "GPT-5.5",
+    label: "GPT-6 Luna",
     description: "OpenAI flagship coding model",
     tags: ["coding", "fast"],
     premium: false,
@@ -21,14 +27,14 @@ const FALLBACK_MODEL_DEFINITIONS: ModelAccessDefinition[] = [
 ];
 const FALLBACK_MODELS = FALLBACK_MODEL_DEFINITIONS.map((model) => model.id);
 
-export type ReasoningEffort = "low" | "medium" | "high";
-
 let _apiKey: string | undefined;
 let _cachedModels: string[] | null = null;
 let _cachedModelDefinitions: ModelAccessDefinition[] | null = null;
 let _modelsFetchedAt = 0;
 let _selectedModel = DEFAULT_MODEL;
-let _selectedReasoningEffort: ReasoningEffort = DEFAULT_REASONING_EFFORT;
+let _backendDefaultModel: string | undefined;
+let _modelSelectedByUser = false;
+let _selectedReasoningEffort: ReasoningEffort | undefined = DEFAULT_REASONING_EFFORT;
 
 export function setApiKey(apiKey: string | undefined): void {
   _apiKey = apiKey;
@@ -55,9 +61,16 @@ export function getModel(): string {
   return _selectedModel;
 }
 
-export function getReasoningEffort(): ReasoningEffort {
+export function getReasoningEffort(): ReasoningEffort | undefined {
   console.log("[Flixa] Using reasoning effort:", _selectedReasoningEffort);
   return _selectedReasoningEffort;
+}
+
+export function getAvailableReasoningEffortsForModel(
+  model = getModel(),
+): ReasoningEffort[] {
+  const definition = _cachedModelDefinitions?.find((item) => item.id === model);
+  return getAvailableReasoningEfforts(model, definition?.reasoningEfforts);
 }
 
 function withCurrentModel(models: string[]): string[] {
@@ -115,6 +128,14 @@ function extractModelDefinition(model: unknown): ModelAccessDefinition | null {
         premium: typeof record.premium === "boolean" ? record.premium : undefined,
         tier: normalizeTier(record.tier),
         tokenUsageMultiplier: normalizeTokenUsageMultiplier(record.tokenUsageMultiplier),
+        reasoningEfforts: normalizeReasoningEfforts(
+          record.efforts ??
+            record.reasoningEfforts ??
+            record.reasoning_efforts ??
+            record.supportedReasoningEfforts ??
+            record.supported_reasoning_efforts,
+        ),
+        default: record.default === true ? true : undefined,
       };
     }
   }
@@ -203,6 +224,11 @@ export async function getAvailableModels(force = false): Promise<string[]> {
         _cachedModels = models;
         _cachedModelDefinitions = modelDefinitions;
         _modelsFetchedAt = Date.now();
+        _backendDefaultModel = modelDefinitions.find((model) => model.default === true)?.id;
+        if (_backendDefaultModel && !_modelSelectedByUser) {
+          await setModel(_backendDefaultModel);
+          _modelSelectedByUser = false;
+        }
         return withCurrentModel(models);
       }
     } catch (error) {
@@ -223,18 +249,26 @@ export function getModelDefinitions(): ModelAccessDefinition[] {
 }
 
 export async function setModel(model: string): Promise<void> {
-  _selectedModel = model || DEFAULT_MODEL;
+  _selectedModel = model || _backendDefaultModel || DEFAULT_MODEL;
+  _modelSelectedByUser = !!model;
+  const availableEfforts = getAvailableReasoningEffortsForModel();
+  if (availableEfforts.length === 0) {
+    _selectedReasoningEffort = undefined;
+  } else if (!_selectedReasoningEffort || !availableEfforts.includes(_selectedReasoningEffort)) {
+    _selectedReasoningEffort = availableEfforts.includes(DEFAULT_REASONING_EFFORT)
+      ? DEFAULT_REASONING_EFFORT
+      : availableEfforts[0];
+  }
 }
 
 export async function setReasoningEffort(reasoningEffort: string): Promise<void> {
-  if (
-    reasoningEffort === "low" ||
-    reasoningEffort === "medium" ||
-    reasoningEffort === "high"
-  ) {
+  const availableEfforts = getAvailableReasoningEffortsForModel();
+  if (isReasoningEffort(reasoningEffort) && availableEfforts.includes(reasoningEffort)) {
     _selectedReasoningEffort = reasoningEffort;
     return;
   }
 
-  _selectedReasoningEffort = DEFAULT_REASONING_EFFORT;
+  _selectedReasoningEffort = availableEfforts.includes(DEFAULT_REASONING_EFFORT)
+    ? DEFAULT_REASONING_EFFORT
+    : availableEfforts[0];
 }

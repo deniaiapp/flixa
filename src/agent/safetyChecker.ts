@@ -6,7 +6,7 @@ import type { SafetyCheckResult } from "../types";
 
 function getModel(): string {
 	const config = vscode.workspace.getConfiguration("flixa");
-	return config.get<string>("model") || "claude-sonnet-4-5-20250929";
+	return config.get<string>("model") || "openai/gpt-6-luna";
 }
 
 export async function checkShellCommandSafety(

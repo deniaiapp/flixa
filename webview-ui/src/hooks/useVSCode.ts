@@ -3,11 +3,13 @@ import { vscode } from '../vscode';
 import type { ImageAttachment } from '../types';
 
 export interface UseVSCodeReturn {
-	sendMessage: (text: string, images?: ImageAttachment[]) => void;
+	sendMessage: (text: string, images?: ImageAttachment[], excludedActiveFilePath?: string) => void;
 	toggleAgentMode: (enabled: boolean) => void;
 	setApprovalMode: (mode: string) => void;
 	setModel: (model: string) => void;
 	setReasoningEffort: (reasoningEffort: string) => void;
+	setAutoContextEnabled: (enabled: boolean) => void;
+	openSettings: () => void;
 	switchChat: (sessionId: string) => void;
 	newChat: () => void;
 	deleteChat: (sessionId: string) => void;
@@ -20,8 +22,8 @@ export interface UseVSCodeReturn {
 }
 
 export function useVSCode(): UseVSCodeReturn {
-	const sendMessage = useCallback((text: string, images?: ImageAttachment[]) => {
-		vscode.postMessage({ type: 'sendMessage', message: text, images });
+	const sendMessage = useCallback((text: string, images?: ImageAttachment[], excludedActiveFilePath?: string) => {
+		vscode.postMessage({ type: 'sendMessage', message: text, images, excludedActiveFilePath });
 	}, []);
 
 	const toggleAgentMode = useCallback((enabled: boolean) => {
@@ -38,6 +40,14 @@ export function useVSCode(): UseVSCodeReturn {
 
 	const setReasoningEffort = useCallback((reasoningEffort: string) => {
 		vscode.postMessage({ type: 'setReasoningEffort', reasoningEffort });
+	}, []);
+
+	const setAutoContextEnabled = useCallback((enabled: boolean) => {
+		vscode.postMessage({ type: 'setAutoContextEnabled', enabled });
+	}, []);
+
+	const openSettings = useCallback(() => {
+		vscode.postMessage({ type: 'openSettings' });
 	}, []);
 
 	const switchChat = useCallback((sessionId: string) => {
@@ -82,6 +92,8 @@ export function useVSCode(): UseVSCodeReturn {
 		setApprovalMode,
 		setModel,
 		setReasoningEffort,
+		setAutoContextEnabled,
+		openSettings,
 		switchChat,
 		newChat,
 		deleteChat,

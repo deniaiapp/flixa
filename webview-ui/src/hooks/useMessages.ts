@@ -16,7 +16,8 @@ export interface UseMessagesReturn {
 	agentMode: boolean;
 	approvalMode: string;
 	selectedModel: string;
-	selectedReasoningEffort: ReasoningEffort;
+	selectedReasoningEffort: ReasoningEffort | null;
+	autoContextEnabled: boolean;
 	availableModels: string[];
 	modelDefinitions: ModelDefinition[];
 	isLoading: boolean;
@@ -32,7 +33,8 @@ export interface UseMessagesReturn {
 	setAgentMode: (mode: boolean) => void;
 	setApprovalMode: (mode: string) => void;
 	setSelectedModel: (model: string) => void;
-	setSelectedReasoningEffort: (reasoningEffort: ReasoningEffort) => void;
+	setSelectedReasoningEffort: (reasoningEffort: ReasoningEffort | null) => void;
+	setAutoContextEnabled: (enabled: boolean) => void;
 }
 
 export function useMessages(): UseMessagesReturn {
@@ -43,7 +45,8 @@ export function useMessages(): UseMessagesReturn {
 	const [approvalMode, setApprovalMode] = useState('AUTO_APPROVE');
 	const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
 	const [selectedReasoningEffort, setSelectedReasoningEffort] =
-		useState<ReasoningEffort>(DEFAULT_REASONING_EFFORT as ReasoningEffort);
+		useState<ReasoningEffort | null>(DEFAULT_REASONING_EFFORT as ReasoningEffort);
+	const [autoContextEnabled, setAutoContextEnabled] = useState(true);
 	const [availableModels, setAvailableModels] = useState<string[]>([DEFAULT_MODEL]);
 	const [modelDefinitions, setModelDefinitions] = useState<ModelDefinition[]>([
 		{ id: DEFAULT_MODEL, label: 'GPT-5.2 Codex', description: '', tags: [], tier: 'free' },
@@ -72,8 +75,11 @@ export function useMessages(): UseMessagesReturn {
 					if (data.selectedModel) {
 						setSelectedModel(data.selectedModel);
 					}
-					if (data.selectedReasoningEffort) {
+					if (data.selectedReasoningEffort !== undefined) {
 						setSelectedReasoningEffort(data.selectedReasoningEffort);
+					}
+					if (data.autoContextEnabled !== undefined) {
+						setAutoContextEnabled(data.autoContextEnabled);
 					}
 					if (data.availableModels) {
 						setAvailableModels(data.availableModels);
@@ -128,6 +134,7 @@ export function useMessages(): UseMessagesReturn {
 		approvalMode,
 		selectedModel,
 		selectedReasoningEffort,
+		autoContextEnabled,
 		availableModels,
 		modelDefinitions,
 		isLoading,
@@ -144,5 +151,6 @@ export function useMessages(): UseMessagesReturn {
 		setApprovalMode,
 		setSelectedModel,
 		setSelectedReasoningEffort,
+		setAutoContextEnabled,
 	};
 }

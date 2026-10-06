@@ -1,0 +1,37 @@
+{
+  "name": "@deniai/flixa-zed",
+  "version": "0.8.4",
+  "description": "Flixa ACP agent for Zed",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/deniai-app/flixa.git"
+  },
+  "homepage": "https://deniai.app",
+  "type": "module",
+  "files": ["dist/flixa-zed.js", "README.md", "LICENSE"],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "flixa-zed": "dist/flixa-zed.js"
+  },
+  "scripts": {
+    "build": "bun build ./src/index.ts --outfile ./dist/flixa-zed.js --target bun --format esm --minify && bun build ./src/flixa-acp.ts --outdir ./dist --target bun --format esm --minify",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "prepublishOnly": "bun run typecheck && bun test && bun run build"
+  },
+  "dependencies": {
+    "@agentclientprotocol/sdk": "1.4.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.11",
+    "@types/node": "^25.5.2",
+    "typescript": "^6.0.2"
+  }
+}

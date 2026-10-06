@@ -10,7 +10,6 @@ import {
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
 import type {
-  ChatSession,
   UsageData,
   Tier,
   ImageAttachment,
@@ -18,7 +17,10 @@ import type {
   ModelTierRequirement,
   ReasoningEffort,
 } from "../types";
-import { canUseTier } from "../types";
+import {
+  canUseTier,
+  getAvailableReasoningEfforts,
+} from "../types";
 
 function getBaseName(filePath: string): string {
   const normalized = filePath.replace(/\\/g, "/");
@@ -97,16 +99,20 @@ const FileIcon = () => (
   </svg>
 );
 
+const CloseIcon = () => (
+  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+  </svg>
+);
+
 interface InputAreaProps {
-  sessions: ChatSession[];
-  currentSessionId: string;
-  onSessionChange: (sessionId: string) => void;
-  onNewChat: () => void;
-  onDeleteChat: (sessionId: string) => void;
   agentMode: boolean;
   approvalMode: string;
   selectedModel: string;
-  selectedReasoningEffort: ReasoningEffort;
+  selectedReasoningEffort: ReasoningEffort | null;
+  autoContextEnabled: boolean;
+  excludedActiveFilePath: string | null;
+  onExcludeActiveFile: () => void;
   availableModels: string[];
   modelDefinitions: ModelDefinition[];
   isLoading: boolean;
@@ -129,10 +135,8 @@ interface InputAreaProps {
   onStop: () => void;
   usageData: UsageData | null;
   isLoggedIn: boolean;
-  onUsageClick: () => void;
   onLogin: () => void;
   onOpenBilling: () => void;
-  onOpenExternalUrl: (url: string) => void;
 }
 
 const ChatIcon = () => (
@@ -201,39 +205,6 @@ const ManualApproveIcon = () => (
   </svg>
 );
 
-const HistoryIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-    />
-  </svg>
-);
-
-const AddIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-  </svg>
-);
-
-const SettingsIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-    />
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-    />
-  </svg>
-);
 
 const modeOptions = [
   {
@@ -286,8 +257,8 @@ const reasoningEffortOptions: Array<{
 }> = [
   {
     value: "low",
-    label: "Low",
-    description: "Lower reasoning effort for faster responses.",
+    label: "Light",
+    description: "Light reasoning effort for faster responses.",
   },
   {
     value: "medium",
@@ -299,57 +270,26 @@ const reasoningEffortOptions: Array<{
     label: "High",
     description: "Higher reasoning effort for harder tasks.",
   },
+  {
+    value: "xhigh",
+    label: "Extra High",
+    description: "Extra high reasoning effort for complex tasks.",
+  },
+  {
+    value: "max",
+    label: "Max",
+    description: "Maximum reasoning effort for the hardest tasks.",
+  },
 ];
 
-function getTierLabel(tier: Tier): string {
-  return tier.charAt(0).toUpperCase() + tier.slice(1);
-}
-
-function formatUsageAmount(value: number, unit: string): string {
-  if (unit === "tokens") {
-    if (value >= 1_000_000) {
-      return `${(value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1)}M`;
-    }
-    if (value >= 1_000) {
-      return `${(value / 1_000).toFixed(value % 1_000 === 0 ? 0 : 1)}K`;
-    }
-  }
-
-  return value.toLocaleString();
-}
-
-function formatUsageItemLabel(item: UsageData["usage"][number]): string {
-  return `${formatUsageAmount(item.used, item.unit)}/${formatUsageAmount(item.limit, item.unit)} ${item.unit}`;
-}
-
-
-const getUsageColorClass = (usageData: UsageData): string => {
-  const basic = usageData.usage.find((u) => u.category === "basic");
-  const premium = usageData.usage.find((u) => u.category === "premium");
-
-  const basicPct = basic ? (basic.remaining / basic.limit) * 100 : 100;
-  const premiumPct = premium ? (premium.remaining / premium.limit) * 100 : 100;
-  const worstPct = Math.min(basicPct, premiumPct);
-
-  if (worstPct <= 0) {
-    return "bg-error/20 text-error";
-  }
-  if (worstPct <= 10) {
-    return "bg-warning/20 text-warning";
-  }
-  return "border border-input-border text-foreground-subtle hover:text-foreground";
-};
-
 export function InputArea({
-  sessions,
-  currentSessionId,
-  onSessionChange,
-  onNewChat,
-  onDeleteChat,
   agentMode,
   approvalMode,
   selectedModel,
   selectedReasoningEffort,
+  autoContextEnabled,
+  excludedActiveFilePath,
+  onExcludeActiveFile,
   availableModels,
   modelDefinitions,
   isLoading,
@@ -370,15 +310,10 @@ export function InputArea({
   onStop,
   usageData,
   isLoggedIn,
-  onUsageClick,
   onLogin,
   onOpenBilling,
-  onOpenExternalUrl,
 }: InputAreaProps) {
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const historyButtonRef = useRef<HTMLButtonElement>(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
-  const [historyPosition, setHistoryPosition] = useState({ top: 0, left: 0 });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
   const [settingsPosition, setSettingsPosition] = useState({ bottom: 0, left: 0 });
@@ -386,6 +321,13 @@ export function InputArea({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [mentionIndex, setMentionIndex] = useState(0);
   const [mentionMenuPosition, setMentionMenuPosition] = useState({
+    top: 0,
+    left: 0,
+    width: 0,
+    openAbove: false,
+  });
+  const [commandIndex, setCommandIndex] = useState(0);
+  const [commandMenuPosition, setCommandMenuPosition] = useState({
     top: 0,
     left: 0,
     width: 0,
@@ -428,17 +370,46 @@ export function InputArea({
     new Set((text.match(/@([A-Za-z0-9_./-]+)/g) ?? []).map((match) => match.slice(1))),
   );
 
+  const slashCommands = [
+    { name: "help", description: "Show available slash commands" },
+    { name: "new", description: "Start a new chat" },
+    { name: "clear", description: "Clear messages in the current chat" },
+    { name: "compact", description: "Compact the context window for this chat" },
+    { name: "stop", description: "Stop the running agent" },
+    { name: "agent", description: "Switch to agent mode" },
+    { name: "chat", description: "Switch to chat mode" },
+    { name: "model", description: "Show or set the model (/model [id])" },
+    {
+      name: "approval",
+      description: "Show or set approval mode (/approval auto|safe|manual|all)",
+    },
+  ];
+  const commandMatch = text.match(/^\/([a-zA-Z0-9_-]*)$/);
+  const commandQuery = commandMatch?.[1] ?? "";
+  const commandSuggestions = commandMatch
+    ? slashCommands.filter((command) =>
+        command.name.toLowerCase().startsWith(commandQuery.toLowerCase()),
+      )
+    : [];
+
   const userTier = usageData?.tier ?? null;
-  const basicUsage = usageData?.usage.find((u) => u.category === "basic") ?? null;
-  const shouldShowVerifyBoost =
-    usageData?.tier === "free" &&
-    usageData.hasVerifiedPaymentMethod === false &&
-    !!usageData.verifyUrl;
-  const shouldShowCardVerified =
-    usageData?.tier === "free" && usageData.hasVerifiedPaymentMethod === true;
+  const normalizedActiveFilePath = activeFilePath.replace(/\\/g, "/").toLowerCase();
+  const normalizedExcludedActiveFilePath = excludedActiveFilePath
+    ?.replace(/\\/g, "/")
+    .toLowerCase();
+  const includeActiveFileContext =
+    autoContextEnabled &&
+    !!(activeFilePath || activeSelection) &&
+    normalizedActiveFilePath !== normalizedExcludedActiveFilePath;
   const getModelDefinition = (modelId: string): ModelDefinition | undefined => {
     return modelDefinitions.find((model) => model.id === modelId);
   };
+  const availableReasoningEffortOptions = reasoningEffortOptions.filter((option) =>
+    getAvailableReasoningEfforts(
+      selectedModel,
+      getModelDefinition(selectedModel)?.reasoningEfforts,
+    ).includes(option.value),
+  );
   const getModelLabel = (modelId: string): string => {
     const definition = getModelDefinition(modelId);
     return definition?.label ?? modelId;
@@ -524,16 +495,10 @@ export function InputArea({
     return parts.join("\n");
   };
 
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      const historyMenu = document.getElementById("history-menu");
-      const settingsMenu = document.getElementById("settings-menu");
-      if (historyButtonRef.current && !historyButtonRef.current.contains(e.target as Node)) {
-        if (historyMenu && !historyMenu.contains(e.target as Node)) {
-          setIsHistoryOpen(false);
-        }
-      }
-      if (settingsButtonRef.current && !settingsButtonRef.current.contains(e.target as Node)) {
+	useEffect(() => {
+		const handleClickOutside = (e: MouseEvent) => {
+			const settingsMenu = document.getElementById("settings-menu");
+			if (settingsButtonRef.current && !settingsButtonRef.current.contains(e.target as Node)) {
         if (settingsMenu && !settingsMenu.contains(e.target as Node)) {
           setIsSettingsOpen(false);
           setActiveSubmenu(null);
@@ -560,16 +525,6 @@ export function InputArea({
       });
     }
   }, [isSettingsOpen]);
-
-  useEffect(() => {
-    if (isHistoryOpen && historyButtonRef.current) {
-      const rect = historyButtonRef.current.getBoundingClientRect();
-      setHistoryPosition({
-        top: rect.top - 8,
-        left: Math.max(8, rect.left),
-      });
-    }
-  }, [isHistoryOpen]);
 
   useEffect(() => {
     const updateMentionMenuPosition = () => {
@@ -605,16 +560,85 @@ export function InputArea({
   }, [mentionSuggestions.length, text, activeSelectionLabel, activeFilePath]);
 
   useEffect(() => {
+    const updateCommandMenuPosition = () => {
+      if (!textareaRef.current || commandSuggestions.length === 0) {
+        return;
+      }
+
+      const rect = textareaRef.current.getBoundingClientRect();
+      const menuHeight = Math.min(commandSuggestions.length, 8) * 44 + 4;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const openAbove = spaceBelow < menuHeight + 8 && rect.top > spaceBelow;
+
+      setCommandMenuPosition({
+        top: openAbove ? rect.top - 4 : rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+        openAbove,
+      });
+    };
+
+    updateCommandMenuPosition();
+
+    if (commandSuggestions.length === 0) {
+      return;
+    }
+
+    window.addEventListener("resize", updateCommandMenuPosition);
+    window.addEventListener("scroll", updateCommandMenuPosition, true);
+    return () => {
+      window.removeEventListener("resize", updateCommandMenuPosition);
+      window.removeEventListener("scroll", updateCommandMenuPosition, true);
+    };
+  }, [commandSuggestions.length, text]);
+
+  useEffect(() => {
     syncTextareaHeight();
     syncTextareaScroll();
   }, [text]);
 
-  const handleOpenFromHistory = (sessionId: string) => {
-    onSessionChange(sessionId);
-    setIsHistoryOpen(false);
+  const applyCommand = (commandName: string) => {
+    const nextText = `/${commandName}`;
+    onTextChange(nextText);
+    setCommandIndex(0);
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+      if (textareaRef.current) {
+        const length = nextText.length;
+        textareaRef.current.selectionStart = length;
+        textareaRef.current.selectionEnd = length;
+        syncTextareaScroll();
+      }
+    });
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (commandSuggestions.length > 0 && commandMatch) {
+      const selectedCommand =
+        commandSuggestions[commandIndex] ?? commandSuggestions[0];
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setCommandIndex((prev) => (prev + 1) % commandSuggestions.length);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setCommandIndex(
+          (prev) => (prev - 1 + commandSuggestions.length) % commandSuggestions.length,
+        );
+        return;
+      }
+      if (e.key === "Tab") {
+        e.preventDefault();
+        applyCommand(selectedCommand.name);
+        return;
+      }
+      if (e.key === "Enter" && text.trim() !== `/${selectedCommand.name}`) {
+        e.preventDefault();
+        applyCommand(selectedCommand.name);
+        return;
+      }
+    }
     if (mentionSuggestions.length > 0) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
@@ -651,6 +675,7 @@ export function InputArea({
   const handleTextChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     onTextChange(e.target.value);
     setMentionIndex(0);
+    setCommandIndex(0);
     setIsCursorAtEnd(e.target.selectionStart === e.target.value.length);
     syncTextareaHeight();
   };
@@ -747,68 +772,6 @@ export function InputArea({
     e.target.value = "";
   };
 
-  const historyMenu =
-    isHistoryOpen &&
-    createPortal(
-      <div
-        id="history-menu"
-        className="fixed z-[9999] min-w-[220px] max-h-[300px] overflow-y-auto bg-menu-bg border border-menu-border rounded-lg shadow-[0_12px_24px_var(--color-shadow)]"
-        style={{
-          top: historyPosition.top,
-          left: historyPosition.left,
-          transform: "translateY(-100%)",
-        }}
-      >
-        {sessions.length === 0 ? (
-          <div className="px-3 py-2 text-xs text-foreground-subtle">No conversations</div>
-        ) : (
-          sessions.map((session) => (
-            <div
-              key={session.id}
-              className={`flex items-center justify-between group hover:bg-surface-hover border-b border-menu-separator last:border-b-0 ${
-                session.id === currentSessionId ? "bg-surface-hover" : ""
-              }`}
-            >
-              <button
-                type="button"
-                className={`flex-1 px-3 py-2 cursor-pointer transition-colors text-xs text-left ${
-                  session.id === currentSessionId ? "text-foreground" : "text-menu-foreground"
-                }`}
-                onClick={() => handleOpenFromHistory(session.id)}
-              >
-                <span className="truncate block">{session.name}</span>
-              </button>
-              <button
-                type="button"
-                className="flex-shrink-0 p-2 text-foreground-subtle hover:text-error transition-colors opacity-0 group-hover:opacity-100"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDeleteChat(session.id);
-                }}
-                title="Delete"
-              >
-                <svg
-                  className="w-3.5 h-3.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  />
-                </svg>
-              </button>
-            </div>
-          ))
-        )}
-      </div>,
-      document.body,
-    );
-
   const mentionMenu =
     mentionSuggestions.length > 0 &&
     createPortal(
@@ -839,6 +802,39 @@ export function InputArea({
       document.body,
     );
 
+  const commandMenu =
+    commandSuggestions.length > 0 &&
+    createPortal(
+      <div
+        className="fixed z-[9999] border border-input-border rounded-md bg-menu-bg overflow-hidden"
+        style={{
+          top: commandMenuPosition.top,
+          left: commandMenuPosition.left,
+          width: commandMenuPosition.width,
+          transform: commandMenuPosition.openAbove ? "translateY(-100%)" : undefined,
+        }}
+      >
+        {commandSuggestions.map((command, index) => (
+          <button
+            key={command.name}
+            type="button"
+            onClick={() => applyCommand(command.name)}
+            className={`w-full px-2.5 py-2 text-left text-xs transition-colors ${
+              index === commandIndex
+                ? "bg-surface-hover text-foreground"
+                : "text-menu-foreground hover:bg-surface-hover"
+            }`}
+          >
+            <div className="font-medium">/{command.name}</div>
+            <div className="text-[10px] text-foreground-subtle mt-0.5">
+              {command.description}
+            </div>
+          </button>
+        ))}
+      </div>,
+      document.body,
+    );
+
   const getCurrentModeLabel = () => {
     const mode = modeOptions.find((m) => m.value === (agentMode ? "agent" : "chat"));
     return mode?.label || "Chat";
@@ -855,7 +851,7 @@ export function InputArea({
 
   const getCurrentReasoningEffortLabel = () => {
     return (
-      reasoningEffortOptions.find((option) => option.value === selectedReasoningEffort)?.label ??
+      availableReasoningEffortOptions.find((option) => option.value === selectedReasoningEffort)?.label ??
       "Medium"
     );
   };
@@ -888,6 +884,18 @@ export function InputArea({
       aria-hidden="true"
     >
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+    </svg>
+  );
+
+  const SelectorChevronIcon = () => (
+    <svg
+      className="w-3 h-3 opacity-70"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 9l6 6 6-6" />
     </svg>
   );
 
@@ -939,14 +947,16 @@ export function InputArea({
               </span>
               <ChevronIcon />
             </button>
-            <button
-              type="button"
-              className="w-full px-3 py-2 cursor-pointer transition-colors hover:bg-surface-hover text-xs text-left flex items-center justify-between text-menu-foreground border-t border-menu-separator"
-              onClick={() => setActiveSubmenu("reasoning")}
-            >
-              <span>Reasoning: {getCurrentReasoningEffortLabel()}</span>
-              <ChevronIcon />
-            </button>
+            {availableReasoningEffortOptions.length > 0 && (
+              <button
+                type="button"
+                className="w-full px-3 py-2 cursor-pointer transition-colors hover:bg-surface-hover text-xs text-left flex items-center justify-between text-menu-foreground border-t border-menu-separator"
+                onClick={() => setActiveSubmenu("reasoning")}
+              >
+                <span>Reasoning: {getCurrentReasoningEffortLabel()}</span>
+                <ChevronIcon />
+              </button>
+            )}
           </div>
         ) : activeSubmenu === "mode" ? (
           <div className="py-1">
@@ -1051,7 +1061,10 @@ export function InputArea({
             <button
               type="button"
               className="w-full px-3 py-2 cursor-pointer transition-colors hover:bg-surface-hover text-xs text-left text-foreground-subtle flex items-center gap-2"
-              onClick={() => setActiveSubmenu(null)}
+              onClick={() => {
+                setActiveSubmenu(null);
+                setIsSettingsOpen(false);
+              }}
             >
               <svg
                 className="w-3.5 h-3.5"
@@ -1144,7 +1157,10 @@ export function InputArea({
             <button
               type="button"
               className="w-full px-3 py-2 cursor-pointer transition-colors hover:bg-surface-hover text-xs text-left text-foreground-subtle flex items-center gap-2"
-              onClick={() => setActiveSubmenu(null)}
+              onClick={() => {
+                setActiveSubmenu(null);
+                setIsSettingsOpen(false);
+              }}
             >
               <svg
                 className="w-3.5 h-3.5"
@@ -1163,7 +1179,7 @@ export function InputArea({
               <span>Back</span>
             </button>
             <div className="border-t border-menu-separator" />
-            {reasoningEffortOptions.map((option) => (
+            {availableReasoningEffortOptions.map((option) => (
               <button
                 key={option.value}
                 type="button"
@@ -1225,13 +1241,22 @@ export function InputArea({
             ))}
           </div>
         )}
-        {(activeFilePath || activeSelection || mentionedFiles.length > 0) && (
+        {(includeActiveFileContext || mentionedFiles.length > 0) && (
           <div className="px-2.5 pt-2">
             <div className="flex gap-1.5 overflow-x-auto whitespace-nowrap pb-1">
-              {(activeSelectionLabel || activeFilePath) && (
+              {includeActiveFileContext && (activeSelectionLabel || activeFilePath) && (
                 <div className="px-1 py-0.5 rounded-md text-[9px] text-foreground border border-input-border inline-flex items-center gap-1.5 shrink-0">
                   <FileIcon />
                   <span>{activeSelectionLabel ? formatSelectionChipLabel(activeSelectionLabel) : getBaseName(activeFilePath)}</span>
+                  <button
+                    type="button"
+                    onClick={onExcludeActiveFile}
+                    className="text-foreground-subtle hover:text-error rounded-sm transition-colors"
+                    title="Exclude active file from context"
+                    aria-label="Exclude active file from context"
+                  >
+                    <CloseIcon />
+                  </button>
                 </div>
               )}
               {mentionedFiles.map((file) => (
@@ -1286,21 +1311,32 @@ export function InputArea({
           <div className="flex items-center gap-0.5">
             <button
               type="button"
-              ref={historyButtonRef}
-              onClick={() => setIsHistoryOpen(!isHistoryOpen)}
-              className="p-1 text-foreground-subtle hover:text-foreground hover:bg-surface-hover rounded transition-all"
-              title="History"
+              ref={settingsButtonRef}
+              onClick={() => {
+                setActiveSubmenu("model");
+                setIsSettingsOpen(true);
+                setModelSearch("");
+              }}
+              className="inline-flex max-w-[160px] items-center gap-1 px-2 py-1 text-[11px] text-foreground-subtle hover:text-foreground hover:bg-surface-hover rounded-md transition-all truncate"
+              title={`Model: ${getCurrentModelLabel()}`}
             >
-              <HistoryIcon />
+              <span className="truncate">{getCurrentModelLabel()}</span>
+              <SelectorChevronIcon />
             </button>
-            <button
-              type="button"
-              onClick={onNewChat}
-              className="p-1 text-foreground-subtle hover:text-foreground hover:bg-surface-hover rounded transition-all"
-              title="New Chat"
-            >
-              <AddIcon />
-            </button>
+            {availableReasoningEffortOptions.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveSubmenu("reasoning");
+                  setIsSettingsOpen(true);
+                }}
+                className="inline-flex max-w-[105px] items-center gap-1 px-2 py-1 text-[11px] text-foreground-subtle hover:text-foreground hover:bg-surface-hover rounded-md transition-all truncate"
+                title={`Effort: ${getCurrentReasoningEffortLabel()}`}
+              >
+                <span className="truncate">{getCurrentReasoningEffortLabel()}</span>
+                <SelectorChevronIcon />
+              </button>
+            )}
             <button
               type="button"
               onClick={handleImageButtonClick}
@@ -1322,48 +1358,6 @@ export function InputArea({
                 />
               </svg>
             </button>
-            <button
-              type="button"
-              ref={settingsButtonRef}
-              onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-              className="p-1 text-foreground-subtle hover:text-foreground hover:bg-surface-hover rounded transition-all"
-              title="Settings"
-            >
-              <SettingsIcon />
-            </button>
-            {usageData && (
-              <button
-                type="button"
-                onClick={onUsageClick}
-                className={`ml-1 px-1.5 py-0.5 text-[10px] rounded transition-all ${getUsageColorClass(
-                  usageData,
-                )}`}
-                title="View usage details"
-              >
-                {getTierLabel(usageData.tier)}
-                {basicUsage ? ` | ${formatUsageItemLabel(basicUsage)}` : ""}
-              </button>
-            )}
-            {shouldShowVerifyBoost && usageData?.verifyUrl && (
-              <span className="ml-1 inline-flex items-center gap-1 text-[10px] text-foreground-subtle">
-                <span>Verify your card to increase your free limits.</span>
-                <button
-                  type="button"
-                  onClick={() => onOpenExternalUrl(usageData.verifyUrl as string)}
-                  className="px-1.5 py-0.5 rounded border border-input-border hover:text-foreground hover:bg-surface-hover transition-all"
-                >
-                  Verify card
-                </button>
-              </span>
-            )}
-            {shouldShowCardVerified && (
-              <span
-                className="ml-1 px-1.5 py-0.5 text-[10px] rounded border border-input-border text-foreground-subtle"
-                title={usageData.cardFunding ?? "Card verified"}
-              >
-                Card verified{usageData.cardFunding ? ` ${usageData.cardFunding}` : ""}
-              </span>
-            )}
           </div>
           <div className="flex items-center gap-0.5">
             {agentRunning ? (
@@ -1415,8 +1409,8 @@ export function InputArea({
           </div>
         </div>
       </div>
-      {historyMenu}
       {mentionMenu}
+      {commandMenu}
       {settingsMenu}
     </div>
   );

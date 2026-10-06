@@ -16,7 +16,12 @@ export function isPathInsideWorkspace(filePath: string): boolean {
 	}
 	const normalizedPath = path.normalize(path.resolve(workspaceRoot, filePath));
 	const normalizedWorkspace = path.normalize(workspaceRoot);
-	return normalizedPath.startsWith(normalizedWorkspace);
+	const relativePath = path.relative(normalizedWorkspace, normalizedPath);
+	return relativePath === '' || (
+		relativePath !== '..' &&
+		!relativePath.startsWith(`..${path.sep}`) &&
+		!path.isAbsolute(relativePath)
+	);
 }
 
 export function resolveFilePath(filePath: string): string {

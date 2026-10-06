@@ -62,7 +62,40 @@ export interface ChatSession {
 
 export type Tier = 'free' | 'plus' | 'pro' | "max";
 export type ModelTierRequirement = 'free' | 'plus' | 'pro' | "max";
-export type ReasoningEffort = 'low' | 'medium' | 'high';
+export const REASONING_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
+export type ReasoningEffort = (typeof REASONING_EFFORTS)[number];
+export type ModelReasoningEfforts = readonly ReasoningEffort[] | false;
+
+const REASONING_EFFORT_LABELS: Record<ReasoningEffort, string> = {
+  low: 'Light',
+  medium: 'Medium',
+  high: 'High',
+  xhigh: 'Extra High',
+  max: 'Max',
+};
+
+export function getAvailableReasoningEfforts(
+  _modelId: string,
+  modelEfforts?: readonly string[] | false,
+): ReasoningEffort[] {
+  if (modelEfforts === false) {
+    return [];
+  }
+  if (Array.isArray(modelEfforts)) {
+    return REASONING_EFFORTS.filter((effort) => modelEfforts.includes(effort));
+  }
+  return ['low', 'medium', 'high'];
+}
+
+export function getReasoningEffortLabel(effort: ReasoningEffort): string {
+  return REASONING_EFFORT_LABELS[effort];
+}
+
+const MAX_TEAM_PLAN_IDS = new Set(['max_team_monthly', 'max_team_yearly']);
+
+export function isMaxTeamPlan(planId: string | null): boolean {
+  return planId !== null && MAX_TEAM_PLAN_IDS.has(planId);
+}
 
 export interface ModelDefinition {
   id: string;
@@ -72,6 +105,7 @@ export interface ModelDefinition {
   premium?: boolean;
   tier?: ModelTierRequirement;
   tokenUsageMultiplier?: number;
+  reasoningEfforts?: ModelReasoningEfforts;
 }
 
 export interface UsageItem {
@@ -106,7 +140,8 @@ export interface AppState {
   agentMode: boolean;
   approvalMode: string;
   selectedModel: string;
-  selectedReasoningEffort: ReasoningEffort;
+  selectedReasoningEffort: ReasoningEffort | null;
+  autoContextEnabled: boolean;
   isLoading: boolean;
   agentRunning: boolean;
   usageData: UsageData | null;

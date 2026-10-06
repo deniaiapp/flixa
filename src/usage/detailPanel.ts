@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import type { UsageService } from './service';
-import type { UsageItem } from './types';
+import { isMaxTeamPlan, type UsageItem } from './types';
 import { getBillingUrl } from './service';
 
 function formatUsageAmount(value: number, unit: string): string {
@@ -69,9 +69,11 @@ async function showUsageQuickPick(
 	usageService: UsageService,
 	data: import('./types').UsageResponse
 ): Promise<void> {
-	const tierLabel = data.isTeam
-		? 'Pro (Team)'
-		: data.tier.charAt(0).toUpperCase() + data.tier.slice(1);
+	const tierLabel = isMaxTeamPlan(data.planId)
+		? 'Max (Team)'
+		: data.isTeam
+			? 'Pro (Team)'
+			: data.tier.charAt(0).toUpperCase() + data.tier.slice(1);
 	const items: vscode.QuickPickItem[] = [];
 
 	items.push({

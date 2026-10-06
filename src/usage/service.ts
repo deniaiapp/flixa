@@ -16,7 +16,7 @@ import {
 	logMissingClientSignal,
 } from '../api/flixaClientHeaders';
 import { log } from '../logger';
-import { canUseTier, getModelTierRequirement } from './types';
+import { canUseTier, getModelTierRequirement, isMaxTeamPlan } from './types';
 
 const CACHE_DURATION_MS = 5 * 60 * 1000;
 const API_KEY_SECRET_KEY = 'deniApiKey';
@@ -24,13 +24,11 @@ const POLL_INTERVAL_MS = 5000;
 const DEVICE_AUTH_TIMEOUT_MS = 15 * 60 * 1000;
 
 function getDeniAiBaseUrl(): string {
-	const config = vscode.workspace.getConfiguration('flixa');
-	return config.get<string>('deniAiBaseUrl') || 'https://deniai.app';
+	return 'https://deniai.app';
 }
 
 export function getFlixaApiBaseUrl(): string {
-	const config = vscode.workspace.getConfiguration('flixa');
-	return config.get<string>('flixaApiBaseUrl') || 'https://api.flixa.engineer';
+	return 'https://flixa-api.deniai.app';
 }
 
 export function getBillingUrl(): string {
@@ -109,6 +107,7 @@ function normalizeUsageItem(item: Partial<UsageItem>): UsageItem | null {
 
 function normalizeUsageResponse(payload: unknown): UsageResponse {
 	const record = payload as Partial<UsageResponse>;
+	const planId = record.planId ?? null;
 	const usage = Array.isArray(record.usage)
 		? record.usage
 			.map((item) => normalizeUsageItem(item as Partial<UsageItem>))
@@ -117,12 +116,12 @@ function normalizeUsageResponse(payload: unknown): UsageResponse {
 
 	return {
 		tier: record.tier ?? 'free',
-		planId: record.planId ?? null,
+		planId,
 		status: record.status ?? null,
 		periodEnd: record.periodEnd ?? usage[0]?.periodEnd ?? null,
 		maxModeEnabled: record.maxModeEnabled ?? false,
 		maxModeEligible: record.maxModeEligible ?? false,
-		isTeam: record.isTeam ?? false,
+		isTeam: record.isTeam === true || isMaxTeamPlan(planId),
 		hasVerifiedPaymentMethod: record.hasVerifiedPaymentMethod ?? false,
 		cardVerifiedAt: record.cardVerifiedAt ?? null,
 		cardFunding: record.cardFunding ?? null,

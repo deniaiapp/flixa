@@ -2,6 +2,14 @@ export type Tier = "free" | "plus" | "pro" | "max";
 
 export type UsageCategory = "basic" | "premium";
 
+import type { ModelReasoningEfforts } from "../llm/reasoning";
+
+const MAX_TEAM_PLAN_IDS = new Set(["max_team_monthly", "max_team_yearly"]);
+
+export function isMaxTeamPlan(planId: string | null): boolean {
+  return planId !== null && MAX_TEAM_PLAN_IDS.has(planId);
+}
+
 export interface UsageItem {
   category: UsageCategory;
   limit: number;
@@ -83,6 +91,8 @@ export interface ModelAccessDefinition {
   description?: string;
   tags?: string[];
   tokenUsageMultiplier?: number;
+  reasoningEfforts?: ModelReasoningEfforts;
+  default?: boolean;
 }
 
 const FALLBACK_PREMIUM_MODELS = new Set<string>([

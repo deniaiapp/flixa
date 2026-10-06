@@ -3,17 +3,17 @@ import { InputArea } from './components/InputArea';
 import { MessageList } from './components/MessageList';
 import { FilesChanged } from './components/FilesChanged';
 import { useMessages, useVSCode } from './hooks';
-import type { ImageAttachment } from './types';
+import type { ImageAttachment, ReasoningEffort } from './types';
+import { getAvailableReasoningEfforts } from './types';
 
 export default function App() {
 	const {
 		messages,
-		sessions,
-		currentSessionId,
 		agentMode,
 		approvalMode,
 		selectedModel,
 		selectedReasoningEffort,
+		autoContextEnabled,
 		availableModels,
 		modelDefinitions,
 		isLoading,
@@ -38,20 +38,16 @@ export default function App() {
 		setApprovalMode: setApprovalModeVSCode,
 		setModel: setModelVSCode,
 		setReasoningEffort: setReasoningEffortVSCode,
-		switchChat,
-		newChat,
-		deleteChat,
 		stopAgent,
 		ready,
-		showUsageDetail,
 		login,
 		openBilling,
-		openExternalUrl,
 	} = useVSCode();
 
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 	const [inputText, setInputText] = useState('');
 	const [inputImages, setInputImages] = useState<ImageAttachment[]>([]);
+	const [excludedActiveFilePath, setExcludedActiveFilePath] = useState<string | null>(null);
 
 	const handleInputTextChange = (text: string) => {
 		setInputText(text);
@@ -65,11 +61,16 @@ export default function App() {
 		messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
 	});
 
+	useEffect(() => {
+		setExcludedActiveFilePath(null);
+	}, [activeFilePath]);
+
 	const handleSendMessage = (text: string, images: ImageAttachment[]) => {
 		if ((!text.trim() && images.length === 0) || isLoading) return;
-		sendMessage(text, images);
+		sendMessage(text, images, excludedActiveFilePath ?? undefined);
 		setInputText('');
 		setInputImages([]);
+		setExcludedActiveFilePath(null);
 	};
 
 	const handleModeChange = (mode: string) => {
@@ -86,33 +87,26 @@ export default function App() {
 	const handleModelChange = (model: string) => {
 		setSelectedModel(model);
 		setModelVSCode(model);
+		const modelDefinition = modelDefinitions.find((definition) => definition.id === model);
+		const availableEfforts = getAvailableReasoningEfforts(model, modelDefinition?.reasoningEfforts);
+		const nextEffort = selectedReasoningEffort && availableEfforts.includes(selectedReasoningEffort)
+			? selectedReasoningEffort
+			: availableEfforts.includes('medium')
+				? 'medium'
+				: availableEfforts[0] ?? null;
+		if (nextEffort !== selectedReasoningEffort) {
+			setSelectedReasoningEffort(nextEffort);
+			setReasoningEffortVSCode(nextEffort ?? '');
+		}
 	};
 
-	const handleReasoningEffortChange = (reasoningEffort: 'low' | 'medium' | 'high') => {
+	const handleReasoningEffortChange = (reasoningEffort: ReasoningEffort) => {
 		setSelectedReasoningEffort(reasoningEffort);
 		setReasoningEffortVSCode(reasoningEffort);
 	};
 
-	const handleSessionChange = (sessionId: string) => {
-		switchChat(sessionId);
-	};
-
-	const handleNewChat = () => {
-		newChat();
-	};
-
-	const handleDeleteChat = (sessionId: string) => {
-		if (sessions.length > 1) {
-			deleteChat(sessionId);
-		}
-	};
-
 	const handleStop = () => {
 		stopAgent();
-	};
-
-	const handleUsageClick = () => {
-		showUsageDetail();
 	};
 
 	const handleLogin = () => {
@@ -121,10 +115,6 @@ export default function App() {
 
 	const handleOpenBilling = () => {
 		openBilling();
-	};
-
-	const handleOpenExternalUrl = (url: string) => {
-		openExternalUrl(url);
 	};
 
 	return (
@@ -138,12 +128,16 @@ export default function App() {
 			<FilesChanged files={changedFiles} />
 			<InputArea
 				agentMode={agentMode}
-				sessions={sessions}
-				currentSessionId={currentSessionId}
-				onSessionChange={handleSessionChange}
 				approvalMode={approvalMode}
 				selectedModel={selectedModel}
 				selectedReasoningEffort={selectedReasoningEffort}
+				autoContextEnabled={autoContextEnabled}
+				excludedActiveFilePath={excludedActiveFilePath}
+				onExcludeActiveFile={() => {
+					if (activeFilePath) {
+						setExcludedActiveFilePath(activeFilePath);
+					}
+				}}
 				availableModels={availableModels}
 				modelDefinitions={modelDefinitions}
 				isLoading={isLoading}
@@ -161,15 +155,11 @@ export default function App() {
 				activeFilePath={activeFilePath}
 				activeSelection={activeSelection}
 				activeSelectionLabel={activeSelectionLabel}
-				onNewChat={handleNewChat}
-				onDeleteChat={handleDeleteChat}
 				onStop={handleStop}
 				usageData={usageData}
 				isLoggedIn={isLoggedIn}
-				onUsageClick={handleUsageClick}
 				onLogin={handleLogin}
 				onOpenBilling={handleOpenBilling}
-				onOpenExternalUrl={handleOpenExternalUrl}
 			/>
 		</div>
 	);

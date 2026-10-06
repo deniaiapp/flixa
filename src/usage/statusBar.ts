@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import type { UsageService } from './service';
-import type { UsageResponse } from './types';
+import { isMaxTeamPlan, type UsageResponse } from './types';
 
 function formatUsageAmount(value: number, unit: string): string {
 	if (unit === 'tokens') {
@@ -68,9 +68,11 @@ export class UsageStatusBarItem {
 			return;
 		}
 
-		const tierLabel = data.isTeam
-			? 'Pro (Team)'
-			: data.tier.charAt(0).toUpperCase() + data.tier.slice(1);
+		const tierLabel = isMaxTeamPlan(data.planId)
+			? 'Max (Team)'
+			: data.isTeam
+				? 'Pro (Team)'
+				: data.tier.charAt(0).toUpperCase() + data.tier.slice(1);
 		const basic = data.usage.find((u) => u.category === 'basic');
 		const premium = data.usage.find((u) => u.category === 'premium');
 

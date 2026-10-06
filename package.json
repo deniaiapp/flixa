@@ -2,7 +2,7 @@
   "name": "flixa",
   "displayName": "Flixa",
   "description": "AI-powered code implementation assistant",
-  "version": "0.7.3",
+  "version": "0.9.2",
   "publisher": "deniai",
   "icon": "assets/flixa.png",
   "repository": {
@@ -62,7 +62,7 @@
         "flixa.autoContext.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Enable auto context feature to include workspace information in AI prompts"
+          "description": "Enable automatic workspace and active file context in AI prompts"
         },
         "flixa.autoContext.includeFileList": {
           "type": "boolean",
@@ -127,15 +127,11 @@
           ],
           "description": "Patterns to exclude from file list"
         },
-        "flixa.deniAiBaseUrl": {
-          "type": "string",
-          "default": "https://deniai.app",
-          "description": "Base URL for Deni AI services"
-        },
-        "flixa.flixaApiBaseUrl": {
-          "type": "string",
-          "default": "https://api.flixa.engineer",
-          "description": "Base URL for Flixa API"
+        "flixa.compactTokenThreshold": {
+          "type": "number",
+          "default": 200000,
+          "minimum": 0,
+          "description": "Estimated input token threshold for client-driven context compaction. When the agent context reaches this size, Flixa calls POST /v1/agent/responses/compact. Set to 0 to disable automatic compaction."
         }
       }
     },
@@ -147,6 +143,24 @@
       {
         "command": "flixa.openChat",
         "title": "Flixa: Open Chat"
+      },
+      {
+        "command": "flixa.newChat",
+        "title": "Flixa: New Chat",
+        "icon": "$(add)"
+      },
+      {
+        "command": "flixa.showChatHistory",
+        "title": "Flixa: Chat History",
+        "icon": "$(history)"
+      },
+      {
+        "command": "flixa.openPlan",
+        "title": "Plan"
+      },
+      {
+        "command": "flixa.openSettings",
+        "title": "Open Settings"
       },
       {
         "command": "flixa.applyDiff",
@@ -166,7 +180,7 @@
       },
       {
         "command": "flixa.showUsageDetail",
-        "title": "Deni AI: Show Usage Details"
+        "title": "Usage"
       },
       {
         "command": "flixa.login",
@@ -207,11 +221,56 @@
           "icon": "assets/flixa-sidebar.svg"
         }
       ]
+    },
+    "submenus": [
+      {
+        "id": "flixa.chatSettings",
+        "label": "Settings",
+        "icon": "$(settings-gear)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "flixa.showChatHistory",
+          "when": "view == flixa.chatView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "flixa.newChat",
+          "when": "view == flixa.chatView",
+          "group": "navigation@2"
+        },
+        {
+          "submenu": "flixa.chatSettings",
+          "when": "view == flixa.chatView",
+          "group": "navigation@3"
+        }
+      ],
+      "flixa.chatSettings": [
+        {
+          "command": "flixa.showUsageDetail",
+          "group": "navigation@1"
+        },
+        {
+          "command": "flixa.openPlan",
+          "group": "navigation@2"
+        },
+        {
+          "command": "flixa.openSettings",
+          "group": "navigation@3"
+        }
+      ]
     }
   },
   "scripts": {
     "vscode:prepublish": "bun run compile",
+    "package": "vsce package --no-dependencies --out flixa.vsix",
+    "publish": "bun run package && bun run --parallel --no-exit-on-error publish:vscode publish:openvsx",
+    "publish:vscode": "vsce publish --packagePath flixa.vsix",
+    "publish:openvsx": "ovsx publish flixa.vsix",
     "compile": "cd webview-ui && npm run build && cd .. && bun run build:ext",
+    "build:zed": "cd zed && bun run build",
     "build:ext": "bun build ./src/extension.ts --outdir ./out --target node --format cjs --minify --external vscode",
     "build:webview": "cd webview-ui && npm run build",
     "watch": "tsc -watch -p ./",
@@ -233,6 +292,8 @@
     "@types/json-schema": "^7.0.15",
     "@types/node": "^25.5.2",
     "@types/vscode": "1.105.0",
+    "@vscode/vsce": "^4.0.0",
+    "ovsx": "^1.2.0",
     "oxlint": "^1.59.0",
     "tailwindcss": "^4.2.2",
     "typescript": "^6.0.2"

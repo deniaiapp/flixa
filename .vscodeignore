@@ -2,6 +2,7 @@
 .vscode-test/**
 vscode-out/**
 src/**
+zed/**
 .gitignore
 *.map
 node_modules/**

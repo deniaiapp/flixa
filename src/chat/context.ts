@@ -7,7 +7,7 @@ import type {
 	SerializedToolResult,
 	SessionMessage,
 } from '../types';
-import { gatherAutoContext } from '../autoContext';
+import { gatherAutoContext, getAutoContextConfig } from '../autoContext';
 import { getWorkspaceRoot } from '../utils/workspace';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -92,9 +92,11 @@ export async function resolveMentionedFiles(userMessage: string): Promise<Array<
 export async function gatherChatContext(
 	userMessage: string,
 	getMessages: () => ChatMessage[],
-	getSessionMessages: () => SessionMessage[]
+	getSessionMessages: () => SessionMessage[],
+	excludedActiveFilePath?: string,
 ): Promise<ChatContext> {
 	const editor = vscode.window.activeTextEditor;
+	const autoContextEnabled = getAutoContextConfig().enabled;
 
 	let activeSelection = '';
 	let activeFileText = '';
@@ -103,7 +105,22 @@ export async function gatherChatContext(
 	const diagnostics: string[] = [];
 	let gitDiff = '';
 
-	if (editor) {
+	const normalizedExcludedPath = excludedActiveFilePath
+		?.replace(/\\/g, '/')
+		.toLowerCase();
+	const workspaceRoot = getWorkspaceRoot();
+	const editorRelativePath = editor && workspaceRoot
+		? path.relative(workspaceRoot, editor.document.uri.fsPath).replace(/\\/g, '/').toLowerCase()
+		: '';
+	const editorAbsolutePath = editor
+		? editor.document.uri.fsPath.replace(/\\/g, '/').toLowerCase()
+		: '';
+	const activeFileExcluded =
+		!!normalizedExcludedPath &&
+		(normalizedExcludedPath === editorRelativePath ||
+			normalizedExcludedPath === editorAbsolutePath);
+
+	if (editor && autoContextEnabled && !activeFileExcluded) {
 		const document = editor.document;
 		activeFilePath = document.uri.fsPath;
 		languageId = document.languageId;

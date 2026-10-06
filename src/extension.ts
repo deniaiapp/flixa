@@ -104,6 +104,45 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   );
   context.subscriptions.push(openChatCommand);
 
+  const newChatCommand = vscode.commands.registerCommand(
+    'flixa.newChat',
+    () => {
+      chatViewProvider?.newChat();
+    }
+  );
+  context.subscriptions.push(newChatCommand);
+
+  const chatHistoryCommand = vscode.commands.registerCommand(
+    'flixa.showChatHistory',
+    async () => {
+      await chatViewProvider?.showChatHistory();
+    }
+  );
+  context.subscriptions.push(chatHistoryCommand);
+
+  const openSettingsCommand = vscode.commands.registerCommand(
+    'flixa.openSettings',
+    async () => {
+      await vscode.commands.executeCommand(
+        'workbench.action.openSettings',
+        '@ext:deniai.flixa'
+      );
+    }
+  );
+  context.subscriptions.push(openSettingsCommand);
+
+  const openPlanCommand = vscode.commands.registerCommand(
+    'flixa.openPlan',
+    async () => {
+      if (usageService) {
+        const billingUrl =
+          usageService.getCachedUsage()?.upgradeUrl ?? usageService.getBillingUrl();
+        await vscode.env.openExternal(vscode.Uri.parse(billingUrl));
+      }
+    }
+  );
+  context.subscriptions.push(openPlanCommand);
+
   const applyDiffCommand = vscode.commands.registerCommand(
     'flixa.applyDiff',
     async () => {
