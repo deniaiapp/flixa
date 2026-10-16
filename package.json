@@ -264,15 +264,15 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "bun run compile",
+    "vscode:prepublish": "pnpm run compile",
     "package": "vsce package --no-dependencies --out flixa.vsix",
-    "publish": "bun run package && bun run --parallel --no-exit-on-error publish:vscode publish:openvsx",
+    "publish": "pnpm run package && pnpm run --no-bail \"/^publish:(vscode|openvsx)$/\"",
     "publish:vscode": "vsce publish --packagePath flixa.vsix",
     "publish:openvsx": "ovsx publish flixa.vsix",
-    "compile": "cd webview-ui && npm run build && cd .. && bun run build:ext",
-    "build:zed": "cd zed && bun run build",
+    "compile": "cd webview-ui && pnpm run build && cd .. && pnpm run build:ext",
+    "build:zed": "cd zed && pnpm run build",
     "build:ext": "bun build ./src/extension.ts --outdir ./out --target node --format cjs --minify --external vscode",
-    "build:webview": "cd webview-ui && npm run build",
+    "build:webview": "cd webview-ui && pnpm run build",
     "watch": "tsc -watch -p ./",
     "lint": "oxlint src",
     "test": "bun test src webview-ui/src",
@@ -297,5 +297,6 @@
     "oxlint": "^1.87.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2"
-  }
+  },
+  "packageManager": "pnpm@12.10.1"
 }

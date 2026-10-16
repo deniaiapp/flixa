@@ -9,8 +9,8 @@
 				"isDefault": true
 			},
 			"problemMatcher": [],
-			"label": "npm: compile",
-			"detail": "cd webview-ui && bun run build && cd .. && tsc -p ./"
+			"label": "pnpm: compile",
+			"detail": "cd webview-ui && pnpm run build && cd .. && pnpm run build:ext"
 		}
 	]
 }

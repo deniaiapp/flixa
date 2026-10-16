@@ -22,19 +22,19 @@ Use `bun` for package manager.
 
 ```bash
 # Full build (webview + extension)
-npm run compile
+pnpm run compile
 
 # Build webview only
-npm run build:webview
+pnpm run build:webview
 
 # Watch mode (extension only)
-npm run watch
+pnpm run watch
 
 # Lint
-npm run lint
+pnpm run lint
 
 # Build webview in dev mode
-cd webview-ui && npm run dev
+cd webview-ui && pnpm run dev
 ```
 
 No test framework is currently configured. There are no test files in `src/`.

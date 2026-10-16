@@ -23,7 +23,7 @@
     "build": "bun build ./src/index.ts --outfile ./dist/flixa-zed.js --target bun --format esm --minify && bun build ./src/flixa-acp.ts --outdir ./dist --target bun --format esm --minify",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
-    "prepublishOnly": "bun run typecheck && bun test && bun run build"
+    "prepublishOnly": "pnpm run typecheck && bun test && pnpm run build"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "1.4.0",

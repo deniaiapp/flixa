@@ -34,7 +34,7 @@ The ACP Registry submission metadata is in `acp-registry/flixa/`.
 Set `VSCE_PAT` to your [VS Code Marketplace token](https://code.visualstudio.com/api/working-with-extensions/publishing-extension) and `OVSX_PAT` to your [Open VSX token](https://open-vsx.org/user-settings/tokens). The `deniai` namespace must already exist in Open VSX.
 
 ```sh
-bun run publish
+pnpm run publish
 ```
 
 This builds and packages `flixa.vsix` once, then publishes the same file to both registries in parallel. Both publishing commands finish even if one fails, and any failure returns a nonzero exit code.
@@ -42,8 +42,8 @@ This builds and packages `flixa.vsix` once, then publishes the same file to both
 To retry a failed upload using the existing package:
 
 ```sh
-bun run publish:vscode
-bun run publish:openvsx
+pnpm run publish:vscode
+pnpm run publish:openvsx
 ```
 
 ## License

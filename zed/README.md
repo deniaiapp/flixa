@@ -6,9 +6,9 @@ This directory contains Flixa's Agent Client Protocol (ACP) integration for Zed.
 
 ```sh
 cd zed
-bun install
-bun run typecheck
-bun run build
+pnpm install
+pnpm run typecheck
+pnpm run build
 ```
 
 ## Configure Zed
