@@ -1,7 +1,11 @@
-import { describe, it, expect } from 'bun:test';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, afterEach } from 'bun:test';
+import { render, screen, cleanup } from '@testing-library/react';
 import { Message } from './Message';
 import type { ChatMessage } from '../types';
+
+afterEach(() => {
+	cleanup();
+});
 
 describe('Message', () => {
 	it('should render user message with correct styling', () => {
@@ -14,7 +18,7 @@ describe('Message', () => {
 
 		const messageElement = screen.getByText('Hello, assistant!');
 		expect(messageElement).toBeTruthy();
-		expect(messageElement.className).toContain('bg-accent');
+		expect(messageElement.className).toContain('bg-bubble');
 		expect(messageElement.className).toContain('rounded-2xl');
 	});
 
@@ -29,7 +33,6 @@ describe('Message', () => {
 		const messageElement = screen.getByText('Hello, user!');
 		expect(messageElement).toBeTruthy();
 		expect(messageElement.closest('[class*="text-foreground"]')).not.toBeNull();
-		expect(screen.getByText('Flixa')).toBeTruthy();
 	});
 
 	it('should render system message with correct styling', () => {
@@ -109,18 +112,7 @@ describe('Message', () => {
 		expect(messageElement.className).toContain('text-[11px]');
 	});
 
-	it('should show user label for user messages', () => {
-		const message: ChatMessage = {
-			role: 'user',
-			content: 'Test message',
-		};
-
-		render(<Message message={message} />);
-
-		expect(screen.getByText('You')).toBeTruthy();
-	});
-
-	it('should show Flixa label for assistant messages', () => {
+	it('should not show role labels', () => {
 		const message: ChatMessage = {
 			role: 'assistant',
 			content: 'Test response',
@@ -128,6 +120,7 @@ describe('Message', () => {
 
 		render(<Message message={message} />);
 
-		expect(screen.getByText('Flixa')).toBeTruthy();
+		expect(screen.queryByText('Flixa')).toBeNull();
+		expect(screen.queryByText('You')).toBeNull();
 	});
 });

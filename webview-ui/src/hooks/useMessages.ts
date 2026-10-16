@@ -5,6 +5,7 @@ import type {
 	ChatSession,
 	FileChange,
 	ModelDefinition,
+	PendingApproval,
 	ReasoningEffort,
 	UsageData,
 } from '../types';
@@ -30,6 +31,7 @@ export interface UseMessagesReturn {
 	activeFilePath: string;
 	activeSelection: string;
 	activeSelectionLabel: string;
+	approvals: PendingApproval[];
 	setAgentMode: (mode: boolean) => void;
 	setApprovalMode: (mode: string) => void;
 	setSelectedModel: (model: string) => void;
@@ -49,7 +51,7 @@ export function useMessages(): UseMessagesReturn {
 	const [autoContextEnabled, setAutoContextEnabled] = useState(true);
 	const [availableModels, setAvailableModels] = useState<string[]>([DEFAULT_MODEL]);
 	const [modelDefinitions, setModelDefinitions] = useState<ModelDefinition[]>([
-		{ id: DEFAULT_MODEL, label: 'GPT-5.2 Codex', description: '', tags: [], tier: 'free' },
+		{ id: DEFAULT_MODEL, label: 'GPT-6 Luna', description: 'OpenAI flagship coding model', tags: ['coding', 'fast'], tier: 'free' },
 	]);
 	const [isLoading, setIsLoading] = useState(false);
 	const [agentRunning, setAgentRunning] = useState(false);
@@ -58,6 +60,7 @@ export function useMessages(): UseMessagesReturn {
 	const [isLoggedIn, setIsLoggedIn] = useState(false);
 	const [changedFiles, setChangedFiles] = useState<FileChange[]>([]);
 	const [workspaceFiles, setWorkspaceFiles] = useState<string[]>([]);
+	const [approvals, setApprovals] = useState<PendingApproval[]>([]);
 	const [activeFilePath, setActiveFilePath] = useState('');
 	const [activeSelection, setActiveSelection] = useState('');
 	const [activeSelectionLabel, setActiveSelectionLabel] = useState('');
@@ -114,6 +117,9 @@ export function useMessages(): UseMessagesReturn {
 				case 'updateChangedFiles':
 					setChangedFiles(data.files || []);
 					break;
+				case 'updateApprovals':
+					setApprovals(data.approvals || []);
+					break;
 				case 'updateEditorContext':
 					setActiveFilePath(data.activeFilePath || '');
 					setActiveSelection(data.activeSelection || '');
@@ -147,6 +153,7 @@ export function useMessages(): UseMessagesReturn {
 		activeFilePath,
 		activeSelection,
 		activeSelectionLabel,
+		approvals,
 		setAgentMode,
 		setApprovalMode,
 		setSelectedModel,

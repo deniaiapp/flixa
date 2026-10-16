@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { InputArea } from './components/InputArea';
 import { MessageList } from './components/MessageList';
 import { FilesChanged } from './components/FilesChanged';
+import { ApprovalCard } from './components/ApprovalCard';
+import { QueuedMessages, type QueuedMessage } from './components/QueuedMessages';
 import { useMessages, useVSCode } from './hooks';
 import type { ImageAttachment, ReasoningEffort } from './types';
 import { getAvailableReasoningEfforts } from './types';
@@ -9,6 +11,9 @@ import { getAvailableReasoningEfforts } from './types';
 export default function App() {
 	const {
 		messages,
+		sessions,
+		currentSessionId,
+		approvals,
 		agentMode,
 		approvalMode,
 		selectedModel,
@@ -39,6 +44,10 @@ export default function App() {
 		setModel: setModelVSCode,
 		setReasoningEffort: setReasoningEffortVSCode,
 		stopAgent,
+		switchChat,
+		respondApproval,
+		copyToClipboard,
+		editMessage,
 		ready,
 		login,
 		openBilling,
@@ -48,6 +57,9 @@ export default function App() {
 	const [inputText, setInputText] = useState('');
 	const [inputImages, setInputImages] = useState<ImageAttachment[]>([]);
 	const [excludedActiveFilePath, setExcludedActiveFilePath] = useState<string | null>(null);
+	const [queue, setQueue] = useState<QueuedMessage[]>([]);
+	const dequeueGateRef = useRef(false);
+	const busy = isLoading || agentRunning;
 
 	const handleInputTextChange = (text: string) => {
 		setInputText(text);
@@ -65,9 +77,44 @@ export default function App() {
 		setExcludedActiveFilePath(null);
 	}, [activeFilePath]);
 
+	useEffect(() => {
+		setQueue([]);
+	}, [currentSessionId]);
+
+	useEffect(() => {
+		if (busy) {
+			dequeueGateRef.current = false;
+			return;
+		}
+		if (dequeueGateRef.current || queue.length === 0) {
+			return;
+		}
+		const [next, ...rest] = queue;
+		dequeueGateRef.current = true;
+		setQueue(rest);
+		sendMessage(next.text, next.images, next.excludedActiveFilePath, true);
+		const id = setTimeout(() => {
+			dequeueGateRef.current = false;
+		}, 1500);
+		return () => clearTimeout(id);
+	}, [busy, queue, sendMessage]);
+
 	const handleSendMessage = (text: string, images: ImageAttachment[]) => {
-		if ((!text.trim() && images.length === 0) || isLoading) return;
-		sendMessage(text, images, excludedActiveFilePath ?? undefined);
+		if (!text.trim() && images.length === 0) return;
+		const isImmediateCommand = /^\/(stop|new|clear)\b/.test(text.trim());
+		if ((busy || queue.length > 0) && !isImmediateCommand) {
+			setQueue((prev) => [
+				...prev,
+				{
+					id: crypto.randomUUID(),
+					text,
+					images,
+					excludedActiveFilePath: excludedActiveFilePath ?? undefined,
+				},
+			]);
+		} else {
+			sendMessage(text, images, excludedActiveFilePath ?? undefined);
+		}
 		setInputText('');
 		setInputImages([]);
 		setExcludedActiveFilePath(null);
@@ -124,7 +171,18 @@ export default function App() {
 				isLoading={isLoading}
 				streamingText={streamingText}
 				messagesEndRef={messagesEndRef}
+				sessions={sessions}
+				currentSessionId={currentSessionId}
+				onSwitchChat={switchChat}
+				onCopy={copyToClipboard}
+				onEditMessage={editMessage}
+				busy={busy}
 			/>
+			<QueuedMessages
+				queue={queue}
+				onRemove={(id) => setQueue((prev) => prev.filter((item) => item.id !== id))}
+			/>
+			<ApprovalCard approvals={approvals} onRespond={respondApproval} />
 			<FilesChanged files={changedFiles} />
 			<InputArea
 				agentMode={agentMode}

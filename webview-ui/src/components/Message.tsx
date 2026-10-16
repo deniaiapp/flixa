@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import type { ChatMessage } from "../types";
 import { MarkdownContent } from "./MarkdownContent";
 
@@ -19,41 +20,131 @@ function formatSelectionChipLabel(label: string): string {
 
 interface MessageProps {
   message: ChatMessage;
+  onCopy?: (text: string) => void;
+  onEdit?: (text: string) => void;
+  canEdit?: boolean;
+  asReply?: boolean;
 }
 
-const UserIcon = () => (
-  <svg
-    className="w-3.5 h-3.5"
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-    aria-hidden="true"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-    />
+const CopyIcon = () => (
+  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
   </svg>
 );
 
-const AssistantIcon = () => (
-  <svg
-    className="w-3.5 h-3.5"
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-    aria-hidden="true"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-    />
+const CheckIcon = () => (
+  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
   </svg>
 );
+
+const PencilIcon = () => (
+  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 13l6.232-6.232a2.5 2.5 0 113.536 3.536L12.536 16.5H9V13z" />
+  </svg>
+);
+
+const actionButtonClassName =
+  "w-6 h-6 flex items-center justify-center rounded-md text-foreground-subtle hover:text-foreground hover:bg-surface-hover transition-colors";
+
+function CopyButton({ text, onCopy }: { text: string; onCopy: (text: string) => void }) {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) {
+      return;
+    }
+    const id = setTimeout(() => setCopied(false), 1500);
+    return () => clearTimeout(id);
+  }, [copied]);
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        onCopy(text);
+        setCopied(true);
+      }}
+      className={actionButtonClassName}
+      title={copied ? "Copied" : "Copy"}
+      aria-label={copied ? "Copied" : "Copy"}
+    >
+      {copied ? <CheckIcon /> : <CopyIcon />}
+    </button>
+  );
+}
+
+function EditBox({
+  initialText,
+  onCancel,
+  onSubmit,
+}: {
+  initialText: string;
+  onCancel: () => void;
+  onSubmit: (text: string) => void;
+}) {
+  const [draft, setDraft] = useState(initialText);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      return;
+    }
+    textarea.focus();
+    textarea.selectionStart = textarea.value.length;
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 240)}px`;
+  }, []);
+
+  const submit = () => {
+    if (draft.trim()) {
+      onSubmit(draft);
+    }
+  };
+
+  return (
+    <div className="w-full max-w-[85%] rounded-2xl border border-input-border bg-composer focus-within:border-foreground/30 transition-colors">
+      <textarea
+        ref={textareaRef}
+        value={draft}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          e.target.style.height = "auto";
+          e.target.style.height = `${Math.min(e.target.scrollHeight, 240)}px`;
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            e.preventDefault();
+            onCancel();
+          } else if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            submit();
+          }
+        }}
+        rows={1}
+        className="block w-full px-3.5 pt-2.5 pb-1 bg-transparent resize-none text-[13px] leading-relaxed text-input-foreground outline-none"
+      />
+      <div className="flex items-center justify-end gap-1.5 px-2 pb-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="h-6 px-2.5 text-[11px] rounded-md text-foreground-muted hover:text-foreground hover:bg-surface-hover transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={submit}
+          disabled={!draft.trim()}
+          className="h-6 px-2.5 text-[11px] font-medium rounded-md bg-accent text-accent-foreground hover:bg-accent-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          Send
+        </button>
+      </div>
+    </div>
+  );
+}
 
 const SystemIcon = () => (
   <svg
@@ -122,33 +213,39 @@ function isErrorMessage(content: string): boolean {
   );
 }
 
-export function Message({ message }: MessageProps) {
+
+const chipClassName =
+  "px-2 py-1 rounded-md text-foreground-muted text-[11px] leading-none bg-bubble inline-flex items-center gap-1.5";
+
+export function Message({ message, onCopy, onEdit, canEdit = false, asReply = false }: MessageProps) {
+  const [isEditing, setIsEditing] = useState(false);
+
+  useEffect(() => {
+    if (!canEdit) {
+      setIsEditing(false);
+    }
+  }, [canEdit]);
+
   if (message.role === "user") {
     return (
-      <div className="message-animate flex gap-2.5 justify-end">
-        <div className="flex flex-col items-end gap-1 w-full">
-          <div className="flex items-center gap-1.5 text-foreground-muted">
-            <span className="text-[10px] font-medium uppercase tracking-wide">You</span>
-            <div className="w-5 h-5 rounded-full bg-accent/20 flex items-center justify-center text-accent">
-              <UserIcon />
-            </div>
-          </div>
+      <div className="message-animate group flex justify-end pt-2">
+        <div className="flex flex-col items-end gap-1.5 w-full">
           {message.images && message.images.length > 0 && (
-            <div className="flex flex-wrap gap-2 justify-end mt-1">
+            <div className="flex flex-wrap gap-2 justify-end">
               {message.images.map((img) => (
                 <img
                   key={img.id}
                   src={img.data}
                   alt={img.name || "Attached image"}
-                  className="max-h-48 max-w-full rounded-lg border border-input-border object-contain"
+                  className="max-h-48 max-w-full rounded-xl border border-hairline object-contain"
                 />
               ))}
             </div>
           )}
           {(message.mentionedFiles && message.mentionedFiles.length > 0) || message.activeSelectionLabel || message.activeFilePath ? (
-            <div className="flex flex-wrap gap-1.5 justify-end mt-1">
+            <div className="flex flex-wrap gap-1.5 justify-end">
               {(message.activeSelectionLabel || message.activeFilePath) && (
-                <div className="px-2 py-1 rounded-[6px] text-foreground-muted text-[11px] leading-none border border-input-border inline-flex items-center gap-1.5">
+                <div className={chipClassName}>
                   <FileIcon />
                   <span>
                     {message.activeSelectionLabel
@@ -160,19 +257,43 @@ export function Message({ message }: MessageProps) {
                 </div>
               )}
               {(message.mentionedFiles ?? []).map((file) => (
-                <div
-                  key={`${file.reference}-${file.filePath}`}
-                  className="px-2 py-1 rounded-[6px] text-foreground-muted text-[11px] leading-none border border-input-border inline-flex items-center gap-1.5"
-                >
+                <div key={`${file.reference}-${file.filePath}`} className={chipClassName}>
                   <FileIcon />
                   <span>{getBaseName(file.reference)}</span>
                 </div>
               ))}
             </div>
           ) : null}
-          {message.content && (
-            <div className="px-3.5 py-2.5 bg-accent text-accent-foreground rounded-2xl rounded-tr-sm text-[13px] leading-relaxed whitespace-pre-wrap break-words">
-              {message.content}
+          {isEditing && onEdit ? (
+            <EditBox
+              initialText={message.content}
+              onCancel={() => setIsEditing(false)}
+              onSubmit={(text) => {
+                setIsEditing(false);
+                onEdit(text);
+              }}
+            />
+          ) : (
+            message.content && (
+              <div className="max-w-[85%] px-3.5 py-2 bg-bubble text-foreground rounded-2xl text-[13px] leading-relaxed whitespace-pre-wrap break-words">
+                {message.content}
+              </div>
+            )
+          )}
+          {!isEditing && message.content && (onCopy || (onEdit && canEdit)) && (
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+              {onEdit && canEdit && (
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(true)}
+                  className={actionButtonClassName}
+                  title="Edit and resend"
+                  aria-label="Edit and resend"
+                >
+                  <PencilIcon />
+                </button>
+              )}
+              {onCopy && <CopyButton text={message.content} onCopy={onCopy} />}
             </div>
           )}
         </div>
@@ -185,46 +306,37 @@ export function Message({ message }: MessageProps) {
 
     if (isError) {
       return (
-        <div className="message-animate flex gap-2.5">
-          <div className="flex flex-col items-start gap-1 w-full min-w-0">
-            <div className="flex items-center gap-1.5 text-error">
-              <div className="w-5 h-5 rounded-full bg-error/20 flex items-center justify-center text-error">
-                <ErrorIcon />
-              </div>
-              <span className="text-[10px] font-medium uppercase tracking-wide">Error</span>
-            </div>
-            <div className="px-3 py-2 rounded-lg bg-error/10 border border-error/20 text-[13px] leading-relaxed text-error min-w-0 [word-break:break-word] mt-2 ml-2">
-              {message.content}
-            </div>
+        <div className="message-animate w-full min-w-0">
+          <div className="flex items-start gap-2 px-3 py-2 rounded-xl bg-error/10 border border-error/25 text-[12px] leading-relaxed text-error min-w-0 [word-break:break-word]">
+            <span className="mt-[3px] shrink-0">
+              <ErrorIcon />
+            </span>
+            <span>{message.content}</span>
           </div>
         </div>
       );
     }
 
     return (
-      <div className="message-animate flex gap-2.5">
-        <div className="flex flex-col items-start gap-1 w-full min-w-0">
-          <div className="flex items-center gap-1.5 text-foreground-muted">
-            <div className="w-5 h-5 rounded-full bg-surface-hover flex items-center justify-center text-foreground-subtle">
-              <AssistantIcon />
-            </div>
-            <span className="text-[10px] font-medium uppercase tracking-wide">Flixa</span>
-          </div>
-          <div className="text-[13px] mt-2 ml-2 leading-relaxed text-foreground min-w-0 [word-break:break-word]">
-            <MarkdownContent content={message.content} />
-          </div>
+      <div className="message-animate group w-full min-w-0 py-0.5">
+        <div className="text-[13px] leading-relaxed text-foreground min-w-0 [word-break:break-word]">
+          <MarkdownContent content={message.content} />
         </div>
+        {onCopy && message.content && (
+          <div className="flex items-center gap-0.5 mt-1 -ml-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+            <CopyButton text={message.content} onCopy={onCopy} />
+          </div>
+        )}
       </div>
     );
   }
 
-  // System message
   const isError = isErrorMessage(message.content);
 
   if (isError) {
     return (
       <div className="message-animate flex justify-center py-1">
-        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-error/10 border border-error/20 rounded-lg text-error">
+        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-error/10 border border-error/25 rounded-lg text-error">
           <ErrorIcon />
           <span className="text-[11px]">{message.content}</span>
         </div>
@@ -232,12 +344,37 @@ export function Message({ message }: MessageProps) {
     );
   }
 
+  if (asReply) {
+    return (
+      <div
+        role="note"
+        className="message-animate group relative w-full min-w-0 flex items-start gap-2.5 px-3 py-2.5 rounded-xl border border-info/30 bg-info/10"
+      >
+        <span className="mt-[3px] shrink-0 text-info">
+          <SystemIcon />
+        </span>
+        <div className="flex-1 text-[12px] leading-relaxed text-foreground min-w-0 whitespace-pre-wrap [word-break:break-word]">
+          {message.content}
+        </div>
+        {onCopy && message.content && (
+          <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+            <CopyButton text={message.content} onCopy={onCopy} />
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <div className="message-animate flex justify-center py-1">
-      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-hover/50 rounded-full text-foreground-muted">
-        <SystemIcon />
+    <div className="message-animate flex items-center gap-3 py-1 text-foreground-subtle">
+      <div className="h-px flex-1 bg-hairline" />
+      <div className="flex items-center gap-1.5 min-w-0 max-w-[85%]">
+        <span className="shrink-0">
+          <SystemIcon />
+        </span>
         <span className="text-[11px]">{message.content}</span>
       </div>
+      <div className="h-px flex-1 bg-hairline" />
     </div>
   );
 }

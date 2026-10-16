@@ -39,6 +39,30 @@
   --color-success-border: var(--vscode-inputValidation-infoBorder);
   --color-code-bg: var(--vscode-textCodeBlock-background);
   --color-shadow: var(--vscode-widget-shadow);
+  --color-bubble: color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
+  --color-composer: var(--vscode-input-background);
+  --color-hairline: color-mix(in srgb, var(--vscode-foreground) 12%, transparent);
+}
+
+@keyframes shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+.shimmer-text {
+  background: linear-gradient(
+    90deg,
+    var(--vscode-descriptionForeground) 0%,
+    var(--vscode-descriptionForeground) 40%,
+    var(--vscode-foreground) 50%,
+    var(--vscode-descriptionForeground) 60%,
+    var(--vscode-descriptionForeground) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 2s linear infinite;
 }
 
 @keyframes messageIn {
@@ -84,7 +108,7 @@ body {
 
 /* Markdown content styles */
 .markdown-content {
-  line-height: 1.6;
+  line-height: 1.65;
   overflow-wrap: break-word;
   word-break: break-word;
 }
@@ -127,6 +151,9 @@ body {
   margin: 0.5em 0;
   padding-left: 1.5em;
 }
+
+.markdown-content ul { list-style: disc; }
+.markdown-content ol { list-style: decimal; }
 
 .markdown-content li {
   margin: 0.25em 0;
@@ -220,7 +247,8 @@ body {
   font-family: var(--vscode-editor-font-family, monospace);
   font-size: 0.85em;
   line-height: 1.5;
-  border-radius: 6px;
+  border-radius: 8px;
+  border: 1px solid var(--color-hairline);
   background: var(--color-code-bg);
   color: var(--sh-identifier);
 }

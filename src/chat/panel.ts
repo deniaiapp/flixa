@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { executeAgentActions } from '../agent/executor';
+import { requestIndividualApproval } from '../agent/approval';
 import { showDiffPreview } from '../diff/preview';
 import { applyDiffToContent, validateDiff } from '../diff/validator';
 import { callLLMForAgent, callLLMForChat, generateSessionTitle } from '../llm/stub';
@@ -74,6 +75,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 	private _workspaceFiles: string[] = [];
 	private _activeFilePath: string = '';
 	private _activeSelection: string = '';
+	private _pendingApprovals: Map<
+		string,
+		{ action: string; detail: string; resolve: (decision: 'approve' | 'reject') => void }
+	> = new Map();
 
 	constructor(
 		extensionUri: vscode.Uri,
@@ -191,13 +196,32 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 					await this._usageService.fetchUsage(true);
 					this.updateUsage(this._usageService.getCachedUsage());
 				}
+				this._sendApprovals();
 			} else if (data.type === 'sendMessage') {
+				if (data.queued === true) {
+					while (this._pendingRequest) {
+						await this._pendingRequest;
+					}
+				}
 				await this._handleUserMessage(
 					data.message,
 					typeof data.excludedActiveFilePath === 'string'
 						? data.excludedActiveFilePath
 						: undefined,
 				);
+			} else if (data.type === 'approvalResponse') {
+				const pending = this._pendingApprovals.get(data.id);
+				if (pending) {
+					this._pendingApprovals.delete(data.id);
+					pending.resolve(data.decision === 'approve' ? 'approve' : 'reject');
+					this._sendApprovals();
+				}
+			} else if (data.type === 'copyToClipboard') {
+				if (typeof data.text === 'string') {
+					await vscode.env.clipboard.writeText(data.text);
+				}
+			} else if (data.type === 'editMessage') {
+				await this._editUserMessage(data.index, data.message);
 			} else if (data.type === 'toggleAgentMode') {
 				this._agentMode = data.enabled;
 				this._updateState();
@@ -323,6 +347,79 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 				agentRunning: this._isAgentRunning,
 			});
 		} catch { }
+	}
+
+	private _sendApprovals(): void {
+		if (!this._view) {
+			return;
+		}
+		try {
+			this._view.webview.postMessage({
+				type: 'updateApprovals',
+				approvals: Array.from(this._pendingApprovals.entries()).map(([id, approval]) => ({
+					id,
+					action: approval.action,
+					detail: approval.detail,
+				})),
+			});
+		} catch { }
+	}
+
+	private _requestApprovalInChat(
+		action: AgentAction,
+		abortSignal: AbortSignal,
+	): Promise<'approve' | 'reject'> {
+		if (!this._view) {
+			return requestIndividualApproval(action);
+		}
+		if (abortSignal.aborted) {
+			return Promise.resolve('reject');
+		}
+		const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+		const detail =
+			action.type === 'shell' || action.type === 'run_terminal_cmd' || action.type === 'vscodeCommand'
+				? action.command
+				: '';
+		return new Promise((resolve) => {
+			const onAbort = () => {
+				if (this._pendingApprovals.delete(id)) {
+					this._sendApprovals();
+				}
+				resolve('reject');
+			};
+			abortSignal.addEventListener('abort', onAbort, { once: true });
+			this._pendingApprovals.set(id, {
+				action: describeAction(action),
+				detail,
+				resolve: (decision) => {
+					abortSignal.removeEventListener('abort', onAbort);
+					resolve(decision);
+				},
+			});
+			this._sendApprovals();
+		});
+	}
+
+	private async _editUserMessage(index: unknown, message: unknown): Promise<void> {
+		if (typeof index !== 'number' || typeof message !== 'string' || !message.trim()) {
+			return;
+		}
+		if (this._pendingRequest) {
+			return;
+		}
+		const messages = this._sessionManager.getMessages();
+		if (!messages[index] || messages[index].role !== 'user') {
+			return;
+		}
+		this._sessionManager.setMessages(messages.slice(0, index));
+		if (
+			this._sessionManager.getSessionMessages().length <
+			this._sessionManager.getCompactedSessionMessageCount()
+		) {
+			this._sessionManager.clearCompactedInput();
+		}
+		this._updateMessages();
+		await this._handleUserMessage(message);
 	}
 
 	private async _handleUserMessage(
@@ -1017,6 +1114,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 						storePendingDiff: this._storePendingDiff,
 						onOutput,
 						onSafetyCheck,
+						requestApproval: (action) =>
+							this._requestApprovalInChat(action, actionAbortController.signal),
 						abortSignal: actionAbortController.signal,
 					});
 				} catch (error) {

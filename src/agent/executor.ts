@@ -32,6 +32,7 @@ export interface ExecuteActionsOptions {
 	storePendingDiff: (diff: PendingDiff) => void;
 	onOutput?: (actionDesc: string, output: string) => void;
 	onSafetyCheck?: (actionDesc: string, checking: boolean) => void;
+	requestApproval?: (action: AgentAction) => Promise<'approve' | 'reject'>;
 	abortSignal?: AbortSignal;
 }
 
@@ -45,6 +46,7 @@ export async function executeAgentActions(
 		storePendingDiff,
 		onOutput,
 		onSafetyCheck,
+		requestApproval,
 		abortSignal,
 	} = options;
 	console.log(
@@ -70,7 +72,9 @@ export async function executeAgentActions(
 		const needsApproval = requiresApproval(action, approvalMode, allowlist);
 
 		if (needsApproval) {
-			const userChoice = await requestIndividualApproval(action);
+			const userChoice = requestApproval
+				? await requestApproval(action)
+				: await requestIndividualApproval(action);
 			if (userChoice !== 'approve') {
 				results.push({
 					action,

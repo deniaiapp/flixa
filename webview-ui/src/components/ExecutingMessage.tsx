@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { ChatMessage } from '../types';
+import { Spinner } from './Spinner';
 
 interface ExecutingMessageProps {
   message: ChatMessage;
@@ -79,26 +80,20 @@ export function ExecutingMessage({ message }: ExecutingMessageProps) {
   const toolInfo = getToolInfo(message.executingAction || '');
 
   return (
-    <div className="message-animate">
-      <div className="rounded-lg bg-surface-2/50 border border-border-subtle/30 overflow-hidden">
-        <div className="flex items-center gap-2 px-2.5 py-1.5">
-          <div className="w-4 h-4 rounded flex items-center justify-center bg-info/10">
-            <div className="w-1.5 h-1.5 rounded-full bg-info animate-pulse" />
-          </div>
-          <div className="text-foreground-muted">
-            {toolInfo.icon}
-          </div>
-          <span className="text-[11px] font-medium text-foreground-muted">{toolInfo.name}</span>
-          <span className="text-[11px] text-foreground-subtle truncate flex-1">{toolInfo.target}</span>
-        </div>
-        {lines && (
-          <div className="px-2.5 py-2 border-t border-border-subtle/20 bg-surface-1/30">
-            <pre className="text-[11px] text-foreground-muted font-mono leading-relaxed max-h-40 overflow-y-auto whitespace-pre-wrap">
-              {lines}
-            </pre>
-          </div>
-        )}
+    <div className="message-animate min-w-0">
+      <div className="flex items-center gap-2 py-0.5 min-w-0">
+        <Spinner className="text-[12px]" />
+        <span className="text-foreground-muted shrink-0">{toolInfo.icon}</span>
+        <span className="shimmer-text text-[12px] font-medium shrink-0">{toolInfo.name}</span>
+        <span className="text-[11px] font-mono text-foreground-muted truncate flex-1">{toolInfo.target}</span>
       </div>
+      {lines && (
+        <div className="ml-[6px] pl-4 border-l border-hairline mt-1">
+          <pre className="text-[11px] text-foreground-muted font-mono leading-relaxed max-h-40 overflow-y-auto whitespace-pre-wrap rounded-lg bg-code-bg border border-hairline px-2.5 py-2">
+            {lines}
+          </pre>
+        </div>
+      )}
     </div>
   );
 }

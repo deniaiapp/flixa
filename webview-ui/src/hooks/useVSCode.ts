@@ -3,7 +3,10 @@ import { vscode } from '../vscode';
 import type { ImageAttachment } from '../types';
 
 export interface UseVSCodeReturn {
-	sendMessage: (text: string, images?: ImageAttachment[], excludedActiveFilePath?: string) => void;
+	sendMessage: (text: string, images?: ImageAttachment[], excludedActiveFilePath?: string, queued?: boolean) => void;
+	respondApproval: (id: string, decision: 'approve' | 'reject') => void;
+	copyToClipboard: (text: string) => void;
+	editMessage: (index: number, message: string) => void;
 	toggleAgentMode: (enabled: boolean) => void;
 	setApprovalMode: (mode: string) => void;
 	setModel: (model: string) => void;
@@ -22,8 +25,20 @@ export interface UseVSCodeReturn {
 }
 
 export function useVSCode(): UseVSCodeReturn {
-	const sendMessage = useCallback((text: string, images?: ImageAttachment[], excludedActiveFilePath?: string) => {
-		vscode.postMessage({ type: 'sendMessage', message: text, images, excludedActiveFilePath });
+	const sendMessage = useCallback((text: string, images?: ImageAttachment[], excludedActiveFilePath?: string, queued?: boolean) => {
+		vscode.postMessage({ type: 'sendMessage', message: text, images, excludedActiveFilePath, queued });
+	}, []);
+
+	const respondApproval = useCallback((id: string, decision: 'approve' | 'reject') => {
+		vscode.postMessage({ type: 'approvalResponse', id, decision });
+	}, []);
+
+	const copyToClipboard = useCallback((text: string) => {
+		vscode.postMessage({ type: 'copyToClipboard', text });
+	}, []);
+
+	const editMessage = useCallback((index: number, message: string) => {
+		vscode.postMessage({ type: 'editMessage', index, message });
 	}, []);
 
 	const toggleAgentMode = useCallback((enabled: boolean) => {
@@ -88,6 +103,9 @@ export function useVSCode(): UseVSCodeReturn {
 
 	return {
 		sendMessage,
+		respondApproval,
+		copyToClipboard,
+		editMessage,
 		toggleAgentMode,
 		setApprovalMode,
 		setModel,

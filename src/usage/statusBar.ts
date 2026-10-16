@@ -136,9 +136,7 @@ export class UsageStatusBarItem {
 			);
 		}
 		if (data.tier === 'free' && data.hasVerifiedPaymentMethod) {
-			tooltipLines.push(
-				`Card verified${data.cardFunding ? `: ${data.cardFunding}` : ''}`
-			);
+			tooltipLines.push('Card verified');
 		}
 		if (data.periodEnd) {
 			tooltipLines.push(

@@ -55,6 +55,12 @@ export interface ChatMessage {
   mentionedFiles?: ReferencedContextFile[];
 }
 
+export interface PendingApproval {
+  id: string;
+  action: string;
+  detail: string;
+}
+
 export interface ChatSession {
   id: string;
   name: string;

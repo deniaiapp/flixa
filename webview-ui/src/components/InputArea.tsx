@@ -313,7 +313,8 @@ export function InputArea({
   onLogin,
   onOpenBilling,
 }: InputAreaProps) {
-  const settingsButtonRef = useRef<HTMLButtonElement>(null);
+  const settingsButtonRef = useRef<HTMLDivElement>(null);
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
   const [settingsPosition, setSettingsPosition] = useState({ bottom: 0, left: 0 });
@@ -516,8 +517,9 @@ export function InputArea({
   }, []);
 
   useEffect(() => {
-    if (isSettingsOpen && settingsButtonRef.current) {
-      const buttonRect = settingsButtonRef.current.getBoundingClientRect();
+    const anchor = menuAnchor ?? settingsButtonRef.current;
+    if (isSettingsOpen && anchor) {
+      const buttonRect = anchor.getBoundingClientRect();
       const settingsMenu = document.getElementById("settings-menu");
       const viewportWidth = window.innerWidth;
       const menuWidth = settingsMenu?.offsetWidth ?? 200;
@@ -526,11 +528,11 @@ export function InputArea({
         left = Math.max(8, viewportWidth - menuWidth - 8);
       }
       setSettingsPosition({
-        bottom: window.innerHeight - buttonRect.bottom + 24,
+        bottom: window.innerHeight - buttonRect.top + 6,
         left,
       });
     }
-  }, [isSettingsOpen]);
+  }, [isSettingsOpen, menuAnchor, activeSubmenu]);
 
   useEffect(() => {
     const updateMentionMenuPosition = () => {
@@ -671,7 +673,7 @@ export function InputArea({
   };
 
   const handleSend = () => {
-    if ((text.trim() || images.length > 0) && !isLoading) {
+    if (text.trim() || images.length > 0) {
       onSendMessage(text, images);
       onTextChange("");
       onImagesChange([]);
@@ -782,7 +784,7 @@ export function InputArea({
     mentionSuggestions.length > 0 &&
     createPortal(
       <div
-        className="fixed z-[9999] border border-input-border rounded-md bg-menu-bg overflow-hidden"
+        className="fixed z-[9999] border border-menu-border rounded-xl bg-menu-bg overflow-hidden py-1 shadow-[0_12px_32px_var(--color-shadow)]"
         style={{
           top: mentionMenuPosition.top,
           left: mentionMenuPosition.left,
@@ -795,7 +797,7 @@ export function InputArea({
             key={file}
             type="button"
             onClick={() => applyMention(file)}
-            className={`w-full px-2.5 py-2 text-left text-xs transition-colors ${
+            className={`w-full px-3 py-1.5 text-left text-xs font-mono truncate transition-colors ${
               index === mentionIndex
                 ? "bg-surface-hover text-foreground"
                 : "text-menu-foreground hover:bg-surface-hover"
@@ -812,7 +814,7 @@ export function InputArea({
     commandSuggestions.length > 0 &&
     createPortal(
       <div
-        className="fixed z-[9999] border border-input-border rounded-md bg-menu-bg overflow-hidden"
+        className="fixed z-[9999] border border-menu-border rounded-xl bg-menu-bg overflow-hidden py-1 shadow-[0_12px_32px_var(--color-shadow)]"
         style={{
           top: commandMenuPosition.top,
           left: commandMenuPosition.left,
@@ -825,15 +827,17 @@ export function InputArea({
             key={command.name}
             type="button"
             onClick={() => applyCommand(command.name)}
-            className={`w-full px-2.5 py-2 text-left text-xs transition-colors ${
+            className={`w-full px-3 py-1.5 text-left text-xs transition-colors ${
               index === commandIndex
                 ? "bg-surface-hover text-foreground"
                 : "text-menu-foreground hover:bg-surface-hover"
             }`}
           >
-            <div className="font-medium">/{command.name}</div>
-            <div className="text-[10px] text-foreground-subtle mt-0.5">
-              {command.description}
+            <div className="flex items-baseline gap-2 min-w-0">
+              <span className="font-medium font-mono shrink-0">/{command.name}</span>
+              <span className="text-[11px] text-foreground-subtle truncate">
+                {command.description}
+              </span>
             </div>
           </button>
         ))}
@@ -910,7 +914,7 @@ export function InputArea({
     createPortal(
       <div
         id="settings-menu"
-        className="fixed z-[9999] min-w-[200px] bg-menu-bg border border-menu-border rounded-lg shadow-[0_12px_24px_var(--color-shadow)]"
+        className="fixed z-[9999] min-w-[220px] max-w-[calc(100vw-16px)] bg-menu-bg border border-menu-border rounded-xl overflow-hidden shadow-[0_12px_32px_var(--color-shadow)]"
         style={{
           bottom: settingsPosition.bottom,
           left: settingsPosition.left,
@@ -920,7 +924,31 @@ export function InputArea({
           <div className="py-1">
             <button
               type="button"
-              className="w-full px-3 py-2 cursor-pointer transition-colors hover:bg-surface-hover text-xs text-left flex items-center justify-between text-menu-foreground"
+              className="w-full px-3 py-2 cursor-pointer transition-colors hover:bg-surface-hover text-xs text-left flex items-center gap-2 text-menu-foreground"
+              onClick={() => {
+                setIsSettingsOpen(false);
+                handleImageButtonClick();
+              }}
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
+              <span>Attach image</span>
+            </button>
+            <button
+              type="button"
+              className="w-full px-3 py-2 cursor-pointer transition-colors hover:bg-surface-hover text-xs text-left flex items-center justify-between text-menu-foreground border-t border-menu-separator"
               onClick={() => setActiveSubmenu("mode")}
             >
               <div className="flex items-center gap-2">
@@ -939,27 +967,6 @@ export function InputArea({
                   {getCurrentApprovalIcon()}
                   <span>Approval: {getCurrentApprovalLabel()}</span>
                 </div>
-                <ChevronIcon />
-              </button>
-            )}
-            <button
-              type="button"
-              className="w-full px-3 py-2 cursor-pointer transition-colors hover:bg-surface-hover text-xs text-left flex items-center justify-between text-menu-foreground border-t border-menu-separator"
-              onClick={() => setActiveSubmenu("model")}
-            >
-              <span className="flex min-w-0 items-center gap-2">
-                <span className="truncate">Model: {getCurrentModelLabel()}</span>
-                {renderTokenUsageMultiplierBadge(getModelTokenUsageMultiplier(selectedModel))}
-              </span>
-              <ChevronIcon />
-            </button>
-            {availableReasoningEffortOptions.length > 0 && (
-              <button
-                type="button"
-                className="w-full px-3 py-2 cursor-pointer transition-colors hover:bg-surface-hover text-xs text-left flex items-center justify-between text-menu-foreground border-t border-menu-separator"
-                onClick={() => setActiveSubmenu("reasoning")}
-              >
-                <span>Reasoning: {getCurrentReasoningEffortLabel()}</span>
                 <ChevronIcon />
               </button>
             )}
@@ -1260,26 +1267,35 @@ export function InputArea({
       document.body,
     );
 
+  const openMenu = (anchor: HTMLElement, submenu: string | null) => {
+    setMenuAnchor(anchor);
+    setActiveSubmenu(submenu);
+    setIsSettingsOpen(true);
+  };
+
+  const toolbarButtonClassName =
+    "inline-flex items-center gap-1 h-7 px-2 text-[11px] text-foreground-muted hover:text-foreground hover:bg-surface-hover rounded-lg transition-colors";
+
   return (
-    <div className="p-2.5">
+    <div className="mx-auto w-full max-w-3xl px-2.5 pb-2.5 pt-2.5">
       <div
-        className="bg-input-bg border border-input-border rounded-lg overflow-hidden"
+        className="relative z-10 bg-composer border border-input-border rounded-2xl overflow-hidden shadow-[0_4px_16px_var(--color-shadow)] focus-within:border-foreground/30 transition-colors"
         onDrop={handleDrop}
         onDragOver={handleDragOver}
       >
         {images.length > 0 && (
-          <div className="flex flex-wrap gap-2 px-2.5 pt-2">
+          <div className="flex flex-wrap gap-2 px-3 pt-3">
             {images.map((img) => (
               <div key={img.id} className="relative group">
                 <img
                   src={img.data}
                   alt={img.name || "Attached image"}
-                  className="h-16 w-16 object-cover rounded-md border border-input-border"
+                  className="h-16 w-16 object-cover rounded-lg border border-hairline"
                 />
                 <button
                   type="button"
                   onClick={() => handleRemoveImage(img.id)}
-                  className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-error text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-menu-bg text-foreground border border-menu-border rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                   title="Remove image"
                 >
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1296,16 +1312,16 @@ export function InputArea({
           </div>
         )}
         {(includeActiveFileContext || mentionedFiles.length > 0) && (
-          <div className="px-2.5 pt-2">
-            <div className="flex gap-1.5 overflow-x-auto whitespace-nowrap pb-1">
+          <div className="px-3 pt-2.5">
+            <div className="flex gap-1.5 overflow-x-auto whitespace-nowrap">
               {includeActiveFileContext && (activeSelectionLabel || activeFilePath) && (
-                <div className="px-1 py-0.5 rounded-md text-[9px] text-foreground border border-input-border inline-flex items-center gap-1.5 shrink-0">
+                <div className="px-1.5 py-0.5 rounded-md text-[11px] text-foreground-muted bg-bubble inline-flex items-center gap-1.5 shrink-0">
                   <FileIcon />
                   <span>{activeSelectionLabel ? formatSelectionChipLabel(activeSelectionLabel) : getBaseName(activeFilePath)}</span>
                   <button
                     type="button"
                     onClick={onExcludeActiveFile}
-                    className="text-foreground-subtle hover:text-error rounded-sm transition-colors"
+                    className="text-foreground-subtle hover:text-foreground rounded-sm transition-colors"
                     title="Exclude active file from context"
                     aria-label="Exclude active file from context"
                   >
@@ -1318,7 +1334,7 @@ export function InputArea({
                   key={file}
                   type="button"
                   onClick={() => applyMention(file)}
-                  className="px-1 py-0.5 rounded-md text-[9px] text-foreground border border-input-border hover:bg-surface-hover inline-flex items-center gap-1.5 shrink-0"
+                  className="px-1.5 py-0.5 rounded-md text-[11px] text-foreground-muted bg-bubble hover:text-foreground inline-flex items-center gap-1.5 shrink-0"
                 >
                   <FileIcon />
                   <span>{getBaseName(file)}</span>
@@ -1332,7 +1348,7 @@ export function InputArea({
             <div
               id="input-text-mirror"
               aria-hidden="true"
-              className="absolute inset-0 px-2.5 py-2 text-xs leading-relaxed whitespace-pre-wrap break-words overflow-hidden pointer-events-none select-none"
+              className="absolute inset-0 px-3.5 pt-3 pb-1.5 text-[13px] leading-relaxed whitespace-pre-wrap break-words overflow-hidden pointer-events-none select-none"
             >
               <span className="invisible">{escapeHtml("")}</span>
               <span className="text-input-foreground">{renderHighlightedText(text, workspaceFiles)}</span>
@@ -1347,10 +1363,9 @@ export function InputArea({
             onScroll={syncTextareaScroll}
             onClick={handleCursorChange}
             onSelect={handleCursorChange}
-            placeholder="Plan, @file for context, / for commands"
+            placeholder={isLoading || agentRunning ? "Queue a message for when Flixa finishes" : "Plan, @file for context, / for commands"}
             rows={1}
-            disabled={isLoading}
-            className={`w-full px-2.5 py-2 bg-transparent resize-none min-h-[36px] max-h-[160px] text-xs leading-relaxed outline-none placeholder:text-input-placeholder disabled:opacity-50 disabled:cursor-not-allowed ${text.length > 0 ? "text-transparent caret-input-foreground" : "text-input-foreground"}`}
+            className={`block w-full px-3.5 pt-3 pb-1.5 bg-transparent resize-none min-h-[48px] max-h-[200px] text-[13px] leading-relaxed outline-none placeholder:text-input-placeholder disabled:opacity-50 disabled:cursor-not-allowed ${text.length > 0 ? "text-transparent caret-input-foreground" : "text-input-foreground"}`}
           />
         </div>
         <input
@@ -1361,13 +1376,14 @@ export function InputArea({
           onChange={handleFileInputChange}
           className="hidden"
         />
-        <div className="flex items-center justify-between px-1.5 py-1 border-t border-input-border">
-          <div className="flex items-center gap-0.5">
+        <div className="flex items-center justify-between gap-2 px-2 pb-2 pt-0.5">
+          <div ref={settingsButtonRef} className="flex items-center gap-0.5 min-w-0">
             <button
               type="button"
-              onClick={handleImageButtonClick}
-              className="p-1 text-foreground-subtle hover:text-foreground hover:bg-surface-hover rounded transition-all"
-              title="Attach Image"
+              onClick={(e) => openMenu(e.currentTarget, null)}
+              className="w-7 h-7 shrink-0 flex items-center justify-center text-foreground-muted hover:text-foreground hover:bg-surface-hover rounded-lg transition-colors"
+              title={agentMode ? `Attach image, Mode: ${getCurrentModeLabel()}, Approval: ${getCurrentApprovalLabel()}` : `Attach image, Mode: ${getCurrentModeLabel()}`}
+              aria-label="More options"
             >
               <svg
                 className="w-4 h-4"
@@ -1376,23 +1392,16 @@ export function InputArea({
                 viewBox="0 0 24 24"
                 aria-hidden="true"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v14M5 12h14" />
               </svg>
             </button>
             <button
               type="button"
-              ref={settingsButtonRef}
-              onClick={() => {
-                setActiveSubmenu("model");
-                setIsSettingsOpen(true);
+              onClick={(e) => {
                 setModelSearch("");
+                openMenu(e.currentTarget, "model");
               }}
-              className="inline-flex max-w-[160px] items-center gap-1 px-2 py-1 text-[11px] text-foreground-subtle hover:text-foreground hover:bg-surface-hover rounded-md transition-all truncate"
+              className={`${toolbarButtonClassName} min-w-0 max-w-[160px]`}
               title={`Model: ${getCurrentModelLabel()}`}
             >
               <span className="truncate">{getCurrentModelLabel()}</span>
@@ -1401,11 +1410,8 @@ export function InputArea({
             {availableReasoningEffortOptions.length > 0 && (
               <button
                 type="button"
-                onClick={() => {
-                  setActiveSubmenu("reasoning");
-                  setIsSettingsOpen(true);
-                }}
-                className="inline-flex max-w-[105px] items-center gap-1 px-2 py-1 text-[11px] text-foreground-subtle hover:text-foreground hover:bg-surface-hover rounded-md transition-all truncate"
+                onClick={(e) => openMenu(e.currentTarget, "reasoning")}
+                className={`${toolbarButtonClassName} min-w-0 max-w-[105px]`}
                 title={`Effort: ${getCurrentReasoningEffortLabel()}`}
               >
                 <span className="truncate">{getCurrentReasoningEffortLabel()}</span>
@@ -1413,35 +1419,24 @@ export function InputArea({
               </button>
             )}
           </div>
-          <div className="flex items-center gap-0.5">
+          <div className="flex items-center shrink-0">
             {agentRunning ? (
               <button
                 type="button"
                 onClick={onStop}
-                className="p-1 text-error hover:text-error hover:bg-error-bg rounded transition-all"
+                className="w-7 h-7 flex items-center justify-center rounded-full bg-foreground text-[var(--vscode-editor-background)] hover:opacity-80 transition-opacity"
                 title="Stop"
               >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
+                <svg className="w-2.5 h-2.5" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true">
+                  <rect width="10" height="10" rx="1.5" />
                 </svg>
               </button>
             ) : (
               <button
                 type="button"
                 onClick={handleSend}
-                disabled={isLoading || (!text.trim() && images.length === 0)}
-                className="p-1 text-foreground-subtle hover:text-foreground hover:bg-surface-hover rounded transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                disabled={!text.trim() && images.length === 0}
+                className="w-7 h-7 flex items-center justify-center rounded-full bg-accent text-accent-foreground hover:bg-accent-hover transition-colors disabled:bg-foreground/15 disabled:text-foreground-subtle disabled:cursor-not-allowed"
                 title="Send"
               >
                 <svg
@@ -1451,12 +1446,7 @@ export function InputArea({
                   viewBox="0 0 24 24"
                   aria-hidden="true"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M14 5l7 7m0 0l-7 7m7-7H3"
-                  />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.25} d="M12 19V5m0 0l-6 6m6-6l6 6" />
                 </svg>
               </button>
             )}

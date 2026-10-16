@@ -82,7 +82,7 @@ function FileItem({ file }: { file: FileChange }) {
   };
 
   return (
-    <div className="group flex items-center gap-1.5 px-2.5 py-1 hover:bg-surface-hover/50 transition-colors">
+    <div className="group flex items-center gap-1.5 px-3 py-1 hover:bg-surface-hover/50 transition-colors">
       <button
         type="button"
         onClick={handleOpen}
@@ -133,35 +133,37 @@ export function FilesChanged({ files }: FilesChangedProps) {
   };
 
   return (
-    <div className="mx-3 mb-2 rounded-lg bg-surface-2/50 border border-border-subtle/30 overflow-hidden">
+    <div className="mx-auto w-full max-w-3xl px-5">
+    <div className="mb-[-10px] rounded-t-xl bg-surface-2/60 border border-b-0 border-hairline overflow-hidden">
       <div className="flex items-center">
         <button
           type="button"
           onClick={() => setExpanded(!expanded)}
-          className="flex items-center gap-2 px-2.5 py-1.5 text-left hover:bg-surface-hover/30 cursor-pointer flex-1"
+          className="flex items-center gap-2 px-3 py-1.5 text-left hover:bg-surface-hover/30 cursor-pointer flex-1"
         >
           <div className="text-foreground-subtle">
             <ChevronIcon expanded={expanded} />
           </div>
-          <span className="text-[11px] font-medium text-foreground-muted">Files Changed</span>
+          <span className="text-[11px] font-medium text-foreground">Files Changed</span>
           <span className="text-[10px] text-foreground-subtle">({files.length})</span>
         </button>
         <button
           type="button"
           onClick={handleKeepAll}
-          className="text-[10px] text-foreground-subtle hover:text-success px-2 py-1 mr-1 rounded hover:bg-success/10 transition-colors cursor-pointer"
+          className="text-[11px] text-foreground-muted hover:text-foreground px-2 py-0.5 mr-1.5 rounded-md border border-hairline hover:bg-surface-hover transition-colors cursor-pointer"
         >
           Keep All
         </button>
       </div>
 
       {expanded && (
-        <div className="border-t border-border-subtle/20 py-0.5">
+        <div className="border-t border-hairline py-0.5 max-h-40 overflow-y-auto">
           {files.map((file) => (
             <FileItem key={file.filePath} file={file} />
           ))}
         </div>
       )}
+    </div>
     </div>
   );
 }

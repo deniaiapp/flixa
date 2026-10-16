@@ -110,7 +110,7 @@ async function showUsageQuickPick(
 			: '';
 		items.push({
 			label: '$(check) Card verified',
-			description: [data.cardFunding, verifiedAt].filter(Boolean).join(' '),
+			description: verifiedAt,
 		});
 	}
 
