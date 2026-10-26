@@ -16,7 +16,7 @@ import {
 	logMissingClientSignal,
 } from '../api/flixaClientHeaders';
 import { log } from '../logger';
-import { canUseTier, getModelTierRequirement, isMaxTeamPlan } from './types';
+import { canUseTier, getModelTierRequirement, isMaxTeamPlan, primaryUsage } from './types';
 
 const CACHE_DURATION_MS = 5 * 60 * 1000;
 const API_KEY_SECRET_KEY = 'deniApiKey';
@@ -35,24 +35,12 @@ export function getBillingUrl(): string {
 	return `${getDeniAiBaseUrl()}/settings/billing`;
 }
 
-function getCategoryLabel(category: UsageCategory | undefined): string {
-	if (category === 'basic') {
-		return 'Basic';
-	}
-	if (category === 'premium') {
-		return 'Premium';
-	}
-	return 'Free';
-}
-
 export async function showQuotaExceededDialog(
 	error: QuotaExceededErrorMeta,
 	onAfterAction?: () => Promise<void>
 ): Promise<void> {
-	const title =
-		error.tier === 'free'
-			? `${getCategoryLabel(error.category)} limit reached`
-			: 'Usage limit reached';
+	// Usage is one pool shared with Deni AI chat and Deni Run, not split by model class.
+	const title = 'Usage limit reached';
 	const message = `${title}: ${error.message}`;
 	const canVerify = error.canVerifyForBoost === true;
 	const canUpgrade = error.canUpgrade === true;
@@ -352,7 +340,7 @@ export class UsageService {
 			};
 		}
 
-		const item = data.usage.find((u) => u.category === category);
+		const item = primaryUsage(data);
 		if (!item) {
 			return {
 				canProceed: true,
@@ -368,7 +356,7 @@ export class UsageService {
 			if (!this._lowQuotaWarningShown.has(category)) {
 				this._lowQuotaWarningShown.add(category);
 				vscode.window.showWarningMessage(
-					`Deni AI: ${category} quota is low (${item.remaining}/${item.limit} remaining)`
+					`Deni AI: monthly usage is low (${Math.round(percentage)}% left)`
 				);
 			}
 		}

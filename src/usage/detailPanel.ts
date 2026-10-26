@@ -1,24 +1,7 @@
 import * as vscode from 'vscode';
 import type { UsageService } from './service';
-import { isMaxTeamPlan, type UsageItem } from './types';
+import { isMaxTeamPlan, primaryUsage, remainingPercent } from './types';
 import { getBillingUrl } from './service';
-
-function formatUsageAmount(value: number, unit: string): string {
-	if (unit === 'tokens') {
-		if (value >= 1_000_000) {
-			return `${(value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1)}M`;
-		}
-		if (value >= 1_000) {
-			return `${(value / 1_000).toFixed(value % 1_000 === 0 ? 0 : 1)}K`;
-		}
-	}
-
-	return value.toLocaleString();
-}
-
-function formatUsageLabel(item: UsageItem): string {
-	return `${formatUsageAmount(item.used, item.unit)}/${formatUsageAmount(item.limit, item.unit)} ${item.unit}`;
-}
 
 export async function showUsageDetailPanel(
 	usageService: UsageService
@@ -87,14 +70,13 @@ async function showUsageQuickPick(
 		kind: vscode.QuickPickItemKind.Separator,
 	});
 
-	for (const usage of data.usage) {
-		const pct = Math.round((usage.used / usage.limit) * 100);
-		const bar = createProgressBar(pct);
-		const categoryLabel =
-			usage.category.charAt(0).toUpperCase() + usage.category.slice(1);
+	// One pool shared by Deni AI chat, Flixa, and Deni Run; percentages only.
+	const usage = primaryUsage(data);
+	if (usage) {
+		const leftPct = remainingPercent(usage);
 		items.push({
-			label: `$(graph) ${categoryLabel}: ${formatUsageLabel(usage)}`,
-			description: `${bar} ${formatUsageAmount(usage.remaining, usage.unit)} ${usage.unit} remaining`,
+			label: `$(graph) Monthly usage: ${Math.round(100 - leftPct)}% used`,
+			description: `${createProgressBar(Math.round(100 - leftPct))} ${Math.round(leftPct)}% left`,
 		});
 	}
 

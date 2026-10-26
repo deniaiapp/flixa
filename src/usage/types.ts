@@ -91,6 +91,8 @@ export interface ModelAccessDefinition {
   description?: string;
   tags?: string[];
   tokenUsageMultiplier?: number;
+  /** Usage tier from the Flixa API: Tier 1 = 1x, 2 = 1.5x, 3 = 2x, 4 = 3x, 5+ = premium. */
+  usageTier?: number;
   reasoningEfforts?: ModelReasoningEfforts;
   default?: boolean;
 }
@@ -157,4 +159,17 @@ export function canUseTier(userTier: Tier, requiredTier: ModelTierRequirement): 
     return userTier === "max";
   }
   return false;
+}
+
+/**
+ * Usage is not split by model class: Deni AI chat, Flixa, and Deni Run share one
+ * monthly pool. Every entry reports that pool; older servers split it into
+ * basic/premium, and then the basic entry stands for it.
+ */
+export function primaryUsage(data: UsageResponse): UsageItem | undefined {
+	return data.usage.find((u) => u.category === 'basic') ?? data.usage[0];
+}
+
+export function remainingPercent(item: UsageItem): number {
+	return item.limit > 0 ? Math.max(0, Math.min(100, (item.remaining / item.limit) * 100)) : 0;
 }

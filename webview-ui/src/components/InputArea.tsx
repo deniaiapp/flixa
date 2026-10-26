@@ -431,13 +431,17 @@ export function InputArea({
     const definition = getModelDefinition(modelId);
     return definition?.tokenUsageMultiplier ?? 1;
   };
-  const renderTokenUsageMultiplierBadge = (multiplier: number) => {
-    if (multiplier <= 1) {
+  // Tier 2 and above count each token more than once; older servers send only the multiplier.
+  const renderTokenUsageMultiplierBadge = (multiplier: number, usageTier?: number) => {
+    if (multiplier <= 1 && (usageTier ?? 1) <= 1) {
       return null;
     }
     return (
-      <span className="shrink-0 rounded border border-foreground/30 bg-foreground/10 px-1 py-0.5 text-[9px] leading-none text-foreground whitespace-nowrap">
-        {multiplier}x token usage
+      <span
+        className="shrink-0 rounded border border-foreground/30 bg-foreground/10 px-1 py-0.5 text-[9px] leading-none text-foreground whitespace-nowrap"
+        title={`Each token counts ${multiplier}x toward your usage`}
+      >
+        {usageTier ? `Tier ${usageTier} · ${multiplier}x` : `${multiplier}x token usage`}
       </span>
     );
   };
@@ -477,6 +481,7 @@ export function InputArea({
       description: def?.description ?? "",
       tags: def?.tags ?? [],
       tokenUsageMultiplier: getModelTokenUsageMultiplier(model),
+      usageTier: def?.usageTier,
       locked: isModelLocked(model, userTier, isLoggedIn),
       lockMessage: getModelLockMessage(model, isLoggedIn),
     };
@@ -1154,7 +1159,10 @@ export function InputArea({
                     <div className="flex items-center justify-between gap-2">
                       <span className="flex min-w-0 items-center gap-2">
                         <span className="truncate font-medium">{option.label}</span>
-                        {renderTokenUsageMultiplierBadge(option.tokenUsageMultiplier)}
+                        {renderTokenUsageMultiplierBadge(
+                          option.tokenUsageMultiplier,
+                          option.usageTier,
+                        )}
                       </span>
                       {option.locked && (
                         <span className="flex items-center gap-1 text-[10px] text-foreground-subtle">

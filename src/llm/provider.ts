@@ -113,6 +113,13 @@ function normalizeTokenUsageMultiplier(value: unknown): number | undefined {
   return value;
 }
 
+function normalizeUsageTier(value: unknown): number | undefined {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
+    return undefined;
+  }
+  return value;
+}
+
 function extractModelDefinition(model: unknown): ModelAccessDefinition | null {
   if (typeof model === "string") {
     return { id: model, label: model, tags: [] };
@@ -128,6 +135,7 @@ function extractModelDefinition(model: unknown): ModelAccessDefinition | null {
         premium: typeof record.premium === "boolean" ? record.premium : undefined,
         tier: normalizeTier(record.tier),
         tokenUsageMultiplier: normalizeTokenUsageMultiplier(record.tokenUsageMultiplier),
+        usageTier: normalizeUsageTier(record.usageTier),
         reasoningEfforts: normalizeReasoningEfforts(
           record.efforts ??
             record.reasoningEfforts ??

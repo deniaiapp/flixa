@@ -111,6 +111,8 @@ export interface ModelDefinition {
   premium?: boolean;
   tier?: ModelTierRequirement;
   tokenUsageMultiplier?: number;
+  /** Usage tier from the Flixa API: Tier 1 = 1x, 2 = 1.5x, 3 = 2x, 4 = 3x, 5+ = premium. */
+  usageTier?: number;
   reasoningEfforts?: ModelReasoningEfforts;
 }
 

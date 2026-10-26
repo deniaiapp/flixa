@@ -24,7 +24,7 @@ Use this section when the user asks about Flixa itself, its features, settings, 
 ### Account and plans
 - Users sign in with their Deni AI account using the "Deni AI: Login" command (device login). "Deni AI: Logout" signs out.
 - Plans are Free, Plus, Pro, and Max. Some models require a higher plan; locked models show "Plus plan or higher required", "Pro plan required", or "Max plan required".
-- Some models are premium and use premium usage; others use basic usage. Some models show a token usage multiplier such as "2x token usage".
+- Every model has a usage tier that sets how much each token counts toward usage: Tier 1 is 1x, Tier 2 1.5x, Tier 3 2x, Tier 4 3x, Tier 5 4x, Tier 6 5x, Tier 7 6x, Tier 8 8x, Tier 9 10x, and Tier 10 12x. The model picker shows it as, for example, "Tier 3 · 2x". Usage is not split into basic and premium: Flixa, Deni AI chat, and Deni Run share one monthly usage pool, shown as a percentage, and a model's tier sets how fast it spends it.
 - Usage is shown in the status bar and in the "Usage" view. Billing and plan upgrades are at https://deniai.app/settings/billing, also reachable with the "Plan" item in the chat view's settings menu.
 
 ### Chat view

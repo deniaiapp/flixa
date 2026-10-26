@@ -1,19 +1,6 @@
 import * as vscode from 'vscode';
 import type { UsageService } from './service';
-import { isMaxTeamPlan, type UsageResponse } from './types';
-
-function formatUsageAmount(value: number, unit: string): string {
-	if (unit === 'tokens') {
-		if (value >= 1_000_000) {
-			return `${(value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1)}M`;
-		}
-		if (value >= 1_000) {
-			return `${(value / 1_000).toFixed(value % 1_000 === 0 ? 0 : 1)}K`;
-		}
-	}
-
-	return value.toLocaleString();
-}
+import { isMaxTeamPlan, primaryUsage, remainingPercent, type UsageResponse } from './types';
 
 export class UsageStatusBarItem {
 	private _statusBarItem: vscode.StatusBarItem;
@@ -73,38 +60,13 @@ export class UsageStatusBarItem {
 			: data.isTeam
 				? 'Pro (Team)'
 				: data.tier.charAt(0).toUpperCase() + data.tier.slice(1);
-		const basic = data.usage.find((u) => u.category === 'basic');
-		const premium = data.usage.find((u) => u.category === 'premium');
-
-		let basicColor: string | undefined;
-		let premiumColor: string | undefined;
-
-		if (basic) {
-			const basicPct = (basic.remaining / basic.limit) * 100;
-			if (basicPct <= 0) {
-				basicColor = 'red';
-			} else if (basicPct <= 10) {
-				basicColor = 'yellow';
-			}
-		}
-
-		if (premium) {
-			const premiumPct = (premium.remaining / premium.limit) * 100;
-			if (premiumPct <= 0) {
-				premiumColor = 'red';
-			} else if (premiumPct <= 10) {
-				premiumColor = 'yellow';
-			}
-		}
+		const usage = primaryUsage(data);
+		const leftPct = usage ? remainingPercent(usage) : null;
 
 		this._statusBarItem.text = `Deni AI: ${tierLabel}`;
 
 		const worstColor =
-			basicColor === 'red' || premiumColor === 'red'
-				? 'red'
-				: basicColor === 'yellow' || premiumColor === 'yellow'
-					? 'yellow'
-					: undefined;
+			leftPct === null ? undefined : leftPct <= 0 ? 'red' : leftPct <= 10 ? 'yellow' : undefined;
 
 		if (worstColor === 'red') {
 			this._statusBarItem.backgroundColor = new vscode.ThemeColor(
@@ -125,15 +87,9 @@ export class UsageStatusBarItem {
 			`Tier: ${tierLabel}`,
 			`Status: ${data.status || 'N/A'}`,
 		];
-		if (basic) {
-			tooltipLines.push(
-				`Basic: ${formatUsageAmount(basic.used, basic.unit)}/${formatUsageAmount(basic.limit, basic.unit)} ${basic.unit} (${formatUsageAmount(basic.remaining, basic.unit)} ${basic.unit} remaining)`
-			);
-		}
-		if (premium) {
-			tooltipLines.push(
-				`Premium: ${formatUsageAmount(premium.used, premium.unit)}/${formatUsageAmount(premium.limit, premium.unit)} ${premium.unit} (${formatUsageAmount(premium.remaining, premium.unit)} ${premium.unit} remaining)`
-			);
+		if (leftPct !== null) {
+			// One pool shared with Deni AI chat and Deni Run; shown as a percentage only.
+			tooltipLines.push(`Monthly usage: ${Math.round(leftPct)}% left`);
 		}
 		if (data.tier === 'free' && data.hasVerifiedPaymentMethod) {
 			tooltipLines.push('Card verified');
