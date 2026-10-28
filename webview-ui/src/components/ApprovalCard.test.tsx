@@ -1,4 +1,4 @@
-import { describe, it, expect, mock, afterEach } from 'bun:test';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { ApprovalCard } from './ApprovalCard';
 import { Message } from './Message';
@@ -14,7 +14,7 @@ describe('ApprovalCard', () => {
 	});
 
 	it('should show the command and send decisions', () => {
-		const onRespond = mock((_id: string, _decision: string) => {});
+		const onRespond = vi.fn((_id: string, _decision: string) => {});
 		render(
 			<ApprovalCard
 				approvals={[{ id: 'a1', action: 'Shell: npm test', detail: 'npm test -- --watch' }]}
@@ -35,7 +35,7 @@ describe('ApprovalCard', () => {
 
 describe('Message actions', () => {
 	it('should copy assistant content', () => {
-		const onCopy = mock((_text: string) => {});
+		const onCopy = vi.fn((_text: string) => {});
 		render(<Message message={{ role: 'assistant', content: 'Copy me' }} onCopy={onCopy} />);
 
 		fireEvent.click(screen.getByLabelText('Copy'));
@@ -43,7 +43,7 @@ describe('Message actions', () => {
 	});
 
 	it('should edit and resend a user message', () => {
-		const onEdit = mock((_text: string) => {});
+		const onEdit = vi.fn((_text: string) => {});
 		render(<Message message={{ role: 'user', content: 'Old text' }} onEdit={onEdit} canEdit />);
 
 		fireEvent.click(screen.getByLabelText('Edit and resend'));

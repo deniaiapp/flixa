@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 import { applySmartEdit, applySmartEditV2 } from './smartApply';
 
 describe('applySmartEdit', () => {

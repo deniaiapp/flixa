@@ -13,11 +13,10 @@ webview-ui/*.json
 webview-ui/*.ts
 webview-ui/*.html
 webview-ui/pnpm-lock.yaml
-webview-ui/bunfig.toml
 webview-ui/tsconfig.tsbuildinfo
 webview-ui/*.map
 AGENTS.md
 CLAUDE.md
 pnpm-lock.yaml
 pnpm-workspace.yaml
-bunfig.toml
+vitest.config.mts

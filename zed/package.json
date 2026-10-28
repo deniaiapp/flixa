@@ -9,29 +9,34 @@
   },
   "homepage": "https://deniai.app",
   "type": "module",
-  "files": ["dist/flixa-zed.js", "README.md", "LICENSE"],
+  "files": [
+    "dist/flixa-zed.js",
+    "README.md",
+    "LICENSE"
+  ],
   "publishConfig": {
     "access": "public"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=26"
   },
   "bin": {
     "flixa-zed": "dist/flixa-zed.js"
   },
   "scripts": {
-    "build": "bun build ./src/index.ts --outfile ./dist/flixa-zed.js --target bun --format esm --minify && bun build ./src/flixa-acp.ts --outdir ./dist --target bun --format esm --minify",
+    "build": "esbuild ./src/index.ts --bundle --outfile=./dist/flixa-zed.js --platform=node --format=esm --minify && esbuild ./src/flixa-acp.ts --bundle --outdir=./dist --platform=node --format=esm --minify",
     "typecheck": "tsc --noEmit",
-    "test": "bun test",
-    "prepublishOnly": "pnpm run typecheck && bun test && pnpm run build"
+    "test": "vitest run",
+    "prepublishOnly": "pnpm run typecheck && vitest run && pnpm run build"
   },
   "dependencies": {
-    "@agentclientprotocol/sdk": "1.4.0",
-    "zod": "^4.3.6"
+    "@agentclientprotocol/sdk": "2.0.2",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@types/bun": "^1.3.11",
-    "@types/node": "^25.5.2",
-    "typescript": "^6.0.2"
+    "@types/node": "^26.6.5",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
   }
 }

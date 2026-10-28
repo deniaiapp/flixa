@@ -1,19 +1,18 @@
-export type Tier = "free" | "plus" | "pro" | "max";
+export type Tier = "free" | "go" | "plus" | "pro";
 
 export type UsageCategory = "basic" | "premium";
 
 import type { ModelReasoningEfforts } from "../llm/reasoning";
 
-const MAX_TEAM_PLAN_IDS = new Set(["max_team_monthly", "max_team_yearly"]);
-
-export function isMaxTeamPlan(planId: string | null): boolean {
-  return planId !== null && MAX_TEAM_PLAN_IDS.has(planId);
-}
-
 export interface UsageItem {
   category: UsageCategory;
   limit: number;
   used: number;
+  /**
+   * Pool usage units (1M units = $0.50). Current servers return "units"; older servers
+   * return "tokens" (same scale) or "requests" (guests). Kept as a string so unknown values
+   * from other server versions are tolerated.
+   */
   unit: string;
   remaining: number;
   periodStart: string;
@@ -81,7 +80,7 @@ export interface DeviceAuthPollResponse {
   apiKey?: string;
 }
 
-export type ModelTierRequirement = "free" | "plus" | "pro" | "max";
+export type ModelTierRequirement = "free" | "plus" | "pro";
 
 export interface ModelAccessDefinition {
   id: string;
@@ -149,14 +148,12 @@ export function canUseTier(userTier: Tier, requiredTier: ModelTierRequirement): 
   if (requiredTier === "free") {
     return true;
   }
+  // Go unlocks free-tier models only.
   if (requiredTier === "plus") {
-    return userTier === "plus" || userTier === "pro" || userTier === "max";
+    return userTier === "plus" || userTier === "pro";
   }
   if (requiredTier === "pro") {
-    return userTier === "pro" || userTier === "max";
-  }
-  if (requiredTier === "max") {
-    return userTier === "max";
+    return userTier === "pro";
   }
   return false;
 }

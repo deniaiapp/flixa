@@ -16,7 +16,7 @@ import {
 	logMissingClientSignal,
 } from '../api/flixaClientHeaders';
 import { log } from '../logger';
-import { canUseTier, getModelTierRequirement, isMaxTeamPlan, primaryUsage } from './types';
+import { canUseTier, getModelTierRequirement, primaryUsage } from './types';
 
 const CACHE_DURATION_MS = 5 * 60 * 1000;
 const API_KEY_SECRET_KEY = 'deniApiKey';
@@ -83,7 +83,7 @@ function normalizeUsageItem(item: Partial<UsageItem>): UsageItem | null {
 		category: item.category,
 		limit: item.limit,
 		used: item.used,
-		unit: typeof item.unit === 'string' ? item.unit : 'tokens',
+		unit: typeof item.unit === 'string' ? item.unit : 'units',
 		remaining:
 			typeof item.remaining === 'number'
 				? item.remaining
@@ -109,7 +109,7 @@ function normalizeUsageResponse(payload: unknown): UsageResponse {
 		periodEnd: record.periodEnd ?? usage[0]?.periodEnd ?? null,
 		maxModeEnabled: record.maxModeEnabled ?? false,
 		maxModeEligible: record.maxModeEligible ?? false,
-		isTeam: record.isTeam === true || isMaxTeamPlan(planId),
+		isTeam: record.isTeam === true,
 		hasVerifiedPaymentMethod: record.hasVerifiedPaymentMethod ?? false,
 		cardVerifiedAt: record.cardVerifiedAt ?? null,
 		cardFunding: record.cardFunding ?? null,
@@ -181,7 +181,6 @@ export class UsageService {
 
 	async fetchUsage(force = false): Promise<UsageResponse | null> {
 		const apiKey = await this.getApiKey();
-		console.log('[Flixa] fetchUsage - apiKey exists:', !!apiKey);
 		if (!apiKey) {
 			this._onUsageChanged.fire(null);
 			return null;
@@ -190,7 +189,6 @@ export class UsageService {
 		if (!force && this._cache) {
 			const age = Date.now() - this._cache.fetchedAt;
 			if (age < CACHE_DURATION_MS) {
-				console.log('[Flixa] fetchUsage - returning cached data');
 				return this._cache.data;
 			}
 		}
@@ -204,7 +202,6 @@ export class UsageService {
 			let response: Response | null = null;
 			let usedEndpoint = endpoints[0];
 			for (const endpoint of endpoints) {
-				console.log('[Flixa] fetchUsage - fetching from:', endpoint);
 				usedEndpoint = endpoint;
 				response = await fetch(endpoint, {
 					headers: {
@@ -216,8 +213,6 @@ export class UsageService {
 					break;
 				}
 			}
-
-			console.log('[Flixa] fetchUsage - response status:', response?.status);
 
 			if (response?.status === 401 || response?.status === 403) {
 				let errorCode: string | null = null;
@@ -265,7 +260,6 @@ export class UsageService {
 			}
 
 			const data = normalizeUsageResponse(await response.json());
-			console.log('[Flixa] fetchUsage - data:', JSON.stringify(data));
 			this._cache = {
 				data,
 				fetchedAt: Date.now(),

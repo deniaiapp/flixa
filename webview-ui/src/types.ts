@@ -66,8 +66,8 @@ export interface ChatSession {
   name: string;
 }
 
-export type Tier = 'free' | 'plus' | 'pro' | "max";
-export type ModelTierRequirement = 'free' | 'plus' | 'pro' | "max";
+export type Tier = 'free' | 'go' | 'plus' | 'pro';
+export type ModelTierRequirement = 'free' | 'plus' | 'pro';
 export const REASONING_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
 export type ReasoningEffort = (typeof REASONING_EFFORTS)[number];
 export type ModelReasoningEfforts = readonly ReasoningEffort[] | false;
@@ -95,12 +95,6 @@ export function getAvailableReasoningEfforts(
 
 export function getReasoningEffortLabel(effort: ReasoningEffort): string {
   return REASONING_EFFORT_LABELS[effort];
-}
-
-const MAX_TEAM_PLAN_IDS = new Set(['max_team_monthly', 'max_team_yearly']);
-
-export function isMaxTeamPlan(planId: string | null): boolean {
-  return planId !== null && MAX_TEAM_PLAN_IDS.has(planId);
 }
 
 export interface ModelDefinition {
@@ -167,14 +161,12 @@ export function canUseTier(userTier: Tier | null, requiredTier: ModelTierRequire
   if (requiredTier === 'free') {
     return true;
   }
+  // Go unlocks free-tier models only.
   if (requiredTier === 'plus') {
-    return userTier === 'plus' || userTier === 'pro' || userTier === 'max';
+    return userTier === 'plus' || userTier === 'pro';
   }
   if (requiredTier === 'pro') {
-    return userTier === 'pro' || userTier === 'max';
-  }
-  if (requiredTier === 'max') {
-    return userTier === 'max';
+    return userTier === 'pro';
   }
   return false;
 }

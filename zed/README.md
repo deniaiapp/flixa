@@ -20,8 +20,8 @@ Add an external agent to Zed's settings. Replace the path with the absolute path
   "agent_servers": {
     "Flixa": {
       "type": "custom",
-      "command": "bun",
-      "args": ["run", "<your-path>/deni-ai-code/zed/dist/flixa-zed.js"],
+      "command": "node",
+      "args": ["<your-path>/deni-ai-code/zed/dist/flixa-zed.js"],
       "env": {}
     }
   }
@@ -40,7 +40,7 @@ The ACP Registry entry is prepared in `acp-registry/flixa/`. Publish the package
 
 ```sh
 cd zed
-bun publish --access public
+pnpm publish --access public
 ```
 
 The registry submission uses the published package version and is ready to copy into the ACP Registry repository.

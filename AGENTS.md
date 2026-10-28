@@ -14,7 +14,7 @@ Flixa is a VS Code extension that provides AI-powered code implementation assist
 
 ---
 
-Use `bun` for package manager.
+Use `pnpm` for package manager.
 
 ---
 
@@ -35,9 +35,12 @@ pnpm run lint
 
 # Build webview in dev mode
 cd webview-ui && pnpm run dev
+
+# Tests (Vitest; covers src/ and webview-ui/src/)
+pnpm test
 ```
 
-No test framework is currently configured. There are no test files in `src/`.
+Tests use Vitest (`vitest.config.mts`). The `zed/` ACP agent is a separate pnpm project (`cd zed && pnpm test`).
 
 ---
 

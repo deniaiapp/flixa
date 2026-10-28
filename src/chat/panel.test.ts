@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, mock } from 'bun:test';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as path from 'path';
 import type * as vscode from 'vscode';
 import type { ChatContext, LLMResponse } from '../types';
@@ -11,9 +11,9 @@ const windowMock = {
 	activeTextEditor: undefined as unknown,
 	onDidChangeActiveTextEditor: () => disposable,
 	onDidChangeTextEditorSelection: () => disposable,
-	showErrorMessage: mock(() => undefined),
+	showErrorMessage: vi.fn(() => undefined),
 };
-mock.module('vscode', () => ({
+vi.doMock('vscode', () => ({
 	window: windowMock,
 	workspace: {
 		workspaceFolders: [{ uri: { fsPath: root } }],
@@ -35,7 +35,7 @@ let respond: (response: LLMResponse) => void;
 let started: () => void;
 let requestSignal: AbortSignal | undefined;
 let resolveTitle: (title: string) => void;
-mock.module('../llm/stub', () => ({
+vi.doMock('../llm/stub', () => ({
 	callLLMForChat: (_context: unknown, _stream: unknown, signal: AbortSignal) => {
 		requestSignal = signal;
 		return new Promise<LLMResponse>((resolve) => {
@@ -43,9 +43,9 @@ mock.module('../llm/stub', () => ({
 			started();
 		});
 	},
-	callLLMForAgent: mock(),
+	callLLMForAgent: vi.fn(),
 	generateSessionTitle: () => new Promise<string>((resolve) => { resolveTitle = resolve; }),
-	getFlixaProvider: mock(),
+	getFlixaProvider: vi.fn(),
 }));
 const context: ChatContext = {
 	userMessage: 'edit', activeSelection: '', activeFileText: 'old\n',
@@ -53,16 +53,21 @@ const context: ChatContext = {
 	diagnostics: [], gitDiff: '', history: [], sessionMessages: [],
 	autoContext: { fileList: [], gitStatus: '', packageInfo: '', tsConfig: '' }, mentionedFiles: [],
 };
-mock.module('./context', () => ({
+vi.doMock('./context', () => ({
 	resolveMentionedFiles: async () => [],
 	gatherChatContext: async () => context,
 }));
-const preview = mock(async () => ({ applied: false }));
-mock.module('../diff/preview', () => ({ showDiffPreview: preview }));
+const preview = vi.fn(async () => ({ applied: false }));
+vi.doMock('../diff/preview', () => ({ showDiffPreview: preview }));
 
-const { ChatViewProvider } = require('./panel') as typeof import('./panel');
-const { isPathInsideWorkspace } = require('../utils/workspace') as typeof import('../utils/workspace');
-const { executeShellAction } = require('../agent/actions/shell') as typeof import('../agent/actions/shell');
+let ChatViewProvider: typeof import('./panel').ChatViewProvider;
+let isPathInsideWorkspace: typeof import('../utils/workspace').isPathInsideWorkspace;
+let executeShellAction: typeof import('../agent/actions/shell').executeShellAction;
+beforeAll(async () => {
+	({ ChatViewProvider } = await import('./panel'));
+	({ isPathInsideWorkspace } = await import('../utils/workspace'));
+	({ executeShellAction } = await import('../agent/actions/shell'));
+});
 
 function createProvider() {
 	const state = new Map<string, unknown>();

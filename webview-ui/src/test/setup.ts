@@ -1,5 +1,5 @@
 import { GlobalRegistrator } from '@happy-dom/global-registrator';
-import { expect } from 'bun:test';
+import { expect } from 'vitest';
 
 GlobalRegistrator.register();
 

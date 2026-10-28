@@ -460,10 +460,6 @@ export function InputArea({
       return "Login required";
     }
     const required = getModelTierRequirement(model);
-    if (required === "max") {
-      return "Max plan required";
-    }
-
     if (required === "pro") {
       return "Pro plan required";
     }

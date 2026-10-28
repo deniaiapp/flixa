@@ -27,8 +27,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   setOutputChannel(outputChannel);
   context.subscriptions.push(outputChannel);
 
-  console.log('[Flixa] Extension activated!');
-
   usageService = new UsageService(context);
 
   const apiKey = await usageService.getApiKey();
@@ -65,7 +63,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     ],
     codeLensProvider
   );
-  console.log('[Flixa] CodeLens provider registered');
   context.subscriptions.push(codeLensDisposable);
 
   chatViewProvider = new ChatViewProvider(

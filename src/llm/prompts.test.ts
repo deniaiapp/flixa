@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it } from 'vitest';
 import { AGENT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT } from './prompts';
 
 describe('system prompts', () => {

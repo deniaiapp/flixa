@@ -48,7 +48,6 @@ export function getApiKey(): string | undefined {
 }
 
 export function getFlixaProvider() {
-  console.log("[Flixa] Creating OpenAI provider with base URL:", OPENAI_BASE_URL);
   return createOpenAI({
     apiKey: _apiKey || "anonymous",
     baseURL: OPENAI_BASE_URL,
@@ -57,12 +56,10 @@ export function getFlixaProvider() {
 }
 
 export function getModel(): string {
-  console.log("[Flixa] Using model:", _selectedModel);
   return _selectedModel;
 }
 
 export function getReasoningEffort(): ReasoningEffort | undefined {
-  console.log("[Flixa] Using reasoning effort:", _selectedReasoningEffort);
   return _selectedReasoningEffort;
 }
 
@@ -92,8 +89,8 @@ function withCurrentModelDefinition(
   return [{ id: currentModel, label: currentModel, tags: [], tier: "free" }, ...modelDefinitions];
 }
 
-function normalizeTier(value: unknown): "free" | "plus" | "pro" | "max" | undefined {
-  if (value === "free" || value === "plus" || value === "pro" || value === "max") {
+function normalizeTier(value: unknown): "free" | "plus" | "pro" | undefined {
+  if (value === "free" || value === "plus" || value === "pro") {
     return value;
   }
   return undefined;

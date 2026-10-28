@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 import { agentTools, SAFE_TOOLS, SENSITIVE_TOOLS } from './tools';
 

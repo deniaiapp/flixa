@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import type { UsageService } from './service';
-import { isMaxTeamPlan, primaryUsage, remainingPercent, type UsageResponse } from './types';
+import { primaryUsage, remainingPercent, type UsageResponse } from './types';
 
 export class UsageStatusBarItem {
 	private _statusBarItem: vscode.StatusBarItem;
@@ -55,11 +55,9 @@ export class UsageStatusBarItem {
 			return;
 		}
 
-		const tierLabel = isMaxTeamPlan(data.planId)
-			? 'Max (Team)'
-			: data.isTeam
-				? 'Pro (Team)'
-				: data.tier.charAt(0).toUpperCase() + data.tier.slice(1);
+		const tierLabel = data.isTeam
+			? 'Pro (Team)'
+			: data.tier.charAt(0).toUpperCase() + data.tier.slice(1);
 		const usage = primaryUsage(data);
 		const leftPct = usage ? remainingPercent(usage) : null;
 

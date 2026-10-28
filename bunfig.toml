@@ -1,2 +1,0 @@
-[test]
-preload = ["./webview-ui/src/test/setup.ts"]

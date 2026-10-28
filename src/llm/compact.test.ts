@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it } from 'vitest';
 import type { ModelMessage } from 'ai';
 import {
 	DEFAULT_COMPACT_TOKEN_THRESHOLD,

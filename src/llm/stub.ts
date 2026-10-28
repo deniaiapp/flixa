@@ -60,9 +60,9 @@ function normalizeQuotaExceededError(value: unknown): QuotaExceededErrorMeta | n
 				: undefined,
 		tier:
 			error.tier === 'free' ||
+			error.tier === 'go' ||
 			error.tier === 'plus' ||
-			error.tier === 'pro' ||
-			error.tier === 'max'
+			error.tier === 'pro'
 				? error.tier
 				: undefined,
 		canVerifyForBoost:
