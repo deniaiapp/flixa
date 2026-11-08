@@ -1,8 +1,11 @@
 import type { ModelMessage } from 'ai';
-import { asSchema } from 'ai';
-import { agentTools } from '../agent/tools';
+import {
+  compactConversation,
+  createResponsesSummarizer,
+  migrateLegacyResponseItems,
+  type ResponsesClientConfig,
+} from '@deniai/flixa-core';
 import { log } from '../logger';
-import { AGENT_SYSTEM_PROMPT } from './prompts';
 
 export const DEFAULT_COMPACT_TOKEN_THRESHOLD = 200_000;
 
@@ -234,22 +237,6 @@ export function modelMessagesToResponsesInput(messages: ModelMessage[]): unknown
   return input;
 }
 
-export async function buildAgentResponsesTools(): Promise<unknown[]> {
-  const tools: unknown[] = [];
-  for (const [name, agentTool] of Object.entries(agentTools)) {
-    const schema = await Promise.resolve(asSchema<unknown>(agentTool.inputSchema).jsonSchema);
-    const parameters = JSON.parse(JSON.stringify(schema)) as Record<string, unknown>;
-    delete parameters.$schema;
-    tools.push({
-      type: 'function',
-      name,
-      description: agentTool.description ?? '',
-      parameters,
-    });
-  }
-  return tools;
-}
-
 export function hasCompactionItem(items: unknown[]): boolean {
   return items.some(
     (item) =>
@@ -257,74 +244,32 @@ export function hasCompactionItem(items: unknown[]): boolean {
   );
 }
 
-export interface MaybeCompactResult {
-  input: unknown[];
-  didCompact: boolean;
-  estimatedTokens: number;
-  threshold: number;
-}
-
 /**
- * If the window is at/over the compact threshold, call standalone compact
- * and return the compact output as the next canonical input base.
- * Compact output is returned as-is (not pruned).
- * Pass force: true to compact regardless of threshold (e.g. /compact).
+ * Compact the window locally: the model summarizes it (no server compact call, so it works
+ * for every model). Used by /compact; the agent loop compacts on its own at the threshold.
  */
-export async function maybeCompactInput(options: {
+export async function compactInputWindow(options: {
   input: unknown[];
   model: string;
-  instructions?: string;
-  threshold?: number;
-  force?: boolean;
-}): Promise<MaybeCompactResult> {
-  const threshold =
-    options.threshold !== undefined ? options.threshold : getCompactTokenThreshold();
-  const estimatedTokens = estimateTokenCount(options.input);
-  const force = options.force === true;
-
-  if (!force && (threshold <= 0 || estimatedTokens < threshold)) {
-    return {
-      input: options.input,
-      didCompact: false,
-      estimatedTokens,
-      threshold,
-    };
-  }
-
-  if (options.input.length === 0) {
-    return {
-      input: options.input,
-      didCompact: false,
-      estimatedTokens,
-      threshold,
-    };
-  }
-
-  log('[Flixa] compact threshold reached', {
-    estimatedTokens,
-    threshold,
-    force,
+  client: ResponsesClientConfig;
+  signal?: AbortSignal;
+}): Promise<{ input: unknown[]; tokensBefore: number; tokensAfter: number }> {
+  log('[Flixa] compacting context locally', { items: options.input.length });
+  const result = await compactConversation({
+    items: options.input,
+    generate: createResponsesSummarizer({
+      client: options.client,
+      model: options.model,
+      signal: options.signal,
+    }),
   });
-
-  const { compactResponse } = await import('../api/flixaClient');
-  const compacted = await compactResponse({
-    model: options.model,
-    input: options.input,
-    instructions: options.instructions ?? AGENT_SYSTEM_PROMPT,
-  });
-
   return {
-    input: compacted.output,
-    didCompact: true,
-    estimatedTokens,
-    threshold,
+    input: result.items,
+    tokensBefore: result.tokensBefore,
+    tokensAfter: result.tokensAfter,
   };
 }
 
-/**
- * Build Responses input from optional compacted base + model messages after compact.
- * When compactedBase is set, only messagesAfterCompact are converted and appended.
- */
 export function buildResponsesInputWindow(options: {
   compactedBase?: unknown[] | null;
   messages: ModelMessage[];
@@ -332,7 +277,10 @@ export function buildResponsesInputWindow(options: {
 }): unknown[] {
   if (options.compactedBase && options.compactedBase.length > 0) {
     const after = options.messagesAfterCompact ?? options.messages;
-    return [...options.compactedBase, ...modelMessagesToResponsesInput(after)];
+    return [
+      ...migrateLegacyResponseItems(options.compactedBase),
+      ...modelMessagesToResponsesInput(after),
+    ];
   }
   return modelMessagesToResponsesInput(options.messages);
 }

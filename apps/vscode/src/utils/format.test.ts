@@ -1,164 +1,31 @@
 import { describe, it, expect } from 'vitest';
-import { describeAction, describeActionFull, formatSessionResults, generateNonce } from './format';
-import type { AgentAction, SerializedActionResult } from '../types';
+import { describeToolCall, formatSessionResults, generateNonce } from './format';
+import type { SerializedActionResult } from '../types';
 
-describe('describeAction', () => {
-  it('should describe shell action with truncation', () => {
-    const action: AgentAction = {
-      type: 'shell',
-      command: 'npm run build && npm test && npm run lint && more commands here',
-    };
-    const result = describeAction(action);
-    expect(result.startsWith('Shell: npm run build && npm test && npm run lint')).toBe(true);
-    expect(result.length).toBeLessThanOrEqual(57); // "Shell: " + 50 chars
+describe('describeToolCall', () => {
+  it('labels shell commands as terminal actions and truncates them', () => {
+    expect(describeToolCall('Bash', { command: 'npm test' })).toBe('Terminal: npm test');
+    expect(describeToolCall('Bash', { command: 'x'.repeat(80) })).toBe(
+      `Terminal: ${'x'.repeat(50)}`,
+    );
   });
 
-  it('should describe short shell action', () => {
-    const action: AgentAction = { type: 'shell', command: 'npm test' };
-    const result = describeAction(action);
-    expect(result).toBe('Shell: npm test');
+  it('labels file tools with their path', () => {
+    expect(describeToolCall('Read', { file_path: 'src/a.ts' })).toBe('Read: src/a.ts');
+    expect(describeToolCall('Write', { file_path: 'b.ts' })).toBe('Write: b.ts');
+    expect(describeToolCall('Edit', { file_path: 'c.ts' })).toBe('Edit: c.ts');
+    expect(describeToolCall('Delete', { file_path: 'd.ts' })).toBe('Delete: d.ts');
+    expect(describeToolCall('LS', {})).toBe('List Dir: .');
   });
 
-  it('should describe vscodeCommand action', () => {
-    const action: AgentAction = {
-      type: 'vscodeCommand',
-      command: 'workbench.action.files.save',
-    };
-    const result = describeAction(action);
-    expect(result).toBe('VSCode: workbench.action.files.save');
+  it('labels searches with their pattern', () => {
+    expect(describeToolCall('Grep', { pattern: 'TODO' })).toBe('Grep: TODO');
+    expect(describeToolCall('Glob', { pattern: '*.ts' })).toBe('Glob: *.ts');
+    expect(describeToolCall('Glob', {})).toBe('Glob: **/*');
   });
 
-  it('should describe writeFile action', () => {
-    const action: AgentAction = {
-      type: 'writeFile',
-      filePath: 'src/test.ts',
-      content: 'export const x = 1;',
-    };
-    const result = describeAction(action);
-    expect(result).toBe('Write: src/test.ts');
-  });
-
-  it('should describe editFile action', () => {
-    const action: AgentAction = {
-      type: 'editFile',
-      filePath: 'src/test.ts',
-      search: 'old',
-      replace: 'new',
-    };
-    const result = describeAction(action);
-    expect(result).toBe('Edit: src/test.ts');
-  });
-
-  it('should describe deleteFile action', () => {
-    const action: AgentAction = {
-      type: 'deleteFile',
-      filePath: 'src/test.ts',
-    };
-    const result = describeAction(action);
-    expect(result).toBe('Delete: src/test.ts');
-  });
-
-  it('should describe diff action', () => {
-    const action: AgentAction = {
-      type: 'diff',
-      filePath: 'src/test.ts',
-      diff: '--- a/test.ts\n+++ b/test.ts',
-    };
-    const result = describeAction(action);
-    expect(result).toBe('Diff: src/test.ts');
-  });
-
-  it('should handle unknown action type', () => {
-    const action = { type: 'unknown' } as unknown as AgentAction;
-    const result = describeAction(action);
-    expect(result).toBe('Unknown action');
-  });
-});
-
-describe('describeActionFull', () => {
-  it('should describe shell action with full command', () => {
-    const action: AgentAction = {
-      type: 'shell',
-      command: 'npm run build && npm test',
-    };
-    const result = describeActionFull(action);
-    expect(result).toBe('[Shell] npm run build && npm test');
-  });
-
-  it('should describe vscodeCommand without args', () => {
-    const action: AgentAction = {
-      type: 'vscodeCommand',
-      command: 'workbench.action.files.save',
-    };
-    const result = describeActionFull(action);
-    expect(result).toBe('[VSCode Command] workbench.action.files.save');
-  });
-
-  it('should describe vscodeCommand with args', () => {
-    const action: AgentAction = {
-      type: 'vscodeCommand',
-      command: 'vscode.open',
-      args: ['/path/to/file'],
-    };
-    const result = describeActionFull(action);
-    expect(result).toBe('[VSCode Command] vscode.open (args: ["/path/to/file"])');
-  });
-
-  it('should describe writeFile action', () => {
-    const action: AgentAction = {
-      type: 'writeFile',
-      filePath: 'src/test.ts',
-      content: 'export const x = 1;',
-    };
-    const result = describeActionFull(action);
-    expect(result).toBe('[Write File] src/test.ts');
-  });
-
-  it('should describe editFile action with line count', () => {
-    const action: AgentAction = {
-      type: 'editFile',
-      filePath: 'src/test.ts',
-      search: 'old',
-      replace: 'line1\nline2\nline3',
-    };
-    const result = describeActionFull(action);
-    expect(result).toBe('[Edit File] src/test.ts (edited 3 lines)');
-  });
-
-  it('should describe editFile with single line', () => {
-    const action: AgentAction = {
-      type: 'editFile',
-      filePath: 'src/test.ts',
-      search: 'old',
-      replace: 'new',
-    };
-    const result = describeActionFull(action);
-    expect(result).toBe('[Edit File] src/test.ts (edited 1 lines)');
-  });
-
-  it('should describe deleteFile action', () => {
-    const action: AgentAction = {
-      type: 'deleteFile',
-      filePath: 'src/test.ts',
-    };
-    const result = describeActionFull(action);
-    expect(result).toBe('[Delete File] src/test.ts');
-  });
-
-  it('should describe diff action', () => {
-    const action: AgentAction = {
-      type: 'diff',
-      filePath: 'src/test.ts',
-      diff: '--- a/test.ts\n+++ b/test.ts',
-    };
-    const result = describeActionFull(action);
-    expect(result).toBe('[Diff Preview] src/test.ts');
-  });
-
-  it('should handle unknown action type', () => {
-    const action = { type: 'unknown' } as unknown as AgentAction;
-    const result = describeActionFull(action);
-    expect(result).toBe('[Unknown Action]');
+  it('falls back to the tool name', () => {
+    expect(describeToolCall('Unknown', {})).toBe('Unknown');
   });
 });
 

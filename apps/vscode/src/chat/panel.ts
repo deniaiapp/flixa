@@ -1,12 +1,14 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { executeAgentActions } from '../agent/executor';
+import type { AgentEvent, FinishedToolCall, ToolApprovalRequest } from '@deniai/flixa-core';
 import { requestIndividualApproval } from '../agent/approval';
+import { getAgentResponsesClient, runExtensionAgentTurn } from '../agent/loop';
+import { checkShellCommandSafety } from '../agent/safetyChecker';
 import { showDiffPreview } from '../diff/preview';
 import { applyDiffToContent, validateDiff } from '../diff/validator';
-import { callLLMForAgent, callLLMForChat, generateSessionTitle } from '../llm/stub';
-import { buildResponsesInputWindow, estimateTokenCount, maybeCompactInput } from '../llm/compact';
+import { callLLMForChat, generateSessionTitle, resolveLlmApiError } from '../llm/stub';
+import { buildResponsesInputWindow, compactInputWindow, estimateTokenCount } from '../llm/compact';
 import { buildAgentMessages } from '../llm/messages';
 import {
   getAvailableModels,
@@ -16,19 +18,16 @@ import {
   setModel,
   setReasoningEffort,
 } from '../llm/provider';
-import { AGENT_SYSTEM_PROMPT } from '../llm/prompts';
 import type {
-  ActionExecutionResult,
-  AgentAction,
-  AgentResponse,
   ApprovalMode,
+  ChatCompletionToolCall,
   ChatContext,
-  LLMResponse,
   PendingDiff,
   SerializedActionResult,
   SerializedToolResult,
 } from '../types';
-import { describeAction } from '../utils/format';
+import { describeToolCall } from '../utils/format';
+import { getWorkspaceRoot } from '../utils/workspace';
 import { getAutoContextConfig } from '../autoContext';
 import { gatherChatContext, resolveMentionedFiles } from './context';
 import { SessionManager } from './session';
@@ -49,7 +48,8 @@ interface TrackedFile {
   createdDirs: string[];
 }
 
-const MAX_AGENT_ITERATIONS = Infinity;
+const FILE_CHANGING_TOOLS = new Set(['Write', 'Edit', 'Delete']);
+const MAX_AGENT_RETRIES = 3;
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'flixa.chatView';
@@ -352,22 +352,17 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   }
 
   private _requestApprovalInChat(
-    action: AgentAction,
+    description: string,
+    detail: string,
     abortSignal: AbortSignal,
   ): Promise<'approve' | 'reject'> {
     if (!this._view) {
-      return requestIndividualApproval(action);
+      return requestIndividualApproval(description);
     }
     if (abortSignal.aborted) {
       return Promise.resolve('reject');
     }
     const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const detail =
-      action.type === 'shell' ||
-      action.type === 'run_terminal_cmd' ||
-      action.type === 'vscodeCommand'
-        ? action.command
-        : '';
     return new Promise((resolve) => {
       const onAbort = () => {
         if (this._pendingApprovals.delete(id)) {
@@ -377,7 +372,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       };
       abortSignal.addEventListener('abort', onAbort, { once: true });
       this._pendingApprovals.set(id, {
-        action: describeAction(action),
+        action: description,
         detail,
         resolve: (decision) => {
           abortSignal.removeEventListener('abort', onAbort);
@@ -651,40 +646,18 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         () => this._sessionManager.getMessages(),
         () => this._sessionManager.getSessionMessages(),
       );
-
-      const compactedInput = this._sessionManager.getCompactedInput();
-      const compactedSessionMessageCount = this._sessionManager.getCompactedSessionMessageCount();
-      const messagesForWindow = compactedInput
-        ? buildAgentMessages({
-            ...context,
-            sessionMessages: context.sessionMessages.slice(
-              Math.max(0, compactedSessionMessageCount),
-            ),
-          })
-        : buildAgentMessages(context);
-
-      const input = buildResponsesInputWindow({
-        compactedBase: compactedInput,
-        messages: messagesForWindow,
-      });
-
-      if (input.length === 0) {
+      const input = this._buildAgentInput(context);
+      if (input.length < 2) {
         this._pushSystemReply('Nothing to compact.');
         return;
       }
 
       const beforeTokens = estimateTokenCount(input);
-      const result = await maybeCompactInput({
+      const result = await compactInputWindow({
         input,
         model: getModel(),
-        instructions: AGENT_SYSTEM_PROMPT,
-        force: true,
+        client: getAgentResponsesClient(),
       });
-
-      if (!result.didCompact) {
-        this._pushSystemReply('Nothing to compact.');
-        return;
-      }
 
       this._sessionManager.setCompactedInput(result.input, sessionMessages.length);
       const afterTokens = estimateTokenCount(result.input);
@@ -704,6 +677,19 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  /** Responses input for agent mode: the compacted base (if any) plus later session messages. */
+  private _buildAgentInput(context: ChatContext): unknown[] {
+    const compactedInput = this._sessionManager.getCompactedInput();
+    const compactedSessionMessageCount = this._sessionManager.getCompactedSessionMessageCount();
+    const messages = compactedInput
+      ? buildAgentMessages({
+          ...context,
+          sessionMessages: context.sessionMessages.slice(Math.max(0, compactedSessionMessageCount)),
+        })
+      : buildAgentMessages(context);
+    return buildResponsesInputWindow({ compactedBase: compactedInput, messages });
+  }
+
   private _sendStreamingUpdate(text: string): void {
     if (!this._view) {
       return;
@@ -714,23 +700,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         text,
       });
     } catch {}
-  }
-
-  private _getFilePathFromAction(action: AgentAction): string | null {
-    switch (action.type) {
-      case 'writeFile':
-      case 'editFile':
-      case 'deleteFile':
-      case 'diff':
-        return action.filePath;
-      case 'search_replace':
-        return action.file_path;
-      case 'edit_file':
-      case 'delete_file':
-        return action.target_file;
-      default:
-        return null;
-    }
   }
 
   private _resolveFilePath(filePath: string): string {
@@ -757,85 +726,48 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     return absolutePath.replace(/\\/g, '/');
   }
 
-  private _captureOriginalContents(actions: AgentAction[]): void {
-    for (const action of actions) {
-      const filePath = this._getFilePathFromAction(action);
-      if (!filePath) {
-        continue;
-      }
-      const absolutePath = this._resolveFilePath(filePath);
-      const relativePath = this._getRelativePath(absolutePath);
-      if (this._changedFiles.has(relativePath)) {
-        continue;
-      }
-      try {
-        const content = fs.readFileSync(absolutePath, 'utf-8');
-        this._changedFiles.set(relativePath, {
-          filePath: relativePath,
-          originalContent: content,
-          status: 'modified',
-          createdDirs: [],
-        });
-      } catch {
-        const createdDirs: string[] = [];
-        let dir = path.dirname(absolutePath);
-        const workspaceFolders = vscode.workspace.workspaceFolders;
-        const root = workspaceFolders ? workspaceFolders[0].uri.fsPath : '';
-        while (dir && dir !== root && dir !== path.dirname(dir)) {
-          if (!fs.existsSync(dir)) {
-            createdDirs.unshift(dir);
-          } else {
-            break;
-          }
-          dir = path.dirname(dir);
+  private _captureOriginalContent(filePath: string): void {
+    const absolutePath = this._resolveFilePath(filePath);
+    const relativePath = this._getRelativePath(absolutePath);
+    if (this._changedFiles.has(relativePath)) {
+      return;
+    }
+    try {
+      const content = fs.readFileSync(absolutePath, 'utf-8');
+      this._changedFiles.set(relativePath, {
+        filePath: relativePath,
+        originalContent: content,
+        status: 'modified',
+        createdDirs: [],
+      });
+    } catch {
+      const createdDirs: string[] = [];
+      let dir = path.dirname(absolutePath);
+      const workspaceFolders = vscode.workspace.workspaceFolders;
+      const root = workspaceFolders ? workspaceFolders[0].uri.fsPath : '';
+      while (dir && dir !== root && dir !== path.dirname(dir)) {
+        if (!fs.existsSync(dir)) {
+          createdDirs.unshift(dir);
+        } else {
+          break;
         }
-        this._changedFiles.set(relativePath, {
-          filePath: relativePath,
-          originalContent: null,
-          status: 'created',
-          createdDirs,
-        });
+        dir = path.dirname(dir);
       }
+      this._changedFiles.set(relativePath, {
+        filePath: relativePath,
+        originalContent: null,
+        status: 'created',
+        createdDirs,
+      });
     }
   }
 
-  private _updateTrackedStatuses(results: ActionExecutionResult[]): void {
-    for (const result of results) {
-      if (!result.success || result.rejected) {
-        continue;
-      }
-      const filePath = this._getFilePathFromAction(result.action);
-      if (!filePath) {
-        continue;
-      }
-      const absolutePath = this._resolveFilePath(filePath);
-      const relativePath = this._getRelativePath(absolutePath);
-      const tracked = this._changedFiles.get(relativePath);
-      if (!tracked) {
-        continue;
-      }
-      if (result.action.type === 'deleteFile' || result.action.type === 'delete_file') {
-        tracked.status = 'deleted';
-      }
+  private _markDeleted(filePath: string): void {
+    const relativePath = this._getRelativePath(this._resolveFilePath(filePath));
+    const tracked = this._changedFiles.get(relativePath);
+    if (tracked) {
+      tracked.status = 'deleted';
     }
-  }
-
-  private _formatToolResult(result: ActionExecutionResult): string {
-    const action = describeAction(result.action);
-    if (result.rejected) {
-      return `[REJECTED] ${action}: ${result.rejectionReason ?? 'Rejected'}`;
-    }
-    if (!result.success) {
-      const lines = [`[FAILED] ${action}: ${result.error ?? 'Unknown error'}`];
-      if (result.output && result.output.trim() && result.output !== '(no output)') {
-        lines.push(result.output);
-      }
-      return lines.join('\n');
-    }
-    if (result.output && result.output.trim()) {
-      return result.output;
-    }
-    return `[SUCCESS] ${action}`;
   }
 
   private async _revertFile(relativePath: string): Promise<void> {
@@ -895,249 +827,236 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     } catch {}
   }
 
+  private _setExecutingOutput(actionDesc: string, output: string): void {
+    const messages = this._sessionManager.getMessages();
+    const existing = messages.find(
+      (message) => message.role === 'executing' && message.executingAction === actionDesc,
+    );
+    if (existing) {
+      existing.executingOutput = output;
+    } else {
+      this._sessionManager.pushMessage({
+        role: 'executing',
+        content: '',
+        executingAction: actionDesc,
+        executingOutput: output,
+      });
+    }
+    this._updateMessages();
+  }
+
+  private _serializeToolResult(finished: FinishedToolCall): SerializedActionResult {
+    const action = describeToolCall(finished.call.name, finished.call.input);
+    if (finished.denied) {
+      return {
+        action,
+        success: false,
+        rejected: true,
+        rejectionReason: finished.denialReason ?? 'Rejected',
+      };
+    }
+    const output = finished.result.displayOutput ?? finished.result.output;
+    if (finished.result.ok) {
+      return { action, success: true, output };
+    }
+    let error = finished.result.summary;
+    try {
+      const parsed = JSON.parse(finished.result.output) as { error?: unknown; exit_code?: unknown };
+      if (typeof parsed.error === 'string') {
+        error = parsed.error;
+      } else if (typeof parsed.exit_code === 'number') {
+        error = `Exit code: ${parsed.exit_code}`;
+      }
+    } catch {}
+    return { action, success: false, output, error };
+  }
+
   private async _handleAgentLoop(
     context: ChatContext,
     usageCategory: UsageCategory,
   ): Promise<void> {
-    let iteration = 0;
     let retryCount = 0;
-    const maxRetries = 3;
-
     this._setAgentRunning(true);
 
     try {
-      while (iteration < MAX_AGENT_ITERATIONS) {
+      while (true) {
         if (this._stopRequested) {
+          this._sessionManager.pushMessage({ role: 'system', content: 'Stopped by user' });
+          this._updateMessages();
+          break;
+        }
+
+        const workspaceRoot = getWorkspaceRoot();
+        if (!workspaceRoot) {
           this._sessionManager.pushMessage({
-            role: 'system',
-            content: 'Stopped by user',
+            role: 'assistant',
+            content: 'Open a folder to use agent mode.',
           });
           this._updateMessages();
           break;
         }
 
-        iteration++;
-
         context.sessionMessages = this._sessionManager.getSessionMessages();
-
+        const controller = new AbortController();
+        this._currentAbortController = controller;
+        let streamingText = '';
+        let stepResults: FinishedToolCall[] = [];
+        let pendingToolCalls: ChatCompletionToolCall[] = [];
         this._setLoading(true);
-        let response: AgentResponse | LLMResponse;
-        const llmAbortController = new AbortController();
-        this._currentAbortController = llmAbortController;
+
+        const onEvent = (event: AgentEvent): void => {
+          switch (event.type) {
+            case 'step_started':
+              streamingText = '';
+              stepResults = [];
+              this._setLoading(true);
+              return;
+            case 'text_delta':
+              streamingText += event.delta;
+              this._sendStreamingUpdate(streamingText);
+              return;
+            case 'assistant_message':
+              this._setLoading(false);
+              this._sendStreamingUpdate('');
+              pendingToolCalls = event.toolCalls.map((call) => ({
+                id: call.callId,
+                type: 'function',
+                function: { name: call.name, arguments: call.argumentsText },
+              }));
+              if (pendingToolCalls.length > 0) {
+                this._sessionManager.pushMessage({
+                  role: 'assistant',
+                  content: event.text,
+                  tool_calls: pendingToolCalls,
+                });
+                this._updateMessages();
+              }
+              return;
+            case 'tool_call_started': {
+              const target = event.call.input.file_path;
+              if (FILE_CHANGING_TOOLS.has(event.call.name) && typeof target === 'string') {
+                this._captureOriginalContent(target);
+              }
+              return;
+            }
+            case 'safety_review_started':
+              this._setExecutingOutput(
+                describeToolCall(event.call.name, event.call.input),
+                "Checking if it's safe...",
+              );
+              return;
+            case 'tool_execution_started':
+              this._setExecutingOutput(describeToolCall(event.call.name, event.call.input), '');
+              return;
+            case 'tool_output':
+              this._setExecutingOutput(
+                describeToolCall(event.call.name, event.call.input),
+                event.output,
+              );
+              return;
+            case 'tool_call_finished': {
+              stepResults.push(event);
+              const target = event.call.input.file_path;
+              if (!event.denied && event.call.name === 'Delete' && typeof target === 'string') {
+                this._markDeleted(target);
+              }
+              return;
+            }
+            case 'step_finished': {
+              this._sessionManager.filterMessages((message) => message.role !== 'executing');
+              const toolResults: SerializedToolResult[] = stepResults.map((finished) => ({
+                tool_call_id: finished.call.callId,
+                toolName: finished.call.name,
+                content: finished.result.output,
+              }));
+              this._sessionManager.pushMessage({
+                role: 'tool',
+                content: '',
+                results: stepResults.map((finished) => this._serializeToolResult(finished)),
+                toolResults,
+              });
+              this._updateMessages();
+              this._sendChangedFiles();
+              return;
+            }
+            case 'compacted':
+              this._sessionManager.setCompactedInput(
+                event.items,
+                this._sessionManager.getSessionMessages().length,
+              );
+              return;
+            default:
+              return;
+          }
+        };
+
+        let result: Awaited<ReturnType<typeof runExtensionAgentTurn>>;
         try {
-          response = await callLLMForAgent(
-            context,
-            (text) => {
-              this._sendStreamingUpdate(text);
+          result = await runExtensionAgentTurn({
+            input: this._buildAgentInput(context),
+            workspaceRoot,
+            approvalMode: this._approvalMode,
+            signal: controller.signal,
+            onEvent,
+            requestApproval: async (request: ToolApprovalRequest) =>
+              (await this._requestApprovalInChat(
+                describeToolCall(request.call.name, request.call.input),
+                request.call.name === 'Bash' && typeof request.call.input.command === 'string'
+                  ? request.call.input.command
+                  : '',
+                controller.signal,
+              )) === 'approve',
+            reviewToolCall: async (request) => {
+              const command =
+                typeof request.call.input.command === 'string' ? request.call.input.command : '';
+              const review = await checkShellCommandSafety(command, request.modelReason);
+              return { safe: review.verdict === 'SAFE', reason: review.reason };
             },
-            llmAbortController.signal,
-            {
-              compactedInput: this._sessionManager.getCompactedInput(),
-              compactedSessionMessageCount: this._sessionManager.getCompactedSessionMessageCount(),
-              onCompacted: (input, sessionMessageCount) => {
-                this._sessionManager.setCompactedInput(input, sessionMessageCount);
-              },
-            },
-          );
+          });
+        } catch (error) {
+          this._sessionManager.filterMessages((message) => message.role !== 'executing');
+          if (this._stopRequested || controller.signal.aborted) {
+            this._sessionManager.pushMessage({ role: 'system', content: 'Stopped by user' });
+            this._updateMessages();
+            break;
+          }
+          console.error('[Flixa] agent loop error:', error);
+          const resolved = resolveLlmApiError(error, '/v1/agent/responses', '[API Error] ');
+          this._sessionManager.pushMessage({ role: 'assistant', content: resolved.message });
+          this._updateMessages();
+          if (resolved.quotaExceeded) {
+            await this._handleQuotaExceeded(resolved.quotaExceeded);
+            break;
+          }
+          if (resolved.message.startsWith('[API Error]') && retryCount < MAX_AGENT_RETRIES) {
+            retryCount += 1;
+            continue;
+          }
+          break;
         } finally {
-          if (this._currentAbortController === llmAbortController) {
+          if (this._currentAbortController === controller) {
             this._currentAbortController = undefined;
           }
           this._setLoading(false);
           this._sendStreamingUpdate('');
         }
 
-        if (this._stopRequested) {
-          this._sessionManager.pushMessage({
-            role: 'system',
-            content: 'Stopped by user',
-          });
+        if (result.stopReason === 'cancelled' || this._stopRequested) {
+          this._sessionManager.filterMessages((message) => message.role !== 'executing');
+          this._sessionManager.pushMessage({ role: 'system', content: 'Stopped by user' });
           this._updateMessages();
           break;
         }
 
-        if (response.type !== 'agent') {
-          console.log('[Flixa] agent response non-agent', response.message);
-          if (response.quotaExceeded) {
-            this._sessionManager.pushMessage({
-              role: 'assistant',
-              content: response.message,
-            });
-            this._updateMessages();
-            await this._handleQuotaExceeded(response.quotaExceeded);
-            break;
-          }
-          const retryable =
-            response.message.startsWith('[API Error]') ||
-            response.message === 'Empty response' ||
-            response.message.startsWith('[Agent - Step');
-          if (retryable && retryCount < maxRetries) {
-            retryCount++;
-            this._sessionManager.pushMessage({
-              role: 'assistant',
-              content: response.message,
-            });
-            this._updateMessages();
-            continue;
-          }
-          this._sessionManager.pushMessage({
-            role: 'assistant',
-            content: response.message,
-          });
-          this._updateMessages();
-
-          if (this._usageService) {
-            this._usageService.refreshAfterSend(usageCategory);
-          }
-          break;
-        }
-
-        const agentResponse = response as AgentResponse;
-        console.log('[Flixa] agent response actions', agentResponse.actions.length);
-        retryCount = 0;
-
-        if (agentResponse.actions.length === 0) {
-          this._sessionManager.pushMessage({
-            role: 'assistant',
-            content: `[Agent] ${agentResponse.message}`,
-          });
-          this._updateMessages();
-
-          if (this._usageService) {
-            this._usageService.refreshAfterSend(usageCategory);
-          }
-          break;
-        }
-
-        if (this._stopRequested) {
-          this._sessionManager.pushMessage({
-            role: 'system',
-            content: 'Stopped by user',
-          });
-          this._updateMessages();
-          break;
-        }
-
-        const onOutput = (actionDesc: string, output: string) => {
-          const messages = this._sessionManager.getMessages();
-          const existingIdx = messages.findIndex(
-            (m) => m.role === 'executing' && m.executingAction === actionDesc,
-          );
-          if (existingIdx >= 0) {
-            messages[existingIdx].executingOutput = output;
-          } else {
-            this._sessionManager.pushMessage({
-              role: 'executing',
-              content: '',
-              executingAction: actionDesc,
-              executingOutput: output,
-            });
-          }
-          this._updateMessages();
-        };
-
-        const onSafetyCheck = (actionDesc: string, checking: boolean) => {
-          const messages = this._sessionManager.getMessages();
-          const existingIdx = messages.findIndex(
-            (m) => m.role === 'executing' && m.executingAction === actionDesc,
-          );
-          if (checking) {
-            if (existingIdx >= 0) {
-              messages[existingIdx].executingOutput = "Checking if it's safe...";
-            } else {
-              this._sessionManager.pushMessage({
-                role: 'executing',
-                content: '',
-                executingAction: actionDesc,
-                executingOutput: "Checking if it's safe...",
-              });
-            }
-          } else {
-            // Safety check done - don't remove the card, let onOutput update it
-            // or let the final cleanup remove it
-          }
-          this._updateMessages();
-        };
-
-        console.log('[Flixa] execute actions start');
-        let results: ActionExecutionResult[];
-        const actionAbortController = new AbortController();
-        this._currentAbortController = actionAbortController;
-
-        this._captureOriginalContents(agentResponse.actions);
-
-        try {
-          results = await executeAgentActions({
-            actions: agentResponse.actions,
-            approvalMode: this._approvalMode,
-            storePendingDiff: this._storePendingDiff,
-            onOutput,
-            onSafetyCheck,
-            requestApproval: (action) =>
-              this._requestApprovalInChat(action, actionAbortController.signal),
-            abortSignal: actionAbortController.signal,
-          });
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          results = agentResponse.actions.map((action) => ({
-            action,
-            success: false,
-            error: message,
-          }));
-        } finally {
-          if (this._currentAbortController === actionAbortController) {
-            this._currentAbortController = undefined;
-          }
-        }
-        console.log('[Flixa] execute actions done', results.length);
-
-        this._updateTrackedStatuses(results);
-
-        this._sessionManager.filterMessages((m) => m.role !== 'executing');
-
-        const serializedResults: SerializedActionResult[] = results.map((r) => ({
-          action: describeAction(r.action),
-          success: r.success,
-          rejected: r.rejected,
-          rejectionReason: r.rejectionReason,
-          output: r.output,
-          error: r.error,
-        }));
-
-        if (agentResponse.toolCalls && agentResponse.toolCalls.length > 0) {
-          this._sessionManager.pushMessage({
-            role: 'assistant',
-            content: agentResponse.message,
-            tool_calls: agentResponse.toolCalls,
-          });
-
-          const toolResults: SerializedToolResult[] = agentResponse.toolCalls.map(
-            (toolCall, index) => {
-              const result = results[index];
-              return {
-                tool_call_id: toolCall.id,
-                toolName: toolCall.function.name,
-                content: result
-                  ? this._formatToolResult(result)
-                  : `[FAILED] ${toolCall.function.name}: Missing tool execution result`,
-              };
-            },
-          );
-
-          this._sessionManager.pushMessage({
-            role: 'tool',
-            content: '',
-            results: serializedResults,
-            toolResults,
-          });
-        } else {
-          this._sessionManager.pushMessage({
-            role: 'result',
-            content: '',
-            results: serializedResults,
-          });
-        }
+        this._sessionManager.pushMessage({
+          role: 'assistant',
+          content: result.finalText.trim() || 'Empty response',
+        });
         this._updateMessages();
+        if (this._usageService) {
+          this._usageService.refreshAfterSend(usageCategory);
+        }
+        break;
       }
     } finally {
       this._sendChangedFiles();

@@ -1,4 +1,5 @@
 import type { ModelMessage } from 'ai';
+import { mapLegacyToolArguments, mapLegacyToolName } from '@deniai/flixa-core';
 import type { ChatCompletionToolCall, ChatContext } from '../types';
 import { log } from '../logger';
 import { formatSessionResults } from '../utils/format';
@@ -42,11 +43,13 @@ function buildUserContextText(message: {
   return content;
 }
 
-function parseToolArguments(toolCall: ChatCompletionToolCall): unknown {
+/** Saved chats can hold tool calls with the pre-unification names; replay them as the new tools. */
+function replayToolCall(toolCall: ChatCompletionToolCall): { name: string; input: unknown } {
+  const mapped = mapLegacyToolArguments(toolCall.function.name, toolCall.function.arguments);
   try {
-    return JSON.parse(toolCall.function.arguments);
+    return { name: mapped.name, input: JSON.parse(mapped.argumentsText) };
   } catch {
-    return {};
+    return { name: mapped.name, input: {} };
   }
 }
 
@@ -144,12 +147,15 @@ export function buildAgentMessages(context: ChatContext): ModelMessage[] {
           role: 'assistant',
           content: [
             ...(msg.content.trim() ? [{ type: 'text' as const, text: msg.content }] : []),
-            ...msg.tool_calls.map((toolCall) => ({
-              type: 'tool-call' as const,
-              toolCallId: toolCall.id,
-              toolName: toolCall.function.name,
-              input: parseToolArguments(toolCall),
-            })),
+            ...msg.tool_calls.map((toolCall) => {
+              const replayed = replayToolCall(toolCall);
+              return {
+                type: 'tool-call' as const,
+                toolCallId: toolCall.id,
+                toolName: replayed.name,
+                input: replayed.input,
+              };
+            }),
           ],
         });
       } else {
@@ -161,7 +167,7 @@ export function buildAgentMessages(context: ChatContext): ModelMessage[] {
         content: msg.toolResults.map((toolResult) => ({
           type: 'tool-result' as const,
           toolCallId: toolResult.tool_call_id,
-          toolName: toolResult.toolName,
+          toolName: mapLegacyToolName(toolResult.toolName),
           output: {
             type: 'text' as const,
             value: toolResult.content,

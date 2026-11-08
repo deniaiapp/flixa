@@ -58,6 +58,7 @@
   },
   "devDependencies": {
     "@deniai/flixa-api-client": "workspace:*",
+    "@deniai/flixa-core": "workspace:*",
     "@types/json-schema": "^7.0.15",
     "@types/node": "^26.6.5",
     "@types/vscode": "1.107.0",
@@ -163,7 +164,7 @@
           "type": "number",
           "default": 200000,
           "minimum": 0,
-          "description": "Estimated input token threshold for client-driven context compaction. When the agent context reaches this size, Flixa calls POST /v1/agent/responses/compact. Set to 0 to disable automatic compaction."
+          "description": "Estimated input token threshold for context compaction. When the agent context reaches this size, Flixa asks the model to summarize the conversation and continues from the summary. Set to 0 to disable automatic compaction."
         }
       }
     },

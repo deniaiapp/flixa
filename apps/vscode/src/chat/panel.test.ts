@@ -44,7 +44,9 @@ vi.doMock('../llm/stub', () => ({
       started();
     });
   },
-  callLLMForAgent: vi.fn(),
+  resolveLlmApiError: (error: unknown) => ({
+    message: `[API Error] ${error instanceof Error ? error.message : String(error)}`,
+  }),
   generateSessionTitle: () =>
     new Promise<string>((resolve) => {
       resolveTitle = resolve;
@@ -73,11 +75,11 @@ vi.doMock('../diff/preview', () => ({ showDiffPreview: preview }));
 
 let ChatViewProvider: typeof import('./panel').ChatViewProvider;
 let isPathInsideWorkspace: typeof import('../utils/workspace').isPathInsideWorkspace;
-let executeShellAction: typeof import('../agent/actions/shell').executeShellAction;
+let runWithSpawn: typeof import('../agent/host').runWithSpawn;
 beforeAll(async () => {
   ({ ChatViewProvider } = await import('./panel'));
   ({ isPathInsideWorkspace } = await import('../utils/workspace'));
-  ({ executeShellAction } = await import('../agent/actions/shell'));
+  ({ runWithSpawn } = await import('../agent/host'));
 });
 
 function createProvider() {
@@ -186,14 +188,12 @@ it('answers a terminal prompt without requiring additional output', async () => 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 4000);
   try {
-    const result = await executeShellAction(
-      { type: 'shell', command },
-      'ALL_APPROVE',
-      undefined,
-      undefined,
-      controller.signal,
-    );
-    expect(result.success).toBe(true);
+    const result = await runWithSpawn(command, root, {
+      timeoutMs: 10_000,
+      signal: controller.signal,
+      autoRespond: true,
+    });
+    expect(result.exitCode).toBe(0);
   } finally {
     clearTimeout(timeout);
   }

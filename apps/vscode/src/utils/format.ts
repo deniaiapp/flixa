@@ -1,84 +1,33 @@
-import type { AgentAction, SerializedActionResult } from '../types';
+import type { SerializedActionResult } from '../types';
 
-export function describeAction(action: AgentAction): string {
-  switch (action.type) {
-    case 'shell':
-      return `Shell: ${action.command.substring(0, 50)}`;
-    case 'vscodeCommand':
-      return `VSCode: ${action.command}`;
-    case 'writeFile':
-      return `Write: ${action.filePath}`;
-    case 'editFile':
-      return `Edit: ${action.filePath}`;
-    case 'deleteFile':
-      return `Delete: ${action.filePath}`;
-    case 'diff':
-      return `Diff: ${action.filePath}`;
-    case 'codebase_search':
-      return `Codebase Search: ${action.query.substring(0, 50)}`;
-    case 'read_file':
-      return `Read: ${action.target_file}`;
-    case 'run_terminal_cmd':
-      return `Terminal: ${action.command.substring(0, 50)}`;
-    case 'list_dir':
-      return `List Dir: ${action.relative_workspace_path}`;
-    case 'grep_search':
-      return `Grep: ${action.query.substring(0, 50)}`;
-    case 'search_replace':
-      return `Search Replace: ${action.file_path}`;
-    case 'file_search':
-      return `File Search: ${action.query}`;
-    case 'edit_file':
-      return `Edit: ${action.target_file}`;
-    case 'delete_file':
-      return `Delete: ${action.target_file}`;
+/** Card label for a tool call, e.g. `Read: src/a.ts` or `Terminal: npm test`. */
+export function describeToolCall(name: string, input: Record<string, unknown>): string {
+  const text = (key: string) => (typeof input[key] === 'string' ? (input[key] as string) : '');
+  switch (name) {
+    case 'Bash':
+      return `Terminal: ${text('command').substring(0, 50)}`;
+    case 'Read':
+      return `Read: ${text('file_path')}`;
+    case 'Write':
+      return `Write: ${text('file_path')}`;
+    case 'Edit':
+      return `Edit: ${text('file_path')}`;
+    case 'Delete':
+      return `Delete: ${text('file_path')}`;
+    case 'LS':
+      return `List Dir: ${text('path') || '.'}`;
+    case 'Grep':
+      return `Grep: ${text('pattern').substring(0, 50)}`;
+    case 'Glob':
+      return `Glob: ${text('pattern') || '**/*'}`;
     default:
-      return `Unknown action`;
-  }
-}
-
-export function describeActionFull(action: AgentAction): string {
-  switch (action.type) {
-    case 'shell':
-      return `[Shell] ${action.command}`;
-    case 'vscodeCommand':
-      return `[VSCode Command] ${action.command}${action.args ? ` (args: ${JSON.stringify(action.args)})` : ''}`;
-    case 'writeFile':
-      return `[Write File] ${action.filePath}`;
-    case 'editFile': {
-      const replaceLines = action.replace.split('\n').length;
-      return `[Edit File] ${action.filePath} (edited ${replaceLines} lines)`;
-    }
-    case 'deleteFile':
-      return `[Delete File] ${action.filePath}`;
-    case 'diff':
-      return `[Diff Preview] ${action.filePath}`;
-    case 'codebase_search':
-      return `[Codebase Search] ${action.query}`;
-    case 'read_file':
-      return `[Read File] ${action.target_file}`;
-    case 'run_terminal_cmd':
-      return `[Terminal] ${action.command}`;
-    case 'list_dir':
-      return `[List Directory] ${action.relative_workspace_path}`;
-    case 'grep_search':
-      return `[Grep Search] ${action.query}`;
-    case 'search_replace':
-      return `[Search Replace] ${action.file_path}`;
-    case 'file_search':
-      return `[File Search] ${action.query}`;
-    case 'edit_file':
-      return `[Edit File] ${action.target_file}`;
-    case 'delete_file':
-      return `[Delete File] ${action.target_file}`;
-    default:
-      return `[Unknown Action]`;
+      return name;
   }
 }
 
 export function formatSessionResults(results: SerializedActionResult[]): string {
   const lines: string[] = ['[Action Results]'];
-  const outputActions = /^(List Dir|Read|Terminal|Grep|File Search|Codebase Search|Shell):/i;
+  const outputActions = /^(List Dir|Read|Terminal|Grep|Glob|File Search|Codebase Search|Shell):/i;
 
   for (const r of results) {
     if (r.rejected) {

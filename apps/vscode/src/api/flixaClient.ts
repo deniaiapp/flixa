@@ -1,27 +1,11 @@
 import { resolveFlixaBaseUrl } from '@deniai/flixa-api-client';
 import { getFlixaClientHeaders } from './flixaClientHeaders';
 import { getApiKey } from '../llm/provider';
-import { log } from '../logger';
-
-export interface CompactResponseRequest {
-  model: string;
-  input?: unknown;
-  messages?: unknown[];
-  instructions?: string;
-}
 
 export interface CompactResponseUsage {
   input_tokens?: number;
   output_tokens?: number;
   total_tokens?: number;
-}
-
-export interface CompactResponseResult {
-  id?: string;
-  object?: string;
-  created_at?: number;
-  output: unknown[];
-  usage?: CompactResponseUsage;
 }
 
 export interface CreateResponseRequest {
@@ -66,57 +50,6 @@ async function parseErrorBody(response: Response): Promise<string> {
   } catch {
     return response.statusText;
   }
-}
-
-/**
- * Explicit compaction of the current context window.
- * POST /v1/agent/responses/compact
- */
-export async function compactResponse(
-  request: CompactResponseRequest,
-): Promise<CompactResponseResult> {
-  const url = `${getAgentBaseUrl()}/responses/compact`;
-  const body: Record<string, unknown> = {
-    model: request.model,
-  };
-  if (request.input !== undefined) {
-    body.input = request.input;
-  }
-  if (request.messages !== undefined) {
-    body.messages = request.messages;
-  }
-  if (request.instructions !== undefined) {
-    body.instructions = request.instructions;
-  }
-
-  log('[Flixa] compactResponse request', {
-    model: request.model,
-    hasInput: request.input !== undefined,
-    hasMessages: request.messages !== undefined,
-  });
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: buildAuthHeaders(),
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    const errorBody = await parseErrorBody(response);
-    throw new Error(`Compact request failed (${response.status}): ${errorBody}`);
-  }
-
-  const payload = (await response.json()) as CompactResponseResult;
-  if (!payload || !Array.isArray(payload.output)) {
-    throw new Error('Compact response missing output array');
-  }
-
-  log('[Flixa] compactResponse done', {
-    outputItems: payload.output.length,
-    usage: payload.usage,
-  });
-
-  return payload;
 }
 
 /**

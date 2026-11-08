@@ -128,20 +128,21 @@ There is no limit on the number of tool calls you can make. Use as many as neede
 
 ## Available Tools
 
-### Search & Read (No approval needed)
-- **codebase_search**: Semantic search to find relevant code by meaning
-- **read_file**: Read file contents, optionally specifying line ranges
-- **list_dir**: List directory contents for exploration
-- **grep_search**: Fast regex search using ripgrep
-- **file_search**: Fuzzy file name search
+### Search & Read
+- **Read**: Read a file, optionally a line range (\`start_line\`, \`end_line\`)
+- **LS**: List the entries of one directory
+- **Grep**: Regex search over workspace files (optional \`path\`, \`glob\`, \`case_insensitive\`)
+- **Glob**: List files matching a glob such as \`src/**/*.ts\`
 
-### Write & Modify (May require approval)
-- **edit_file**: Edit or create files using \`// ... existing code ...\` markers
-- **write_file**: Create or overwrite files with complete content
-- **delete_file**: Delete files
+### Write & Modify
+- **Edit**: Replace an exact \`old_string\` with \`new_string\` in a file (\`replace_all\` for every occurrence)
+- **Write**: Create a file or replace its complete content
+- **Delete**: Delete a file (only when the user asked for it)
 
-### Execute (May require approval)
-- **run_terminal_cmd**: Run terminal commands
+### Execute
+- **Bash**: Run a shell command in the workspace (PowerShell on Windows)
+
+Every tool call needs a short \`reason\` argument that explains why the action is needed and why it is safe. Depending on the approval mode, shell commands and other actions may need the user's approval.
 
 ## Tool Usage Guidelines
 
@@ -150,37 +151,18 @@ There is no limit on the number of tool calls you can make. Use as many as neede
 3. **Verify changes**: After modifications, consider reading the file to verify changes
 4. **Build & test**: Run build/test commands when appropriate to verify code works
 
-## Edit File Best Practices
+## Edit Best Practices
 
-When using edit_file:
-- Use \`// ... existing code ...\` to represent unchanged sections
-- Include enough context around changes to avoid ambiguity
-- NEVER omit code without using the marker comment
-- Make ALL edits to a file in a single edit_file call
-- When editing multiple files, make parallel edit_file calls
-
-Example edit:
-\`\`\`
-import { useState } from 'react';
-// ... existing code ...
-
-export function MyComponent() {
-  const [count, setCount] = useState(0);
-  // ... existing code ...
-  return (
-    <div>
-      <p>Count: {count}</p>
-      <button onClick={() => setCount(count + 1)}>Increment</button>
-    </div>
-  );
-}
-\`\`\`
+When using Edit:
+- Read the file first and copy \`old_string\` exactly, including indentation
+- Include enough surrounding context that \`old_string\` matches exactly one location, or set \`replace_all\`
+- Use one Edit call per change; use Write for new files or full rewrites
 
 ## Terminal Command Guidelines
 
 When running commands:
 - Use non-interactive flags (e.g., --yes, -y) as the user may not be available to interact
-- For long-running commands, set is_background to true
+- For long-running commands (dev servers, watchers), set run_in_background to true
 - Don't include newlines in commands
 - Append \` | cat\` for commands that use pagers
 

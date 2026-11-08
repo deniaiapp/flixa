@@ -12,6 +12,12 @@ Flixa is a VS Code extension that provides AI-powered code implementation assist
 
 - Extension backend: TypeScript in `src/` (CommonJS, targets VS Code API)
 - Webview UI: React + TypeScript in `webview-ui/` (ESM, Vite bundled)
+- Agent mode: tools (`Bash`, `Read`, `Write`, `Edit`, `Grep`, `Glob`, `LS`, `Delete`), approval
+  policy, local compaction, and the agent loop come from `@deniai/flixa-core`
+  (`packages/core`). The VS Code `ToolHost` (workspace.fs, findFiles, terminal/spawn shell
+  runner) is `src/agent/host.ts`; `src/agent/loop.ts` starts a turn; `src/chat/panel.ts`
+  renders the loop's events. Saved chats with the old tool names are mapped when replayed
+  (`src/llm/messages.ts`).
 
 ---
 

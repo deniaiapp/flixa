@@ -1,38 +1,19 @@
 import { findFlixaErrorCode, findUsageLimitExceeded } from '@deniai/flixa-api-client';
-import { generateText, type ModelMessage } from 'ai';
-import { agentTools } from '../agent/tools';
+import { generateText } from 'ai';
 import { createResponse } from '../api/flixaClient';
 import { getClientSignalUserMessage, logMissingClientSignal } from '../api/flixaClientHeaders';
-import { log } from '../logger';
-import type {
-  AgentResponse,
-  ChatCompletionToolCall,
-  ChatContext,
-  ImplementRequest,
-  LLMResponse,
-} from '../types';
+import type { ChatContext, ImplementRequest, LLMResponse } from '../types';
 import type { QuotaExceededErrorMeta } from '../usage/types';
-import {
-  buildAgentResponsesTools,
-  buildResponsesInputWindow,
-  hasCompactionItem,
-  maybeCompactInput,
-  modelMessagesToResponsesInput,
-} from './compact';
-import { buildAgentMessages, buildChatMessages } from './messages';
-import { convertToolCallsToActions, parseLLMResponse, stripCodeBlocks } from './parser';
+import { modelMessagesToResponsesInput } from './compact';
+import { buildChatMessages } from './messages';
+import { parseLLMResponse, stripCodeBlocks } from './parser';
 import { getFlixaProvider, getModel, getReasoningEffort } from './provider';
-import {
-  AGENT_SYSTEM_PROMPT,
-  buildImplementPrompt,
-  CHAT_SYSTEM_PROMPT,
-  IMPLEMENT_SYSTEM_PROMPT,
-} from './prompts';
+import { buildImplementPrompt, CHAT_SYSTEM_PROMPT, IMPLEMENT_SYSTEM_PROMPT } from './prompts';
 
 export { getFlixaProvider } from './provider';
-export { parseLLMResponse, parseAgentResponse } from './parser';
+export { parseLLMResponse } from './parser';
 
-function resolveLlmApiError(
+export function resolveLlmApiError(
   error: unknown,
   requestPath: string,
   fallbackPrefix: string,
@@ -54,46 +35,6 @@ function resolveLlmApiError(
 
   const message = error instanceof Error ? error.message : String(error);
   return { message: `${fallbackPrefix}${message}` };
-}
-
-function serializeToolArguments(input: unknown): string {
-  try {
-    return JSON.stringify(input ?? {});
-  } catch {
-    return '{}';
-  }
-}
-
-function serializeToolCall(toolCall: {
-  toolCallId: string;
-  toolName: string;
-  input: unknown;
-}): ChatCompletionToolCall {
-  return {
-    id: toolCall.toolCallId,
-    type: 'function',
-    function: {
-      name: toolCall.toolName,
-      arguments: serializeToolArguments(toolCall.input),
-    },
-  };
-}
-
-function convertExecutableToolCalls(
-  toolCalls: Array<{ toolCallId: string; toolName: string; input: unknown }>,
-): { actions: AgentResponse['actions']; toolCalls: ChatCompletionToolCall[] } {
-  const actions: AgentResponse['actions'] = [];
-  const chatToolCalls: ChatCompletionToolCall[] = [];
-
-  for (const toolCall of toolCalls) {
-    const convertedActions = convertToolCallsToActions([toolCall]);
-    for (const action of convertedActions) {
-      actions.push(action);
-      chatToolCalls.push(serializeToolCall(toolCall));
-    }
-  }
-
-  return { actions, toolCalls: chatToolCalls };
 }
 
 export async function generateSessionTitle(userMessage: string): Promise<string> {
@@ -261,15 +202,6 @@ export async function callLLMForChat(
   }
 }
 
-export interface AgentCallOptions {
-  /** Compacted Responses window from a prior standalone compact call. */
-  compactedInput?: unknown[] | null;
-  /** sessionMessages length at last compact; messages after this are appended. */
-  compactedSessionMessageCount?: number;
-  /** Called when compact runs; client must store output as next input base. */
-  onCompacted?: (input: unknown[], sessionMessageCount: number) => void;
-}
-
 function extractOutputText(content: unknown): string {
   if (typeof content === 'string') {
     return content;
@@ -363,202 +295,4 @@ async function callTextViaResponses(options: {
     abortSignal: options.abortSignal,
   });
   return parseResponsesAgentOutput(result.output).text;
-}
-
-function sliceSessionMessagesAfterCompact(
-  context: ChatContext,
-  compactedSessionMessageCount: number,
-): ChatContext {
-  const start = Math.max(0, compactedSessionMessageCount);
-  return {
-    ...context,
-    sessionMessages: context.sessionMessages.slice(start),
-  };
-}
-
-async function callAgentViaResponses(options: {
-  input: unknown[];
-  model: string;
-  onTextUpdate?: (text: string) => void;
-  abortSignal?: AbortSignal;
-}): Promise<AgentResponse | LLMResponse> {
-  const tools = await buildAgentResponsesTools();
-  const reasoningEffort = getReasoningEffort();
-  const result = await createResponse({
-    model: options.model,
-    input: options.input,
-    instructions: AGENT_SYSTEM_PROMPT,
-    tools,
-    store: false,
-    include: ['reasoning.encrypted_content'],
-    reasoning: reasoningEffort
-      ? {
-          effort: reasoningEffort,
-          context: 'all_turns',
-        }
-      : undefined,
-    abortSignal: options.abortSignal,
-  });
-
-  const { text, toolCalls } = parseResponsesAgentOutput(result.output);
-  log('[Flixa] agent responses text:', text);
-  log('[Flixa] agent responses toolCalls:', JSON.stringify(toolCalls, null, 2));
-
-  if (options.onTextUpdate) {
-    options.onTextUpdate(text || '');
-  }
-
-  if (toolCalls.length > 0) {
-    const { actions, toolCalls: chatToolCalls } = convertExecutableToolCalls(toolCalls);
-    return {
-      type: 'agent',
-      message: text || '',
-      actions,
-      toolCalls: chatToolCalls,
-    };
-  }
-
-  if (text && text.trim()) {
-    return {
-      type: 'message',
-      message: text,
-      diff: '',
-    };
-  }
-
-  return {
-    type: 'message',
-    message: 'Empty response',
-    diff: '',
-  };
-}
-
-/**
- * Call LLM for agent mode.
- *
- * All tool calls from the LLM are processed and executed sequentially
- * by the executor.
- *
- * When the estimated context size reaches flixa.compactTokenThreshold
- * (default 200k), calls POST /v1/agent/responses/compact and continues
- * with the compact output as the next input base.
- */
-export async function callLLMForAgent(
-  context: ChatContext,
-  onTextUpdate?: (text: string) => void,
-  abortSignal?: AbortSignal,
-  agentOptions?: AgentCallOptions,
-): Promise<AgentResponse | LLMResponse> {
-  const flixa = getFlixaProvider();
-  const model = getModel();
-
-  const compactedInput = agentOptions?.compactedInput ?? null;
-  const compactedSessionMessageCount = agentOptions?.compactedSessionMessageCount ?? 0;
-
-  const messages: ModelMessage[] = compactedInput
-    ? buildAgentMessages(sliceSessionMessagesAfterCompact(context, compactedSessionMessageCount))
-    : buildAgentMessages(context);
-
-  let responsesInput = buildResponsesInputWindow({
-    compactedBase: compactedInput,
-    messages,
-  });
-
-  try {
-    let didCompact = false;
-    try {
-      const compactResult = await maybeCompactInput({
-        input: responsesInput,
-        model,
-        instructions: AGENT_SYSTEM_PROMPT,
-      });
-
-      if (compactResult.didCompact) {
-        didCompact = true;
-        responsesInput = compactResult.input;
-        agentOptions?.onCompacted?.(compactResult.input, context.sessionMessages.length);
-        log('[Flixa] using compacted input window', {
-          items: responsesInput.length,
-          estimatedTokens: compactResult.estimatedTokens,
-          threshold: compactResult.threshold,
-        });
-      }
-    } catch (compactError) {
-      console.error('[Flixa] compact failed, continuing without compact', compactError);
-    }
-
-    const useResponsesPath =
-      getReasoningEffort() === 'max' ||
-      didCompact ||
-      !!compactedInput ||
-      hasCompactionItem(responsesInput);
-
-    if (useResponsesPath) {
-      return await callAgentViaResponses({
-        input: responsesInput,
-        model,
-        onTextUpdate,
-        abortSignal,
-      });
-    }
-
-    const result = await generateText({
-      model: flixa(model),
-      system: AGENT_SYSTEM_PROMPT,
-      messages,
-      tools: agentTools,
-      abortSignal,
-      providerOptions: {
-        openai: {
-          reasoningEffort: getReasoningEffort(),
-        },
-      },
-    });
-    log('[Flixa] agent response text:', result.text);
-    log('[Flixa] agent response toolCalls:', JSON.stringify(result.toolCalls, null, 2));
-    log('[Flixa] agent response finishReason:', result.finishReason);
-
-    if (onTextUpdate) {
-      onTextUpdate(result.text || '');
-    }
-
-    const toolCalls = result.toolCalls;
-
-    // Process all tool calls
-    if (toolCalls && toolCalls.length > 0) {
-      const { actions, toolCalls: chatToolCalls } = convertExecutableToolCalls(toolCalls);
-
-      return {
-        type: 'agent',
-        message: result.text || '',
-        actions,
-        toolCalls: chatToolCalls,
-      };
-    }
-
-    // No tool calls - this is the agent's final response
-    if (result.text && result.text.trim()) {
-      return {
-        type: 'message',
-        message: result.text,
-        diff: '',
-      };
-    }
-
-    // Empty response - return error
-    return {
-      type: 'message',
-      message: 'Empty response',
-      diff: '',
-    };
-  } catch (error) {
-    console.error('[Flixa] callLLMForAgent error:', error);
-    const resolved = resolveLlmApiError(error, '/v1/agent/responses', '[API Error] ');
-    return {
-      type: 'message',
-      message: resolved.message,
-      diff: '',
-      quotaExceeded: resolved.quotaExceeded,
-    };
-  }
 }
