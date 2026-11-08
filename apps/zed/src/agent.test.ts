@@ -47,7 +47,7 @@ test('loads and resumes a persisted session', async () => {
     cwd: directory,
     additionalDirectories: [],
     input: [{ role: 'user', content: 'hello' }],
-    model: 'openai/gpt-5.5',
+    model: 'openai/gpt-6-luna',
     reasoningEffort: 'medium',
     approvalMode: 'AUTO_APPROVE',
     modeId: 'agent',
@@ -65,7 +65,7 @@ test('loads and resumes a persisted session', async () => {
   };
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async () =>
-    new Response(JSON.stringify(['openai/gpt-5.5']), {
+    new Response(JSON.stringify(['openai/gpt-6-luna']), {
       status: 200,
     })) as unknown as typeof globalThis.fetch;
   const updates: acp.SessionNotification[] = [];

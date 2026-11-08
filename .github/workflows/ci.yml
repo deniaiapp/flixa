@@ -57,6 +57,9 @@ jobs:
       - name: Smoke-load the OpenClaw plugin runtime
         run: pnpm --filter @deniai/openclaw-flixa run smoke
 
+      - name: Check the ACP registry manifest matches the Zed package
+        run: pnpm --filter @deniai/flixa-zed acp:check
+
       - name: Package the VS Code extension (no publish)
         working-directory: apps/vscode
         run: pnpm exec vsce package --no-dependencies --out flixa.vsix

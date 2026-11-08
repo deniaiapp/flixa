@@ -7,7 +7,7 @@ import { isReasoningEffort, type ReasoningEffort } from './reasoning.js';
 export type { ReasoningEffort } from './reasoning.js';
 
 export const FLIXA_VERSION = process.env.FLIXA_VERSION || '0.8.2';
-export const DEFAULT_MODEL = process.env.FLIXA_MODEL || 'openai/gpt-5.5';
+export const DEFAULT_MODEL = process.env.FLIXA_MODEL || 'openai/gpt-6-luna';
 export const DEFAULT_REASONING_EFFORT = 'medium';
 export const DEFAULT_APPROVAL_MODE = 'AUTO_APPROVE';
 export const DEFAULT_COMPACT_TOKEN_THRESHOLD = 200_000;
