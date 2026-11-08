@@ -3,34 +3,8 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import type * as acp from '@agentclientprotocol/sdk/unstable';
-import { parseResponsesAgentOutput } from './agent.js';
 import { FlixaAgent } from './agent.js';
 import { SessionStore, type PersistedSession } from './sessionStore.js';
-
-test('parses response text and function calls', () => {
-  const parsed = parseResponsesAgentOutput([
-    {
-      type: 'message',
-      role: 'assistant',
-      content: [{ type: 'output_text', text: 'Reading the file.' }],
-    },
-    {
-      type: 'function_call',
-      call_id: 'call-1',
-      name: 'read_file',
-      arguments: '{"target_file":"README.md"}',
-    },
-  ]);
-
-  expect(parsed.text).toBe('Reading the file.');
-  expect(parsed.toolCalls).toEqual([
-    {
-      id: 'call-1',
-      name: 'read_file',
-      input: { target_file: 'README.md' },
-    },
-  ]);
-});
 
 test('advertises session loading and resuming', async () => {
   const response = await new FlixaAgent().initialize({ protocolVersion: 1 });

@@ -2,6 +2,7 @@ import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
+import { isApprovalMode, type ApprovalMode } from '@deniai/flixa-core';
 import { isReasoningEffort, type ReasoningEffort } from './reasoning.js';
 
 export type { ReasoningEffort } from './reasoning.js';
@@ -9,11 +10,11 @@ export type { ReasoningEffort } from './reasoning.js';
 export const FLIXA_VERSION = process.env.FLIXA_VERSION || '0.8.2';
 export const DEFAULT_MODEL = process.env.FLIXA_MODEL || 'openai/gpt-6-luna';
 export const DEFAULT_REASONING_EFFORT = 'medium';
-export const DEFAULT_APPROVAL_MODE = 'AUTO_APPROVE';
+export const DEFAULT_APPROVAL_MODE: ApprovalMode = 'AUTO_APPROVE';
 export const DEFAULT_COMPACT_TOKEN_THRESHOLD = 200_000;
 export const DEFAULT_MAX_AGENT_ITERATIONS = 100;
 
-export type ApprovalMode = 'ALL_APPROVE' | 'AUTO_APPROVE' | 'SAFE_APPROVE' | 'MANUAL_APPROVE';
+export type { ApprovalMode } from '@deniai/flixa-core';
 
 export interface FlixaConfig {
   model: string;
@@ -94,13 +95,9 @@ export function getConfig(): FlixaConfig {
     : DEFAULT_REASONING_EFFORT;
 
   const requestedApproval = process.env.FLIXA_APPROVAL_MODE?.toUpperCase();
-  const approvalMode: ApprovalMode =
-    requestedApproval === 'ALL_APPROVE' ||
-    requestedApproval === 'AUTO_APPROVE' ||
-    requestedApproval === 'SAFE_APPROVE' ||
-    requestedApproval === 'MANUAL_APPROVE'
-      ? requestedApproval
-      : DEFAULT_APPROVAL_MODE;
+  const approvalMode: ApprovalMode = isApprovalMode(requestedApproval)
+    ? requestedApproval
+    : DEFAULT_APPROVAL_MODE;
 
   const compactTokenThreshold = parseNonNegativeInteger(
     process.env.FLIXA_COMPACT_TOKEN_THRESHOLD,

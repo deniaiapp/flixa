@@ -7,12 +7,28 @@ import {
   waitForDeviceAuth,
 } from '@deniai/flixa-api-client';
 import {
-  compactResponse,
-  createResponse,
+  compactConversation,
+  CORE_TOOLS,
+  createResponsesSummarizer,
+  estimateTokens,
+  formatApprovalMode,
+  migrateLegacyResponseItems,
+  parseApprovalMode,
+  reviewCommandSafety,
+  runAgentLoop,
+  type AgentEvent,
+  type AgentToolCall,
+  type ResponseUsage,
+  type ToolApprovalRequest,
+  type ToolCategory,
+  type ToolResult,
+} from '@deniai/flixa-core';
+import { createNodeToolHost } from '@deniai/flixa-core/node';
+import {
   FlixaApiError,
   getClientHeaders,
+  getResponsesClient,
   listModels,
-  type ResponseUsage,
   type ModelDefinition,
 } from './api.js';
 import {
@@ -26,16 +42,7 @@ import {
   type ApprovalMode,
   type ReasoningEffort,
 } from './config.js';
-import {
-  AGENT_TOOLS,
-  executeTool,
-  getWorkspaceContext,
-  getToolMetadata,
-  isExecuteTool,
-  isObviouslyUnsafeCommand,
-  isWriteTool,
-  type ToolExecutionResult,
-} from './tools.js';
+import { getWorkspaceContext } from './workspaceContext.js';
 import { SessionStore, type PersistedSession } from './sessionStore.js';
 import {
   getAvailableReasoningEfforts,
@@ -43,12 +50,7 @@ import {
   isReasoningEffort,
   type ModelReasoningEfforts,
 } from './reasoning.js';
-import {
-  AGENT_SYSTEM_PROMPT,
-  CHAT_SYSTEM_PROMPT,
-  SAFETY_SYSTEM_PROMPT,
-  SLASH_HELP,
-} from './prompts.js';
+import { AGENT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT, SLASH_HELP } from './prompts.js';
 
 interface SessionState {
   cwd: string;
@@ -61,11 +63,6 @@ interface SessionState {
   pendingPrompt?: AbortController;
   promptCount: number;
   history: acp.SessionNotification[];
-}
-
-interface ParsedModelOutput {
-  text: string;
-  toolCalls: Array<{ id: string; name: string; input: Record<string, unknown> }>;
 }
 
 export class FlixaAgent {
@@ -348,18 +345,24 @@ export class FlixaAgent {
     client: acp.AgentContext,
     signal: AbortSignal,
   ): Promise<ResponseUsage | undefined> {
-    const result = await createResponse({
+    const result = await runAgentLoop({
+      client: await getResponsesClient(),
       model: session.model,
-      input: session.input,
       instructions: CHAT_SYSTEM_PROMPT,
+      input: session.input,
+      tools: [],
+      host: this.createHost(session),
+      approval: 'MANUAL_APPROVE',
       reasoningEffort: session.reasoningEffort,
-      abortSignal: signal,
+      signal,
+      maxSteps: 1,
+      onEvent: async (event) => {
+        if (event.type === 'assistant_message' && event.text) {
+          await this.sendMessage(sessionId, client, event.text, 'agent');
+        }
+      },
     });
-    session.input.push(...result.output);
-    const parsed = parseResponsesAgentOutput(result.output);
-    if (parsed.text) {
-      await this.sendMessage(sessionId, client, parsed.text, 'agent');
-    }
+    session.input = result.items;
     return result.usage;
   }
 
@@ -369,166 +372,119 @@ export class FlixaAgent {
     client: acp.AgentContext,
     signal: AbortSignal,
   ): Promise<ResponseUsage | undefined> {
-    let latestUsage: ResponseUsage | undefined;
     const config = getConfig();
-
-    for (let iteration = 0; iteration < config.maxAgentIterations; iteration += 1) {
-      if (signal.aborted) {
-        return latestUsage;
-      }
-
-      if (
-        config.compactTokenThreshold > 0 &&
-        estimateTokenCount(session.input) >= config.compactTokenThreshold
-      ) {
-        const compacted = await compactResponse(session.model, session.input, AGENT_SYSTEM_PROMPT);
-        session.input = compacted.output;
-        await this.sendMessage(sessionId, client, 'Context compacted.', 'agent');
-      }
-
-      const result = await createResponse({
-        model: session.model,
-        input: session.input,
-        instructions: AGENT_SYSTEM_PROMPT,
-        tools: AGENT_TOOLS,
-        reasoningEffort: session.reasoningEffort,
-        abortSignal: signal,
-      });
-      latestUsage = result.usage;
-      session.input.push(...result.output);
-      const parsed = parseResponsesAgentOutput(result.output);
-
-      if (parsed.text) {
-        await this.sendMessage(sessionId, client, parsed.text, 'agent');
-      }
-      if (parsed.toolCalls.length === 0) {
-        return latestUsage;
-      }
-
-      for (const toolCall of parsed.toolCalls) {
-        const result = await this.executeAgentTool(session, sessionId, client, toolCall, signal);
-        session.input.push({
-          type: 'function_call_output',
-          call_id: toolCall.id,
-          output: formatToolResult(result),
-        });
-      }
-    }
-
-    await this.sendMessage(sessionId, client, 'Maximum agent iterations reached.', 'agent');
-    return latestUsage;
-  }
-
-  private async executeAgentTool(
-    session: SessionState,
-    sessionId: string,
-    client: acp.AgentContext,
-    toolCall: { id: string; name: string; input: Record<string, unknown> },
-    signal: AbortSignal,
-  ): Promise<ToolExecutionResult> {
-    const context = {
-      cwd: session.cwd,
-      additionalDirectories: session.additionalDirectories,
+    const responsesClient = await getResponsesClient();
+    const result = await runAgentLoop({
+      client: responsesClient,
+      model: session.model,
+      instructions: AGENT_SYSTEM_PROMPT,
+      input: session.input,
+      tools: CORE_TOOLS,
+      host: this.createHost(session),
+      approval: session.approvalMode,
+      requestApproval: (request) => this.requestToolPermission(session, sessionId, client, request),
+      reviewToolCall: (request) =>
+        reviewCommandSafety({
+          client: responsesClient,
+          model: session.model,
+          command: typeof request.call.input.command === 'string' ? request.call.input.command : '',
+          reason: request.modelReason,
+          reasoningEffort: getAvailableReasoningEfforts(
+            session.model,
+            this.getModelDefinition(session.model)?.reasoningEfforts,
+          ).includes('low')
+            ? 'low'
+            : undefined,
+          signal,
+        }),
+      reasoningEffort: session.reasoningEffort,
       signal,
-      onOutput: async (output: string) => {
-        await this.updateToolCall(client, sessionId, toolCall, 'in_progress', output);
-      },
-    };
-    const metadata = getToolMetadata(toolCall.name, toolCall.input, context);
-    await this.sendSessionUpdate(sessionId, client, {
-      sessionUpdate: 'tool_call',
-      toolCallId: toolCall.id,
-      name: toolCall.name,
-      title: metadata.title,
-      kind: metadata.kind,
-      status: 'pending',
-      locations: metadata.locations,
-      rawInput: toolCall.input,
+      maxSteps: config.maxAgentIterations,
+      compaction: { thresholdTokens: config.compactTokenThreshold },
+      onEvent: (event) => this.handleAgentEvent(session, sessionId, client, event),
     });
+    session.input = result.items;
 
-    const permission = await this.shouldAllowTool(
-      session,
-      client,
-      sessionId,
-      toolCall,
-      metadata,
-      signal,
-    );
-    if (!permission.allowed) {
-      const result = { success: false, error: permission.reason, output: permission.reason };
-      await this.updateToolCall(client, sessionId, toolCall, 'failed', permission.reason);
-      return result;
+    if (result.stopReason === 'max_steps') {
+      await this.sendMessage(sessionId, client, 'Maximum agent iterations reached.', 'agent');
     }
-
-    await this.updateToolCall(client, sessionId, toolCall, 'in_progress');
-    const result = await executeTool(toolCall.name, toolCall.input, context);
-    await this.updateToolCall(
-      client,
-      sessionId,
-      toolCall,
-      result.success ? 'completed' : 'failed',
-      result.output || result.error,
-      result,
-    );
-    return result;
+    return result.usage;
   }
 
-  private async shouldAllowTool(
+  private createHost(session: SessionState) {
+    return createNodeToolHost({
+      workspaceRoot: session.cwd,
+      additionalRoots: session.additionalDirectories,
+    });
+  }
+
+  private async handleAgentEvent(
     session: SessionState,
-    client: acp.AgentContext,
     sessionId: string,
-    toolCall: { id: string; name: string; input: Record<string, unknown> },
-    metadata: ReturnType<typeof getToolMetadata>,
-    signal: AbortSignal,
-  ): Promise<{ allowed: boolean; reason: string }> {
-    const needsApproval = isWriteTool(toolCall.name) || isExecuteTool(toolCall.name);
-    if (!needsApproval || session.approvalMode === 'ALL_APPROVE') {
-      return { allowed: true, reason: '' };
+    client: acp.AgentContext,
+    event: AgentEvent,
+  ): Promise<void> {
+    switch (event.type) {
+      case 'compacted':
+        session.input = event.items;
+        await this.sendMessage(sessionId, client, 'Context compacted.', 'agent');
+        return;
+      case 'assistant_message':
+        if (event.text) {
+          await this.sendMessage(sessionId, client, event.text, 'agent');
+        }
+        return;
+      case 'tool_call_started':
+        await this.sendSessionUpdate(sessionId, client, {
+          sessionUpdate: 'tool_call',
+          ...toAcpToolCall(event.call, session),
+          status: 'pending',
+        });
+        return;
+      case 'tool_execution_started':
+        await this.updateToolCall(client, sessionId, event.call, 'in_progress');
+        return;
+      case 'tool_output':
+        await this.updateToolCall(client, sessionId, event.call, 'in_progress', event.output);
+        return;
+      case 'tool_call_finished':
+        if (event.denied) {
+          await this.updateToolCall(
+            client,
+            sessionId,
+            event.call,
+            'failed',
+            event.denialReason ?? event.result.summary,
+          );
+          return;
+        }
+        await this.updateToolCall(
+          client,
+          sessionId,
+          event.call,
+          event.result.ok ? 'completed' : 'failed',
+          event.result.displayOutput || event.result.output,
+          event.result,
+        );
+        return;
+      default:
+        return;
     }
+  }
 
-    if (
-      session.approvalMode === 'AUTO_APPROVE' &&
-      isExecuteTool(toolCall.name) &&
-      typeof toolCall.input.command === 'string' &&
-      isObviouslyUnsafeCommand(toolCall.input.command)
-    ) {
-      return { allowed: false, reason: 'Command rejected by the Flixa safety check.' };
-    }
-
-    if (session.approvalMode === 'AUTO_APPROVE' && isExecuteTool(toolCall.name)) {
-      const command = typeof toolCall.input.command === 'string' ? toolCall.input.command : '';
-      const safety = await this.checkShellCommandSafety(session, command, signal);
-      if (!safety.safe) {
-        return { allowed: false, reason: `AI safety check: ${safety.reason}` };
-      }
-      return { allowed: true, reason: '' };
-    }
-
-    if (session.approvalMode === 'AUTO_APPROVE' || session.approvalMode === 'SAFE_APPROVE') {
-      if (session.approvalMode === 'AUTO_APPROVE' && isWriteTool(toolCall.name)) {
-        return { allowed: true, reason: '' };
-      }
-      if (session.approvalMode === 'SAFE_APPROVE' && isWriteTool(toolCall.name)) {
-        return { allowed: true, reason: '' };
-      }
-    }
-
-    if (signal.aborted) {
-      return { allowed: false, reason: 'Action cancelled' };
-    }
-
+  private async requestToolPermission(
+    session: SessionState,
+    sessionId: string,
+    client: acp.AgentContext,
+    request: ToolApprovalRequest,
+  ): Promise<boolean> {
     const response = await client.request<acp.RequestPermissionResponse>(
       acp.methods.client.session.requestPermission,
       {
         sessionId,
         toolCall: {
-          toolCallId: toolCall.id,
-          name: toolCall.name,
-          title: metadata.title,
-          kind: metadata.kind,
+          ...toAcpToolCall(request.call, session),
           status: 'pending',
-          locations: metadata.locations,
-          rawInput: toolCall.input,
         },
         options: [
           { optionId: 'allow', name: 'Allow this action', kind: 'allow_once' },
@@ -536,27 +492,25 @@ export class FlixaAgent {
         ],
       },
     );
-    if (response.outcome.outcome !== 'selected' || response.outcome.optionId !== 'allow') {
-      return { allowed: false, reason: 'User rejected action' };
-    }
-    return { allowed: true, reason: '' };
+    return response.outcome.outcome === 'selected' && response.outcome.optionId === 'allow';
   }
 
   private async updateToolCall(
     client: acp.AgentContext,
     sessionId: string,
-    toolCall: { id: string; name: string; input: Record<string, unknown> },
+    toolCall: AgentToolCall,
     status: acp.ToolCallStatus,
     text?: string,
-    result?: ToolExecutionResult,
+    result?: ToolResult,
   ): Promise<void> {
     const content: acp.ToolCallContent[] = [];
-    if (result?.path && result.newText !== undefined) {
+    const change = result?.fileChange;
+    if (change) {
       content.push({
         type: 'diff',
-        path: result.path,
-        oldText: result.oldText,
-        newText: result.newText,
+        path: change.path.absolute,
+        oldText: change.oldText,
+        newText: change.newText,
       });
     } else if (text) {
       content.push({
@@ -567,7 +521,7 @@ export class FlixaAgent {
 
     await this.sendSessionUpdate(sessionId, client, {
       sessionUpdate: 'tool_call_update',
-      toolCallId: toolCall.id,
+      toolCallId: toolCall.callId,
       status,
       content: content.length > 0 ? content : undefined,
       rawOutput: text || undefined,
@@ -704,12 +658,19 @@ export class FlixaAgent {
       await this.sendMessage(sessionId, client, 'Nothing to compact.', 'agent');
       return;
     }
-    const before = estimateTokenCount(session.input);
-    const compacted = await compactResponse(session.model, session.input, AGENT_SYSTEM_PROMPT);
+    const before = estimateTokens(session.input);
+    const compacted = await compactConversation({
+      items: session.input,
+      generate: createResponsesSummarizer({
+        client: await getResponsesClient(),
+        model: session.model,
+        signal,
+      }),
+    });
     if (signal.aborted) {
       return;
     }
-    session.input = compacted.output;
+    session.input = compacted.items;
     await this.sendMessage(
       sessionId,
       client,
@@ -734,41 +695,6 @@ export class FlixaAgent {
   ): ModelDefinition | undefined {
     const candidates = models ?? Array.from(this.modelCache.values()).flat();
     return candidates.find((model) => model.id === modelId);
-  }
-
-  private async checkShellCommandSafety(
-    session: SessionState,
-    command: string,
-    signal: AbortSignal,
-  ): Promise<{ safe: boolean; reason: string }> {
-    try {
-      const result = await createResponse({
-        model: session.model,
-        input: [{ role: 'user', content: `Command:\n${command}` }],
-        instructions: SAFETY_SYSTEM_PROMPT,
-        reasoningEffort: getAvailableReasoningEfforts(
-          session.model,
-          this.getModelDefinition(session.model)?.reasoningEfforts,
-        ).includes('low')
-          ? 'low'
-          : undefined,
-        abortSignal: signal,
-      });
-      const responseText = parseResponsesAgentOutput(result.output)
-        .text.trim()
-        .replace(/^```(?:json)?\s*/, '')
-        .replace(/\s*```$/, '');
-      const parsed = JSON.parse(responseText) as Record<string, unknown>;
-      if (
-        (parsed.verdict === 'SAFE' || parsed.verdict === 'UNSAFE') &&
-        typeof parsed.reason === 'string'
-      ) {
-        return { safe: parsed.verdict === 'SAFE', reason: parsed.reason };
-      }
-      return { safe: false, reason: 'Failed to parse safety check response' };
-    } catch (error) {
-      return { safe: false, reason: error instanceof Error ? error.message : String(error) };
-    }
   }
 
   private async getConfigOptions(session: SessionState): Promise<acp.SessionConfigOption[]> {
@@ -931,61 +857,6 @@ export class FlixaAgent {
   }
 }
 
-export function parseResponsesAgentOutput(output: unknown[]): ParsedModelOutput {
-  let text = '';
-  const toolCalls: ParsedModelOutput['toolCalls'] = [];
-  for (const item of output) {
-    if (!isRecord(item)) {
-      continue;
-    }
-    if ((item.type === 'message' || item.role === 'assistant') && item.content !== undefined) {
-      const piece = extractOutputText(item.content);
-      if (piece) {
-        text += `${text ? '\n' : ''}${piece}`;
-      }
-    }
-    if (item.type === 'function_call' && typeof item.name === 'string') {
-      let input: Record<string, unknown> = {};
-      if (typeof item.arguments === 'string') {
-        try {
-          const parsed = JSON.parse(item.arguments) as unknown;
-          if (isRecord(parsed)) {
-            input = parsed;
-          }
-        } catch {
-          input = {};
-        }
-      } else if (isRecord(item.arguments)) {
-        input = item.arguments;
-      }
-      toolCalls.push({
-        id:
-          typeof item.call_id === 'string'
-            ? item.call_id
-            : typeof item.id === 'string'
-              ? item.id
-              : `call-${toolCalls.length + 1}`,
-        name: item.name,
-        input,
-      });
-    }
-  }
-  return { text, toolCalls };
-}
-
-function extractOutputText(content: unknown): string {
-  if (typeof content === 'string') {
-    return content;
-  }
-  if (!Array.isArray(content)) {
-    return '';
-  }
-  return content
-    .filter((part): part is Record<string, unknown> => isRecord(part))
-    .map((part) => (typeof part.text === 'string' ? part.text : ''))
-    .join('');
-}
-
 async function promptBlocksToText(
   blocks: acp.ContentBlock[],
   session: SessionState,
@@ -1025,40 +896,6 @@ function parseSlashCommand(message: string): { name: string; args: string[] } | 
   return { name: parts[0].toLowerCase(), args: parts.slice(1) };
 }
 
-function parseApprovalMode(value: string | undefined): ApprovalMode | null {
-  switch (value?.toLowerCase()) {
-    case 'auto':
-    case 'auto_approve':
-    case 'auto-approve':
-      return 'AUTO_APPROVE';
-    case 'safe':
-    case 'safe_approve':
-    case 'safe-approve':
-      return 'SAFE_APPROVE';
-    case 'manual':
-    case 'manual_approve':
-    case 'manual-approve':
-      return 'MANUAL_APPROVE';
-    case 'all':
-    case 'all_approve':
-    case 'all-approve':
-    case 'yolo':
-      return 'ALL_APPROVE';
-    default:
-      return null;
-  }
-}
-
-function formatApprovalMode(mode: ApprovalMode): string {
-  return mode === 'ALL_APPROVE'
-    ? 'all'
-    : mode === 'AUTO_APPROVE'
-      ? 'auto'
-      : mode === 'SAFE_APPROVE'
-        ? 'safe'
-        : 'manual';
-}
-
 function getModes(currentModeId: 'agent' | 'chat'): acp.SessionModeState {
   return {
     currentModeId,
@@ -1067,13 +904,6 @@ function getModes(currentModeId: 'agent' | 'chat'): acp.SessionModeState {
       { id: 'chat', name: 'Chat', description: 'Answer coding questions without changing files.' },
     ],
   };
-}
-
-function formatToolResult(result: ToolExecutionResult): string {
-  if (result.success) {
-    return result.output || 'Action completed successfully.';
-  }
-  return `[FAILED] ${result.error || 'Action failed'}${result.output ? `\n${result.output}` : ''}`;
 }
 
 function formatApiError(error: unknown): string {
@@ -1089,14 +919,6 @@ function formatApiError(error: unknown): string {
   return error instanceof Error ? `[API Error] ${error.message}` : `[API Error] ${String(error)}`;
 }
 
-function estimateTokenCount(value: unknown): number {
-  try {
-    return Math.ceil(JSON.stringify(value).length / 4);
-  } catch {
-    return 0;
-  }
-}
-
 function trimText(value: string): string {
   return value.length > 200_000 ? value.slice(-200_000) : value;
 }
@@ -1109,15 +931,11 @@ function mapUsage(usage: ResponseUsage): acp.Usage {
   };
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === 'object';
-}
-
 function fromPersistedSession(session: PersistedSession): SessionState {
   return {
     cwd: session.cwd,
     additionalDirectories: [...session.additionalDirectories],
-    input: [...session.input],
+    input: migrateLegacyResponseItems([...session.input]),
     model: session.model,
     reasoningEffort: session.reasoningEffort,
     approvalMode: session.approvalMode,
@@ -1133,4 +951,43 @@ function samePath(left: string, right: string): boolean {
   return process.platform === 'win32'
     ? normalizedLeft.toLowerCase() === normalizedRight.toLowerCase()
     : normalizedLeft === normalizedRight;
+}
+
+const ACP_TOOL_KINDS: Record<ToolCategory, acp.ToolKind> = {
+  read: 'read',
+  search: 'search',
+  edit: 'edit',
+  delete: 'delete',
+  execute: 'execute',
+  network: 'fetch',
+  other: 'other',
+};
+
+/** The ACP tool-call fields Zed shows for a core tool call. */
+export function toAcpToolCall(
+  call: AgentToolCall,
+  session: Pick<SessionState, 'cwd'>,
+): {
+  toolCallId: string;
+  name: string;
+  title: string;
+  kind: acp.ToolKind;
+  locations: Array<{ path: string }>;
+  rawInput: Record<string, unknown>;
+} {
+  const target = call.input.file_path ?? call.input.path;
+  const locations =
+    typeof target === 'string' && target
+      ? [{ path: path.resolve(session.cwd, target) }]
+      : call.category === 'execute' || call.category === 'search'
+        ? [{ path: session.cwd }]
+        : [];
+  return {
+    toolCallId: call.callId,
+    name: call.name,
+    title: call.title,
+    kind: ACP_TOOL_KINDS[call.category],
+    locations,
+    rawInput: call.input,
+  };
 }

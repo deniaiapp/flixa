@@ -36,6 +36,7 @@
   },
   "devDependencies": {
     "@deniai/flixa-api-client": "workspace:*",
+    "@deniai/flixa-core": "workspace:*",
     "@types/node": "^26.6.5",
     "esbuild": "^0.28.2",
     "oxlint": "^1.90.0",

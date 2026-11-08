@@ -33,6 +33,8 @@ Supported environment variables are `FLIXA_MODEL`, `FLIXA_REASONING_EFFORT`, `FL
 
 The ACP agent supports `/help`, `/clear`, `/compact`, `/stop`, `/agent`, `/chat`, `/model`, and `/approval`.
 
+Tools, approval modes, and the agent loop come from `@deniai/flixa-core` (`packages/core`), shared with the CLI and the VS Code extension. The agent offers `Bash`, `Read`, `Write`, `Edit`, `Grep`, `Glob`, `LS`, and `Delete` on the core Node host (Grep and Glob use `rg` from `PATH` when it is installed, else a built-in search). Approval modes: `all` runs everything, `auto` sends shell commands to an AI safety review, `safe` asks before shell commands, and `manual` asks before every tool call; commands on the shared block list never run. Compaction is local: when the context reaches `FLIXA_COMPACT_TOKEN_THRESHOLD`, the model summarizes the conversation, so it works with every model. Sessions saved with the old tool names (`read_file`, `edit_file`, `run_terminal_cmd`, …) are mapped to the new names when they are loaded.
+
 ## Publish
 
 The ACP Registry entry is prepared in `acp-registry/flixa/` (inside `apps/zed`). Releases are published by the `Release Zed agent` workflow when a `zed-v*` tag is pushed.
