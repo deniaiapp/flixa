@@ -1,6 +1,6 @@
+import { resolveFlixaBaseUrl } from '@deniai/flixa-api-client';
 import { getFlixaClientHeaders } from './flixaClientHeaders';
 import { getApiKey } from '../llm/provider';
-import { getFlixaApiBaseUrl } from '../usage/service';
 import { log } from '../logger';
 
 export interface CompactResponseRequest {
@@ -44,7 +44,7 @@ export interface CreateResponseResult {
 }
 
 function getAgentBaseUrl(): string {
-  return `${getFlixaApiBaseUrl().replace(/\/+$/, '')}/v1/agent`;
+  return resolveFlixaBaseUrl();
 }
 
 function buildAuthHeaders(): Record<string, string> {

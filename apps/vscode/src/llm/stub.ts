@@ -1,11 +1,8 @@
+import { findFlixaErrorCode, findUsageLimitExceeded } from '@deniai/flixa-api-client';
 import { generateText, type ModelMessage } from 'ai';
 import { agentTools } from '../agent/tools';
 import { createResponse } from '../api/flixaClient';
-import {
-  extractApiErrorCode,
-  getClientSignalUserMessage,
-  logMissingClientSignal,
-} from '../api/flixaClientHeaders';
+import { getClientSignalUserMessage, logMissingClientSignal } from '../api/flixaClientHeaders';
 import { log } from '../logger';
 import type {
   AgentResponse,
@@ -35,90 +32,17 @@ import {
 export { getFlixaProvider } from './provider';
 export { parseLLMResponse, parseAgentResponse } from './parser';
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === 'object';
-}
-
-function normalizeQuotaExceededError(value: unknown): QuotaExceededErrorMeta | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  const error = isRecord(value.error) ? value.error : value;
-  if (error.code !== 'USAGE_LIMIT_EXCEEDED') {
-    return null;
-  }
-
-  return {
-    message: typeof error.message === 'string' ? error.message : 'Usage limit exceeded.',
-    type: typeof error.type === 'string' ? error.type : 'quota_exceeded',
-    param: null,
-    code: 'USAGE_LIMIT_EXCEEDED',
-    category:
-      error.category === 'basic' || error.category === 'premium' ? error.category : undefined,
-    tier:
-      error.tier === 'free' || error.tier === 'go' || error.tier === 'plus' || error.tier === 'pro'
-        ? error.tier
-        : undefined,
-    canVerifyForBoost:
-      typeof error.canVerifyForBoost === 'boolean' ? error.canVerifyForBoost : undefined,
-    canUpgrade: typeof error.canUpgrade === 'boolean' ? error.canUpgrade : undefined,
-    verifyUrl: typeof error.verifyUrl === 'string' ? error.verifyUrl : undefined,
-    upgradeUrl: typeof error.upgradeUrl === 'string' ? error.upgradeUrl : undefined,
-  };
-}
-
-function tryParseJsonObject(text: string): unknown {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
-}
-
-function extractQuotaExceededError(error: unknown): QuotaExceededErrorMeta | null {
-  const direct = normalizeQuotaExceededError(error);
-  if (direct) {
-    return direct;
-  }
-
-  if (error instanceof Error) {
-    const fromMessage = normalizeQuotaExceededError(tryParseJsonObject(error.message));
-    if (fromMessage) {
-      return fromMessage;
-    }
-  }
-
-  if (!isRecord(error)) {
-    return null;
-  }
-
-  const keys = ['data', 'body', 'responseBody', 'response', 'cause', 'error', 'value'];
-  for (const key of keys) {
-    const value = error[key];
-    const nested =
-      typeof value === 'string'
-        ? normalizeQuotaExceededError(tryParseJsonObject(value))
-        : extractQuotaExceededError(value);
-    if (nested) {
-      return nested;
-    }
-  }
-
-  return null;
-}
-
 function resolveLlmApiError(
   error: unknown,
   requestPath: string,
   fallbackPrefix: string,
 ): { message: string; quotaExceeded?: QuotaExceededErrorMeta } {
-  const quotaExceeded = extractQuotaExceededError(error) ?? undefined;
+  const quotaExceeded = findUsageLimitExceeded(error) ?? undefined;
   if (quotaExceeded) {
     return { message: quotaExceeded.message, quotaExceeded };
   }
 
-  const code = extractApiErrorCode(error);
+  const code = findFlixaErrorCode(error);
   if (code === 'missing_client_signal') {
     logMissingClientSignal(requestPath);
   }

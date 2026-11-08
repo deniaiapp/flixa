@@ -110,28 +110,37 @@ export interface ModelDefinition {
 	reasoningEfforts?: ModelReasoningEfforts;
 }
 
+/** Mirrors DeniUsageInfo from @deniai/flixa-api-client. */
 export interface UsageItem {
 	category: 'basic' | 'premium';
+	limit: number | null;
+	used: number;
+	unit: 'units' | 'tokens' | 'requests';
+	remaining: number | null;
+	periodStart: string;
+	periodEnd: string | null;
+}
+
+export interface UsagePool {
 	limit: number;
 	used: number;
-	unit: string;
 	remaining: number;
-	periodStart: string;
-	periodEnd: string;
+	periodEnd: string | null;
 }
 
 export interface UsageData {
 	tier: Tier;
 	planId: string | null;
-	status: 'active' | 'trialing' | 'canceled' | null;
+	status: string | null;
 	periodEnd: string | null;
 	maxModeEnabled: boolean;
 	maxModeEligible: boolean;
+	isTeam: boolean;
 	hasVerifiedPaymentMethod: boolean;
 	cardVerifiedAt: string | null;
-	cardFunding: string | null;
 	verifyUrl: string | null;
 	upgradeUrl: string | null;
+	pool?: UsagePool;
 	usage: UsageItem[];
 }
 

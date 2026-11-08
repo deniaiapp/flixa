@@ -1,83 +1,32 @@
-export type Tier = 'free' | 'go' | 'plus' | 'pro';
-
-export type UsageCategory = 'basic' | 'premium';
-
+import {
+  getUsageSummary,
+  type DeniUsageInfo,
+  type UsageCategory,
+  type UsageLimitExceededDetails,
+  type UsageTier,
+} from '@deniai/flixa-api-client';
 import type { ModelReasoningEfforts } from '../llm/reasoning';
 
-export interface UsageItem {
-  category: UsageCategory;
+export type Tier = UsageTier;
+
+export type { UsageCategory };
+
+/** `GET /v1/deni/usage` response (see @deniai/flixa-api-client). */
+export type UsageResponse = DeniUsageInfo;
+
+/** The shared monthly pool when it has a finite limit. */
+export interface UsagePool {
   limit: number;
   used: number;
-  /**
-   * Pool usage units (1M units = $0.50). Current servers return "units"; older servers
-   * return "tokens" (same scale) or "requests" (guests). Kept as a string so unknown values
-   * from other server versions are tolerated.
-   */
-  unit: string;
   remaining: number;
-  periodStart: string;
-  periodEnd: string;
-}
-
-export interface UsageResponse {
-  tier: Tier;
-  planId: string | null;
-  status: 'active' | 'trialing' | 'canceled' | null;
   periodEnd: string | null;
-  maxModeEnabled: boolean;
-  maxModeEligible: boolean;
-  isTeam: boolean;
-  hasVerifiedPaymentMethod: boolean;
-  cardVerifiedAt: string | null;
-  cardFunding: string | null;
-  verifyUrl: string | null;
-  upgradeUrl: string | null;
-  usage: UsageItem[];
 }
 
-export interface QuotaExceededErrorMeta {
-  message: string;
-  type: string;
-  param: null;
-  code: 'USAGE_LIMIT_EXCEEDED';
-  category?: UsageCategory;
-  tier?: Tier;
-  canVerifyForBoost?: boolean;
-  canUpgrade?: boolean;
-  verifyUrl?: string;
-  upgradeUrl?: string;
-}
-
-export interface UsageErrorResponse {
-  error: {
-    message: string;
-    type: 'authentication_error' | 'server_error' | 'quota_exceeded';
-    param: null;
-    code:
-      | 'missing_auth_header'
-      | 'missing_api_key'
-      | 'invalid_key'
-      | 'expired_key'
-      | 'db_error'
-      | 'usage_fetch_error'
-      | 'USAGE_LIMIT_EXCEEDED';
-  };
-}
+export type QuotaExceededErrorMeta = UsageLimitExceededDetails;
 
 export interface CachedUsage {
   data: UsageResponse;
   fetchedAt: number;
-}
-
-export interface DeviceAuthInitiateResponse {
-  userCode: string;
-  deviceCode: string;
-  expiresIn: number;
-}
-
-export interface DeviceAuthPollResponse {
-  approved: boolean;
-  apiKey?: string;
 }
 
 export type ModelTierRequirement = 'free' | 'plus' | 'pro';
@@ -160,13 +109,21 @@ export function canUseTier(userTier: Tier, requiredTier: ModelTierRequirement): 
 
 /**
  * Usage is not split by model class: Deni AI chat, Flixa, and Deni Run share one
- * monthly pool. Every entry reports that pool; older servers split it into
- * basic/premium, and then the basic entry stands for it.
+ * monthly pool. Prefer `pool`, else the basic usage entry. Unlimited pools return undefined.
  */
-export function primaryUsage(data: UsageResponse): UsageItem | undefined {
-  return data.usage.find((u) => u.category === 'basic') ?? data.usage[0];
+export function primaryUsage(data: UsageResponse): UsagePool | undefined {
+  const summary = getUsageSummary(data);
+  if (!summary || summary.limit === null || summary.remaining === null) {
+    return undefined;
+  }
+  return {
+    limit: summary.limit,
+    used: summary.used,
+    remaining: summary.remaining,
+    periodEnd: summary.periodEnd,
+  };
 }
 
-export function remainingPercent(item: UsageItem): number {
+export function remainingPercent(item: UsagePool): number {
   return item.limit > 0 ? Math.max(0, Math.min(100, (item.remaining / item.limit) * 100)) : 0;
 }

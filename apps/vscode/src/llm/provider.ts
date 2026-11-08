@@ -1,6 +1,6 @@
 import { createOpenAI } from '@ai-sdk/openai';
+import { fetchFlixaModels, resolveFlixaBaseUrl, type FlixaModel } from '@deniai/flixa-api-client';
 import { getFlixaClientHeaders } from '../api/flixaClientHeaders';
-import { getFlixaApiBaseUrl } from '../usage/service';
 import { setModelAccessDefinitions, type ModelAccessDefinition } from '../usage/types';
 import {
   getAvailableReasoningEfforts,
@@ -9,9 +9,6 @@ import {
   type ReasoningEffort,
 } from './reasoning';
 
-const FLIXA_BASE_URL = getFlixaApiBaseUrl();
-
-const OPENAI_BASE_URL = `${FLIXA_BASE_URL}/v1/agent/`;
 const DEFAULT_MODEL = 'openai/gpt-6-luna';
 const DEFAULT_REASONING_EFFORT = 'medium';
 const MODELS_CACHE_DURATION_MS = 5 * 60 * 1000;
@@ -50,7 +47,7 @@ export function getApiKey(): string | undefined {
 export function getFlixaProvider() {
   return createOpenAI({
     apiKey: _apiKey || 'anonymous',
-    baseURL: OPENAI_BASE_URL,
+    baseURL: `${resolveFlixaBaseUrl()}/`,
     headers: getFlixaClientHeaders(),
   }).chat;
 }
@@ -87,110 +84,19 @@ function withCurrentModelDefinition(
   return [{ id: currentModel, label: currentModel, tags: [], tier: 'free' }, ...modelDefinitions];
 }
 
-function normalizeTier(value: unknown): 'free' | 'plus' | 'pro' | undefined {
-  if (value === 'free' || value === 'plus' || value === 'pro') {
-    return value;
-  }
-  return undefined;
-}
-
-function normalizeTags(value: unknown): string[] | undefined {
-  if (!Array.isArray(value)) {
-    return undefined;
-  }
-  return value.filter((tag): tag is string => typeof tag === 'string');
-}
-
-function normalizeTokenUsageMultiplier(value: unknown): number | undefined {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    return undefined;
-  }
-  return value;
-}
-
-function normalizeUsageTier(value: unknown): number | undefined {
-  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
-    return undefined;
-  }
-  return value;
-}
-
-function extractModelDefinition(model: unknown): ModelAccessDefinition | null {
-  if (typeof model === 'string') {
-    return { id: model, label: model, tags: [] };
-  }
-  if (model && typeof model === 'object') {
-    const record = model as Record<string, unknown>;
-    if (typeof record.id === 'string') {
-      return {
-        id: record.id,
-        label: typeof record.label === 'string' ? record.label : record.id,
-        description: typeof record.description === 'string' ? record.description : '',
-        tags: normalizeTags(record.tags) ?? [],
-        premium: typeof record.premium === 'boolean' ? record.premium : undefined,
-        tier: normalizeTier(record.tier),
-        tokenUsageMultiplier: normalizeTokenUsageMultiplier(record.tokenUsageMultiplier),
-        usageTier: normalizeUsageTier(record.usageTier),
-        reasoningEfforts: normalizeReasoningEfforts(
-          record.efforts ??
-            record.reasoningEfforts ??
-            record.reasoning_efforts ??
-            record.supportedReasoningEfforts ??
-            record.supported_reasoning_efforts,
-        ),
-        default: record.default === true ? true : undefined,
-      };
-    }
-  }
-  return null;
-}
-
-function parseModelDefinitions(payload: unknown): ModelAccessDefinition[] {
-  const normalizeList = (value: unknown): ModelAccessDefinition[] => {
-    if (!Array.isArray(value)) {
-      return [];
-    }
-    return value
-      .map(extractModelDefinition)
-      .filter((model): model is ModelAccessDefinition => !!model);
+function toModelAccessDefinition(model: FlixaModel): ModelAccessDefinition {
+  return {
+    id: model.id,
+    label: model.label,
+    description: model.description,
+    tags: model.tags,
+    premium: model.premium,
+    tier: model.tier,
+    tokenUsageMultiplier: model.tokenUsageMultiplier,
+    usageTier: model.usageTier ?? undefined,
+    reasoningEfforts: normalizeReasoningEfforts(model.efforts),
+    default: model.default ? true : undefined,
   };
-
-  if (Array.isArray(payload)) {
-    return normalizeList(payload);
-  }
-  if (payload && typeof payload === 'object') {
-    const record = payload as Record<string, unknown>;
-    if (Array.isArray(record.model_definitions)) {
-      return normalizeList(record.model_definitions);
-    }
-    if (record.model_definitions && typeof record.model_definitions === 'object') {
-      const entries = Object.entries(record.model_definitions as Record<string, unknown>).map(
-        ([id, value]) => {
-          if (value && typeof value === 'object') {
-            return { id, ...(value as Record<string, unknown>) };
-          }
-          return { id };
-        },
-      );
-      return normalizeList(entries);
-    }
-    if (Array.isArray(record.models)) {
-      return normalizeList(record.models);
-    }
-    if (Array.isArray(record.data)) {
-      return normalizeList(record.data);
-    }
-  }
-  return [];
-}
-
-function getModelEndpoints(): string[] {
-  const rawBaseUrl = getFlixaApiBaseUrl();
-  const normalizedBaseUrl = rawBaseUrl.replace(/\/+$/, '');
-  const endpoints = new Set<string>();
-  endpoints.add(`${normalizedBaseUrl}/v1/models`);
-  endpoints.add(`${normalizedBaseUrl}/api/v1/models`);
-  return [...endpoints];
 }
 
 export async function getAvailableModels(force = false): Promise<string[]> {
@@ -199,44 +105,25 @@ export async function getAvailableModels(force = false): Promise<string[]> {
     return withCurrentModel(_cachedModels);
   }
 
-  const headers: Record<string, string> = {
-    ...getFlixaClientHeaders(),
-  };
-  if (_apiKey) {
-    headers.Authorization = `Bearer ${_apiKey}`;
-  }
-
-  for (const endpoint of getModelEndpoints()) {
-    try {
-      const response = await fetch(endpoint, { headers });
-      if (!response.ok) {
-        console.log('[Flixa] Failed to fetch models from', endpoint, response.status);
-        continue;
+  try {
+    const modelDefinitions = (
+      await fetchFlixaModels({ apiKey: _apiKey, headers: getFlixaClientHeaders() })
+    ).map(toModelAccessDefinition);
+    const models = modelDefinitions.map((model) => model.id);
+    if (models.length > 0) {
+      setModelAccessDefinitions(modelDefinitions);
+      _cachedModels = models;
+      _cachedModelDefinitions = modelDefinitions;
+      _modelsFetchedAt = Date.now();
+      _backendDefaultModel = modelDefinitions.find((model) => model.default === true)?.id;
+      if (_backendDefaultModel && !_modelSelectedByUser) {
+        await setModel(_backendDefaultModel);
+        _modelSelectedByUser = false;
       }
-      const payload = await response.json();
-      const modelDefinitions = parseModelDefinitions(payload);
-      const models = [
-        ...new Set(
-          modelDefinitions
-            .map((model) => model.id)
-            .filter((modelId): modelId is string => !!modelId),
-        ),
-      ];
-      if (models.length > 0) {
-        setModelAccessDefinitions(modelDefinitions);
-        _cachedModels = models;
-        _cachedModelDefinitions = modelDefinitions;
-        _modelsFetchedAt = Date.now();
-        _backendDefaultModel = modelDefinitions.find((model) => model.default === true)?.id;
-        if (_backendDefaultModel && !_modelSelectedByUser) {
-          await setModel(_backendDefaultModel);
-          _modelSelectedByUser = false;
-        }
-        return withCurrentModel(models);
-      }
-    } catch (error) {
-      console.log('[Flixa] Failed to fetch models from', endpoint, error);
+      return withCurrentModel(models);
     }
+  } catch (error) {
+    console.log('[Flixa] Failed to fetch models', error);
   }
 
   setModelAccessDefinitions(FALLBACK_MODEL_DEFINITIONS);

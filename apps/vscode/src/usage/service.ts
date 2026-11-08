@@ -1,16 +1,22 @@
 import * as vscode from 'vscode';
+import {
+  describeDeviceAuthKeyProblem,
+  fetchDeniUsage,
+  FlixaApiError,
+  getBillingUrl,
+  initiateDeviceAuth,
+  resolveDeniAiBaseUrl,
+  waitForDeviceAuth,
+  type DeviceAuthSession,
+} from '@deniai/flixa-api-client';
 import type {
   CachedUsage,
-  DeviceAuthInitiateResponse,
-  DeviceAuthPollResponse,
   QuotaExceededErrorMeta,
   Tier,
   UsageCategory,
-  UsageItem,
   UsageResponse,
 } from './types';
 import {
-  extractApiErrorCode,
   getClientSignalUserMessage,
   getFlixaClientHeaders,
   logMissingClientSignal,
@@ -18,22 +24,10 @@ import {
 import { log } from '../logger';
 import { canUseTier, getModelTierRequirement, primaryUsage } from './types';
 
+export { getBillingUrl } from '@deniai/flixa-api-client';
+
 const CACHE_DURATION_MS = 5 * 60 * 1000;
 const API_KEY_SECRET_KEY = 'deniApiKey';
-const POLL_INTERVAL_MS = 5000;
-const DEVICE_AUTH_TIMEOUT_MS = 15 * 60 * 1000;
-
-function getDeniAiBaseUrl(): string {
-  return 'https://deniai.app';
-}
-
-export function getFlixaApiBaseUrl(): string {
-  return 'https://flixa-api.deniai.app';
-}
-
-export function getBillingUrl(): string {
-  return `${getDeniAiBaseUrl()}/settings/billing`;
-}
 
 export async function showQuotaExceededDialog(
   error: QuotaExceededErrorMeta,
@@ -64,53 +58,6 @@ export async function showQuotaExceededDialog(
   if (onAfterAction) {
     await onAfterAction();
   }
-}
-
-function normalizeUsageItem(item: Partial<UsageItem>): UsageItem | null {
-  if (
-    (item.category !== 'basic' && item.category !== 'premium') ||
-    typeof item.limit !== 'number' ||
-    typeof item.used !== 'number'
-  ) {
-    return null;
-  }
-
-  return {
-    category: item.category,
-    limit: item.limit,
-    used: item.used,
-    unit: typeof item.unit === 'string' ? item.unit : 'units',
-    remaining:
-      typeof item.remaining === 'number' ? item.remaining : Math.max(item.limit - item.used, 0),
-    periodStart: typeof item.periodStart === 'string' ? item.periodStart : '',
-    periodEnd: typeof item.periodEnd === 'string' ? item.periodEnd : '',
-  };
-}
-
-function normalizeUsageResponse(payload: unknown): UsageResponse {
-  const record = payload as Partial<UsageResponse>;
-  const planId = record.planId ?? null;
-  const usage = Array.isArray(record.usage)
-    ? record.usage
-        .map((item) => normalizeUsageItem(item as Partial<UsageItem>))
-        .filter((item): item is UsageItem => !!item)
-    : [];
-
-  return {
-    tier: record.tier ?? 'free',
-    planId,
-    status: record.status ?? null,
-    periodEnd: record.periodEnd ?? usage[0]?.periodEnd ?? null,
-    maxModeEnabled: record.maxModeEnabled ?? false,
-    maxModeEligible: record.maxModeEligible ?? false,
-    isTeam: record.isTeam === true,
-    hasVerifiedPaymentMethod: record.hasVerifiedPaymentMethod ?? false,
-    cardVerifiedAt: record.cardVerifiedAt ?? null,
-    cardFunding: record.cardFunding ?? null,
-    verifyUrl: record.verifyUrl ?? null,
-    upgradeUrl: record.upgradeUrl ?? null,
-    usage,
-  };
 }
 
 export class UsageService {
@@ -188,65 +135,7 @@ export class UsageService {
     }
 
     try {
-      const apiBaseUrl = getFlixaApiBaseUrl();
-      const endpoints = [`${apiBaseUrl}/v1/deni/billing-status`, `${apiBaseUrl}/v1/deni/usage`];
-      let response: Response | null = null;
-      let usedEndpoint = endpoints[0];
-      for (const endpoint of endpoints) {
-        usedEndpoint = endpoint;
-        response = await fetch(endpoint, {
-          headers: {
-            ...getFlixaClientHeaders(),
-            Authorization: `Bearer ${apiKey}`,
-          },
-        });
-        if (response.status !== 404) {
-          break;
-        }
-      }
-
-      if (response?.status === 401 || response?.status === 403) {
-        let errorCode: string | null = null;
-        try {
-          const body = (await response.json()) as unknown;
-          errorCode = extractApiErrorCode(body);
-        } catch {
-          // ignore
-        }
-
-        if (errorCode === 'missing_client_signal') {
-          logMissingClientSignal(usedEndpoint);
-        }
-
-        const clientMessage =
-          (errorCode && getClientSignalUserMessage(errorCode)) ||
-          (response.status === 401 ? 'API key is invalid or expired. Please log in again.' : null);
-
-        if (response.status === 401) {
-          await this.logout();
-        }
-
-        if (clientMessage) {
-          vscode.window.showErrorMessage(`Flixa: ${clientMessage}`);
-          return null;
-        }
-
-        if (response.status === 403) {
-          vscode.window.showErrorMessage('Flixa: Access denied. Please contact support.');
-          return null;
-        }
-
-        vscode.window.showErrorMessage(
-          'Deni AI: API key is invalid or expired. Please log in again.',
-        );
-        return null;
-      }
-
-      if (!response || !response.ok) {
-        throw new Error(`HTTP ${response?.status ?? 'unknown'}`);
-      }
-
-      const data = normalizeUsageResponse(await response.json());
+      const data = await fetchDeniUsage({ apiKey, headers: getFlixaClientHeaders() });
       this._cache = {
         data,
         fetchedAt: Date.now(),
@@ -254,6 +143,9 @@ export class UsageService {
       this._onUsageChanged.fire(data);
       return data;
     } catch (error) {
+      if (error instanceof FlixaApiError && (error.status === 401 || error.status === 403)) {
+        return this._handleUsageAuthError(error);
+      }
       console.log('[Flixa] fetchUsage - error:', error);
       if (this._cache) {
         return this._cache.data;
@@ -262,12 +154,35 @@ export class UsageService {
     }
   }
 
+  private async _handleUsageAuthError(error: FlixaApiError): Promise<null> {
+    const errorCode = error.code;
+    if (errorCode === 'missing_client_signal') {
+      logMissingClientSignal('/v1/deni/usage');
+    }
+
+    const clientMessage =
+      (errorCode && getClientSignalUserMessage(errorCode)) ||
+      (error.status === 401 ? 'API key is invalid or expired. Please log in again.' : null);
+
+    if (error.status === 401) {
+      await this.logout();
+    }
+
+    if (clientMessage) {
+      vscode.window.showErrorMessage(`Flixa: ${clientMessage}`);
+      return null;
+    }
+
+    vscode.window.showErrorMessage('Flixa: Access denied. Please contact support.');
+    return null;
+  }
+
   incrementUsage(category: UsageCategory): void {
     if (!this._cache) {
       return;
     }
     const usageItem = this._cache.data.usage.find((u) => u.category === category);
-    if (usageItem && usageItem.remaining > 0) {
+    if (usageItem && usageItem.remaining !== null && usageItem.remaining > 0) {
       usageItem.used += 1;
       usageItem.remaining -= 1;
       this._onUsageChanged.fire(this._cache.data);
@@ -283,8 +198,8 @@ export class UsageService {
 
   getUsageForCategory(category: UsageCategory): {
     used: number;
-    limit: number;
-    remaining: number;
+    limit: number | null;
+    remaining: number | null;
   } | null {
     const data = this.getCachedUsage();
     if (!data) {
@@ -358,125 +273,79 @@ export class UsageService {
   }
 
   async loginWithDeviceAuth(): Promise<boolean> {
-    const baseUrl = getDeniAiBaseUrl();
-
-    let initiateResponse: DeviceAuthInitiateResponse;
+    let session: DeviceAuthSession;
     try {
-      const res = await fetch(`${baseUrl}/api/device-auth`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'initiate' }),
-      });
-      if (!res.ok) {
-        const responseText = await res.text();
-        log(
-          '[Flixa] loginWithDeviceAuth initiate failed',
-          JSON.stringify({
-            status: res.status,
-            statusText: res.statusText,
-            baseUrl,
-            responseText,
-          }),
-        );
-        throw new Error(`HTTP ${res.status}`);
-      }
-      initiateResponse = (await res.json()) as DeviceAuthInitiateResponse;
+      session = await initiateDeviceAuth();
     } catch (error) {
-      log('[Flixa] loginWithDeviceAuth initiate error', error);
+      log(
+        '[Flixa] loginWithDeviceAuth initiate failed',
+        error instanceof FlixaApiError
+          ? JSON.stringify({
+              status: error.status,
+              statusText: error.statusText,
+              responseText: error.rawText,
+            })
+          : error,
+      );
       vscode.window.showErrorMessage('Deni AI: Failed to initiate login. Please try again.');
       return false;
     }
 
-    const { userCode, deviceCode } = initiateResponse;
-    const authUrl = `${baseUrl}/flixa/authorize?code=${userCode}`;
+    vscode.env.openExternal(vscode.Uri.parse(session.verificationUrl));
 
-    vscode.env.openExternal(vscode.Uri.parse(authUrl));
+    return vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: `Deni AI: Waiting for approval... Code: ${session.userCode}`,
+        cancellable: true,
+      },
+      async (_progress, token) => {
+        const controller = new AbortController();
+        token.onCancellationRequested(() => controller.abort());
 
-    return new Promise((resolve) => {
-      vscode.window.withProgress(
-        {
-          location: vscode.ProgressLocation.Notification,
-          title: `Deni AI: Waiting for approval... Code: ${userCode}`,
-          cancellable: true,
-        },
-        async (_progress, token) => {
-          const startTime = Date.now();
-          let cancelled = false;
+        const outcome = await waitForDeviceAuth(session, {
+          signal: controller.signal,
+          onPollError: (error) => log('[Flixa] loginWithDeviceAuth poll error', error),
+          onPollResult: (result) =>
+            log(
+              '[Flixa] loginWithDeviceAuth poll response',
+              JSON.stringify({ status: result.status }),
+            ),
+        });
 
-          token.onCancellationRequested(() => {
-            cancelled = true;
-          });
-
-          while (!cancelled) {
-            const elapsed = Date.now() - startTime;
-            if (elapsed > DEVICE_AUTH_TIMEOUT_MS) {
-              vscode.window.showErrorMessage('Deni AI: Login timed out. Please try again.');
-              resolve(false);
-              return;
+        switch (outcome.status) {
+          case 'approved':
+            await this.setApiKey(outcome.apiKey);
+            vscode.window.showInformationMessage('Deni AI: Logged in successfully!');
+            return true;
+          case 'api_key_unavailable':
+          case 'api_key_limit_reached': {
+            const openAction = 'Open Deni AI';
+            const selected = await vscode.window.showErrorMessage(
+              'Deni AI: Login could not create an API key.',
+              { modal: true, detail: describeDeviceAuthKeyProblem(outcome) },
+              openAction,
+            );
+            if (selected === openAction) {
+              vscode.env.openExternal(vscode.Uri.parse(resolveDeniAiBaseUrl()));
             }
-
-            await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-
-            if (cancelled) {
-              resolve(false);
-              return;
-            }
-
-            try {
-              const res = await fetch(`${baseUrl}/api/device-auth`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'poll', deviceCode }),
-              });
-
-              if (res.status === 410) {
-                log('[Flixa] loginWithDeviceAuth poll expired', JSON.stringify({ deviceCode }));
-                vscode.window.showErrorMessage('Deni AI: Login expired. Please try again.');
-                resolve(false);
-                return;
-              }
-
-              if (!res.ok) {
-                const responseText = await res.text();
-                log(
-                  '[Flixa] loginWithDeviceAuth poll failed',
-                  JSON.stringify({
-                    status: res.status,
-                    statusText: res.statusText,
-                    baseUrl,
-                    deviceCode,
-                    responseText,
-                  }),
-                );
-                vscode.window.showErrorMessage('Deni AI: Login failed. Please try again.');
-                resolve(false);
-                return;
-              }
-
-              const pollResponse = (await res.json()) as DeviceAuthPollResponse;
-              log(
-                '[Flixa] loginWithDeviceAuth poll response',
-                JSON.stringify({
-                  deviceCode,
-                  approved: pollResponse.approved,
-                  hasApiKey: !!pollResponse.apiKey,
-                }),
-              );
-
-              if (pollResponse.approved && pollResponse.apiKey) {
-                await this.setApiKey(pollResponse.apiKey);
-                vscode.window.showInformationMessage('Deni AI: Logged in successfully!');
-                resolve(true);
-                return;
-              }
-            } catch (error) {
-              log('[Flixa] loginWithDeviceAuth poll error', error);
-            }
+            return false;
           }
-
-          resolve(false);
-        },
-      );
-    });
+          case 'expired':
+            vscode.window.showErrorMessage('Deni AI: Login expired. Please try again.');
+            return false;
+          case 'timed_out':
+            vscode.window.showErrorMessage('Deni AI: Login timed out. Please try again.');
+            return false;
+          case 'cancelled':
+            return false;
+          case 'invalid_code':
+          case 'error':
+            log('[Flixa] loginWithDeviceAuth failed', JSON.stringify({ status: outcome.status }));
+            vscode.window.showErrorMessage('Deni AI: Login failed. Please try again.');
+            return false;
+        }
+      },
+    );
   }
 }
