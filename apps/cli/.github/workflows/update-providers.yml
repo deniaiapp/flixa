@@ -1,0 +1,92 @@
+name: Update providers
+
+# Refreshes the bundled models.dev catalog every day. When it changed, bumps the patch
+# version, pushes to master and pushes a v* tag, which the Publish workflow turns into a
+# stable release.
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: update-providers
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    name: Refresh catalog and release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      # Pushes made with the default GITHUB_TOKEN never trigger other workflows, so the release
+      # would not publish. RELEASE_PUSH_TOKEN must be a token that can push to master and tags
+      # (fine-grained PAT with "Contents: write", or a GitHub App token).
+      - name: Require release push token
+        env:
+          RELEASE_PUSH_TOKEN: ${{ secrets.RELEASE_PUSH_TOKEN }}
+        run: |
+          if [ -z "${RELEASE_PUSH_TOKEN}" ]; then
+            echo "RELEASE_PUSH_TOKEN is required so the pushed tag can trigger the Publish workflow." >&2
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: master
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_PUSH_TOKEN }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Refresh models.dev catalog
+        run: pnpm run providers:update
+
+      - name: Detect changes
+        id: diff
+        run: |
+          if git diff --quiet -- src/providers/models-dev.generated.ts; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Catalog is already up to date."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check
+        if: steps.diff.outputs.changed == 'true'
+        run: pnpm run check
+
+      - name: Bump patch version
+        if: steps.diff.outputs.changed == 'true'
+        id: version
+        run: |
+          npm version patch --no-git-tag-version
+          VERSION=$(node -p "require('./package.json').version")
+          (cd integrations/openclaw-flixa && npm version "${VERSION}" --no-git-tag-version --allow-same-version)
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Commit, tag and push
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/providers/models-dev.generated.ts package.json integrations/openclaw-flixa/package.json
+          git commit -m "chore: refresh models.dev catalog and release ${VERSION}"
+          git tag -a "v${VERSION}" -m "v${VERSION}"
+          git push --atomic origin HEAD:refs/heads/master "refs/tags/v${VERSION}"

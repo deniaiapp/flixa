@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - "**"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  flixa:
+    name: Flixa CLI (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-24.04
+          - windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check CLI, build, format, and integration contract (Unix)
+        if: matrix.os == 'ubuntu-24.04'
+        run: pnpm run check
+
+      - name: Check CLI, build, and integration contract (Windows)
+        if: matrix.os == 'windows-latest'
+        run: pnpm exec tsc --noEmit && pnpm run lint && pnpm run build && pnpm run openclaw:check
+
+  openclaw:
+    name: OpenClaw plugin
+    needs: flixa
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - name: Install plugin dependencies
+        working-directory: integrations/openclaw-flixa
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Build plugin
+        working-directory: integrations/openclaw-flixa
+        run: pnpm run build
+
+      - name: Smoke-load plugin runtime
+        working-directory: integrations/openclaw-flixa
+        run: pnpm run smoke

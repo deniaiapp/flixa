@@ -1,0 +1,7 @@
+allowBuilds:
+  "@vscode/ripgrep": true
+  esbuild: false
+minimumReleaseAgeExclude:
+  - "@ai-sdk/openai-compatible@2.0.85"
+  - "@ai-sdk/provider-utils@4.0.61"
+  - "@ai-sdk/mistral@3.0.74"
