@@ -48,7 +48,7 @@ import {
   type ProviderDefinition,
   type ProviderId,
 } from "./registry.ts";
-import { assertSecureBaseUrl, isLoopbackUrl } from "../security/url.ts";
+import { assertSecureBaseUrl, isLoopbackUrl } from "@deniai/flixa-api-client";
 import type { ChatMessage } from "../flixa/api.ts";
 import { createFlixaFetch, getFlixaCliClientHeaders } from "../http/flixaClientHeaders.ts";
 import { rethrowAsUserFacingFlixaError } from "../http/flixaApiErrors.ts";

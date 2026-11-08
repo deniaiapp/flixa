@@ -1,4 +1,20 @@
+import { createRequire } from "node:module";
 import { build } from "esbuild";
+
+const require = createRequire(import.meta.url);
+
+// Workspace packages are bundled (they are not published); everything else stays external.
+const WORKSPACE_PACKAGES = ["@deniai/flixa-api-client"];
+
+/** @type {import("esbuild").Plugin} */
+const bundleWorkspacePackages = {
+  name: "bundle-workspace-packages",
+  setup(pluginBuild) {
+    pluginBuild.onResolve({ filter: /^@deniai\/flixa-api-client$/ }, (args) =>
+      WORKSPACE_PACKAGES.includes(args.path) ? { path: require.resolve(args.path) } : undefined,
+    );
+  },
+};
 
 // Bundle first-party sources into a single ESM file. Dependencies stay external
 // and are resolved from node_modules at runtime (they are listed in "dependencies").
@@ -10,5 +26,6 @@ await build({
   format: "esm",
   target: "node20",
   packages: "external",
+  plugins: [bundleWorkspacePackages],
   logLevel: "info",
 });

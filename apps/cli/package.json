@@ -55,6 +55,7 @@
     "react-devtools-core": "^6.1.5"
   },
   "devDependencies": {
+    "@deniai/flixa-api-client": "workspace:*",
     "@types/node": "^26.6.5",
     "@types/react": "^18.3.12",
     "esbuild": "^0.28.2",

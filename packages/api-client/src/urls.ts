@@ -61,6 +61,11 @@ function trimTrailingSlashes(value: string): string {
   return value.replace(/\/+$/, "");
 }
 
+/** The configured agent base URL (`FLIXA_BASE_URL` or production), not yet validated. */
+export function getConfiguredFlixaBaseUrl(env: EnvironmentVariables = getProcessEnv()): string {
+  return env["FLIXA_BASE_URL"]?.trim() || DEFAULT_FLIXA_BASE_URL;
+}
+
 /**
  * Flixa agent base URL (`…/v1/agent`): the explicit override, else `FLIXA_BASE_URL`,
  * else the production URL. Always https unless loopback or explicitly allowed.
@@ -69,7 +74,7 @@ export function resolveFlixaBaseUrl(
   override?: string,
   env: EnvironmentVariables = getProcessEnv(),
 ): string {
-  const candidate = override?.trim() || env["FLIXA_BASE_URL"]?.trim() || DEFAULT_FLIXA_BASE_URL;
+  const candidate = override?.trim() || getConfiguredFlixaBaseUrl(env);
   return trimTrailingSlashes(assertSecureBaseUrl(candidate, env));
 }
 

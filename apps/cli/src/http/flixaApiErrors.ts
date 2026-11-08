@@ -1,4 +1,5 @@
 import { APICallError } from "@ai-sdk/provider";
+import { FlixaApiError, parseFlixaErrorEnvelope, tryParseJson } from "@deniai/flixa-api-client";
 import { getFlixaCliClientHeaders } from "./flixaClientHeaders.ts";
 
 const SERVICE_UNAVAILABLE_FALLBACK =
@@ -6,50 +7,39 @@ const SERVICE_UNAVAILABLE_FALLBACK =
 const CLIENT_UPDATE_REQUIRED_FALLBACK = "Please update your Deni AI Flixa to continue.";
 const INVALID_KEY_FALLBACK = "API key is invalid or expired. Run `flixa login` to re-authenticate.";
 
-export type FlixaPublicErrorCode =
-  | "service_unavailable"
-  | "client_update_required"
-  | "invalid_key"
-  | "expired_key"
-  | string;
-
 /**
  * Format a failed Flixa HTTP response for CLI display.
  * Maps abuse / ban / update codes to stable user-facing copy.
  */
-export async function formatFlixaHttpError(response: Response): Promise<string> {
-  const statusLine = `Flixa API request failed: ${response.status} ${response.statusText}`;
-  let payload: unknown = null;
-  let rawText = "";
-
-  try {
-    rawText = await response.text();
-    if (rawText.trim()) {
-      payload = JSON.parse(rawText) as unknown;
-    }
-  } catch {
-    // Keep raw text / empty payload.
-  }
-
+export function formatFlixaApiError(error: FlixaApiError): string {
+  const statusLine = `Flixa API request failed: ${error.status} ${error.statusText}`;
   const mapped = mapFlixaErrorPayload({
-    status: response.status,
-    payload,
-    rawText,
+    status: error.status,
+    payload: error.payload,
+    rawText: error.rawText,
   });
   if (mapped) {
     return mapped;
   }
 
-  const message = extractErrorMessage(payload);
+  const message = parseFlixaErrorEnvelope(error.payload)?.message;
   if (message) {
     return `${statusLine} - ${message}`;
   }
 
-  if (rawText.trim()) {
-    return `${statusLine} - ${rawText.trim()}`;
+  if (error.rawText.trim()) {
+    return `${statusLine} - ${error.rawText.trim()}`;
   }
 
   return statusLine;
+}
+
+/** Re-throw FlixaApiError from the shared client as a CLI-formatted Error. */
+export function rethrowFormattedFlixaApiError(error: unknown): never {
+  if (error instanceof FlixaApiError) {
+    throw new Error(formatFlixaApiError(error), { cause: error });
+  }
+  throw error;
 }
 
 /**
@@ -110,8 +100,9 @@ function mapFlixaErrorPayload(options: {
   payload: unknown;
   rawText: string;
 }): string | null {
-  const code = extractErrorCode(options.payload);
-  const message = extractErrorMessage(options.payload);
+  const envelope = parseFlixaErrorEnvelope(options.payload);
+  const code = envelope?.code ?? null;
+  const message = envelope?.message ?? null;
 
   if (options.status === 403 && code === "service_unavailable") {
     logClientSignalSelfCheck();
@@ -145,60 +136,6 @@ function mapFlixaErrorPayload(options: {
   }
 
   return null;
-}
-
-function extractErrorCode(payload: unknown): FlixaPublicErrorCode | null {
-  if (!payload || typeof payload !== "object") {
-    return null;
-  }
-
-  const record = payload as Record<string, unknown>;
-  if (typeof record["code"] === "string" && record["code"].trim()) {
-    return record["code"].trim();
-  }
-
-  const error = record["error"];
-  if (error && typeof error === "object") {
-    const nested = (error as Record<string, unknown>)["code"];
-    if (typeof nested === "string" && nested.trim()) {
-      return nested.trim();
-    }
-  }
-
-  return null;
-}
-
-function extractErrorMessage(payload: unknown): string | null {
-  if (!payload || typeof payload !== "object") {
-    return null;
-  }
-
-  const record = payload as Record<string, unknown>;
-  if (typeof record["message"] === "string" && record["message"].trim()) {
-    return record["message"].trim();
-  }
-
-  const error = record["error"];
-  if (error && typeof error === "object") {
-    const nested = (error as Record<string, unknown>)["message"];
-    if (typeof nested === "string" && nested.trim()) {
-      return nested.trim();
-    }
-  }
-
-  return null;
-}
-
-function tryParseJson(value: string | undefined): unknown {
-  if (!value?.trim()) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(value) as unknown;
-  } catch {
-    return null;
-  }
 }
 
 /**

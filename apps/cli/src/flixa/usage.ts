@@ -1,4 +1,5 @@
-import type { DeniUsageInfo, DeniUsageBucket } from "./api.ts";
+import { getRemainingPercent, getUsageSummary, type UsageSummary } from "@deniai/flixa-api-client";
+import type { DeniUsageInfo } from "./api.ts";
 
 export function formatUsageReport(usage: DeniUsageInfo): string {
   const lines = [
@@ -12,8 +13,8 @@ export function formatUsageReport(usage: DeniUsageInfo): string {
   ];
 
   // Usage is not split by model class: Flixa, Deni AI chat, and Deni Run share one
-  // monthly pool. Every bucket reports it (older servers split it; then "basic" stands for it).
-  const pool = usage.usage.find((bucket) => bucket.category === "basic") ?? usage.usage[0];
+  // monthly pool (reported as `pool`; older servers only send per-category items).
+  const pool = getUsageSummary(usage);
   if (!pool) {
     lines.push("", "No usage returned.");
     return lines.join("\n");
@@ -23,16 +24,16 @@ export function formatUsageReport(usage: DeniUsageInfo): string {
   return lines.join("\n");
 }
 
-function formatPool(bucket: DeniUsageBucket): string[] {
-  if (bucket.limit === null || bucket.limit <= 0 || bucket.remaining === null) {
+function formatPool(pool: UsageSummary): string[] {
+  const left = getRemainingPercent(pool);
+  if (left === null) {
     return ["Monthly usage", "  unlimited"];
   }
-  const left = Math.max(0, Math.min(100, (bucket.remaining / bucket.limit) * 100));
   return [
     "Monthly usage (shared with Deni AI chat and Deni Run)",
     `  used: ${(100 - left).toFixed(1)}%`,
     `  left: ${left.toFixed(1)}%`,
-    `  resets: ${bucket.periodEnd ?? "-"}`,
+    `  resets: ${pool.periodEnd ?? "-"}`,
   ];
 }
 

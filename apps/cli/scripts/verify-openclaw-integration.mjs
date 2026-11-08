@@ -33,7 +33,7 @@ assert(entry.includes('"ship"'), "plugin must launch Flixa Ship");
 assert(entry.includes('"--json"'), "plugin must request JSON output");
 assert(skill.startsWith("---\n"), "Flixa Ship skill must have frontmatter");
 assert(skill.includes("name: flixa-ship"), "Flixa Ship skill name mismatch");
-assert(skill.includes("gpt-5.6-sol"), "Flixa Ship skill must recommend the default model");
+assert(skill.includes("gpt-6-luna"), "Flixa Ship skill must recommend the default model");
 
 console.log("OpenClaw Flixa integration contract is valid.");
 

@@ -39,7 +39,7 @@ For a local checkout, install the plugin package from this directory using
 OpenClaw's local plugin install flow. The backend appears as the model ref:
 
 ```text
-flixa/openai/gpt-5.6-sol
+flixa/openai/gpt-6-luna
 ```
 
 Then send a normal OpenClaw message such as:

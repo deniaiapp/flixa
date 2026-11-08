@@ -245,6 +245,9 @@ importers:
         specifier: ^6.1.5
         version: 6.1.5
     devDependencies:
+      '@deniai/flixa-api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
       '@types/node':
         specifier: ^26.6.5
         version: 26.6.5
@@ -297,6 +300,9 @@ importers:
         specifier: ^4.6.7
         version: 4.6.7
     devDependencies:
+      '@deniai/flixa-api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
       '@types/json-schema':
         specifier: ^7.0.15
         version: 7.0.15
@@ -389,6 +395,9 @@ importers:
         specifier: ^4.6.7
         version: 4.6.7
     devDependencies:
+      '@deniai/flixa-api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
       '@types/node':
         specifier: ^26.6.5
         version: 26.6.5

@@ -1,3 +1,4 @@
+import { DEFAULT_FLIXA_BASE_URL } from "@deniai/flixa-api-client";
 import {
   listProviderCatalogRecords,
   resolveCatalogBaseUrl,
@@ -33,8 +34,8 @@ const BUILTIN_PROVIDERS: Record<string, ProviderDefinition> = {
     displayName: "Flixa",
     authType: "device",
     runtime: "flixa",
-    defaultBaseUrl: "https://flixa-api.deniai.app/v1/agent",
-    defaultModel: "openai/gpt-5.6-sol",
+    defaultBaseUrl: DEFAULT_FLIXA_BASE_URL,
+    defaultModel: "openai/gpt-6-luna",
     source: "builtin",
     claudeCodeEnv: {
       apiKeyEnv: "ANTHROPIC_API_KEY",

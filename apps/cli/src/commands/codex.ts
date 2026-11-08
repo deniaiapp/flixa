@@ -3,6 +3,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { confirm } from "@inquirer/prompts";
 import chalk from "chalk";
+import { DEFAULT_FLIXA_BASE_URL } from "@deniai/flixa-api-client";
 import { getApiKey } from "../auth/service.ts";
 import type { Command } from "commander";
 
@@ -13,7 +14,7 @@ function buildFlixaSection(apiKey: string): string {
   const token = `Bearer ${apiKey}`.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
   return `[model_providers.flixa]
 name = "flixa"
-base_url = "https://flixa-api.deniai.app/v1/agent"
+base_url = "${DEFAULT_FLIXA_BASE_URL}"
 wire_api = "responses"
 requires_openai_auth = false
 

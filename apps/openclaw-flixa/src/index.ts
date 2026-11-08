@@ -1,7 +1,7 @@
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import type { CliBackendPlugin } from "openclaw/plugin-sdk/cli-backend";
 
-const DEFAULT_MODEL_REF = "flixa/openai/gpt-5.6-sol";
+const DEFAULT_MODEL_REF = "flixa/openai/gpt-6-luna";
 
 function buildFlixaBackend(): CliBackendPlugin {
   return {
