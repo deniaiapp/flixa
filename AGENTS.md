@@ -14,6 +14,7 @@ vitest, esbuild.
 | `apps/zed`               | `@deniai/flixa-zed` (npm)            | ACP agent for Zed. ACP Registry metadata lives in `apps/zed/acp-registry/`.       |
 | `apps/openclaw-flixa`    | `@deniai/openclaw-flixa` (npm)       | OpenClaw CLI backend; its version follows `apps/cli/package.json`.                |
 | `packages/api-client`    | `@deniai/flixa-api-client` (private) | Shared API client. Consumed as TypeScript source and bundled into each app.       |
+| `packages/core`          | `@deniai/flixa-core` (private)       | Shared agent tools, tool hosts, approval policy, and agent loop. Bundled too.     |
 | `skills/flixa-ship`      | ClawHub skill                        | Published together with the CLI.                                                  |
 
 The webview UI stays nested under `apps/vscode` because the extension loads
