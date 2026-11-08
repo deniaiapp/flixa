@@ -1,1 +1,0 @@
-{"root":["./src/app.tsx","./src/main.tsx","./src/types.ts","./src/vite-env.d.ts","./src/vscode.ts","./src/components/executingmessage.tsx","./src/components/header.tsx","./src/components/inputarea.tsx","./src/components/message.tsx","./src/components/messagelist.tsx","./src/components/resultmessage.tsx","./vite.config.ts"],"version":"5.9.3"}
