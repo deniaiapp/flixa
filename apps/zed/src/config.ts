@@ -16,8 +16,6 @@ export const DEFAULT_MAX_AGENT_ITERATIONS = 100;
 export type ApprovalMode = 'ALL_APPROVE' | 'AUTO_APPROVE' | 'SAFE_APPROVE' | 'MANUAL_APPROVE';
 
 export interface FlixaConfig {
-  apiBaseUrl: string;
-  deniAiBaseUrl: string;
   model: string;
   reasoningEffort?: ReasoningEffort;
   approvalMode: ApprovalMode;
@@ -114,8 +112,6 @@ export function getConfig(): FlixaConfig {
   );
 
   return {
-    apiBaseUrl: 'https://flixa-api.deniai.app',
-    deniAiBaseUrl: 'https://deniai.app',
     model: process.env.FLIXA_MODEL || DEFAULT_MODEL,
     reasoningEffort,
     approvalMode,

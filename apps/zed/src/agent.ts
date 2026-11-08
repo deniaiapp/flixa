@@ -2,12 +2,16 @@ import * as acp from '@agentclientprotocol/sdk/unstable';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import {
+  describeDeviceAuthKeyProblem,
+  initiateDeviceAuth,
+  waitForDeviceAuth,
+} from '@deniai/flixa-api-client';
+import {
   compactResponse,
   createResponse,
   FlixaApiError,
-  initiateDeviceAuth,
+  getClientHeaders,
   listModels,
-  pollDeviceAuth,
   type ResponseUsage,
   type ModelDefinition,
 } from './api.js';
@@ -194,33 +198,40 @@ export class FlixaAgent {
       return {};
     }
 
-    const initiated = await initiateDeviceAuth();
-    const authUrl = `${getConfig().deniAiBaseUrl}/flixa/authorize?code=${encodeURIComponent(initiated.userCode)}`;
-    console.error(`[Flixa] Open ${authUrl} to complete login. Code: ${initiated.userCode}`);
-    openUrl(authUrl);
+    const session = await initiateDeviceAuth({ headers: getClientHeaders() });
+    console.error(
+      `[Flixa] Open ${session.verificationUrl} to complete login. Code: ${session.userCode}`,
+    );
+    openUrl(session.verificationUrl);
 
-    const deadline = Date.now() + Math.max(initiated.expiresIn, 60) * 1000;
-    while (Date.now() < deadline) {
-      await delay(5000);
-      try {
-        const result = await pollDeviceAuth(initiated.deviceCode);
-        if (result.approved && result.apiKey) {
-          await setApiKey(result.apiKey);
-          console.error('[Flixa] Login completed');
-          return {};
-        }
-      } catch (error) {
-        if (error instanceof FlixaApiError && error.status === 410) {
-          throw acp.RequestError.internalError(undefined, 'Flixa login expired. Please try again.');
-        }
+    const outcome = await waitForDeviceAuth(session, {
+      headers: getClientHeaders(),
+      timeoutMs: Math.max(session.expiresIn, 60) * 1000,
+      maxConsecutiveFailures: Number.POSITIVE_INFINITY,
+      onPollError: (error) =>
         console.error(
           '[Flixa] Device auth poll failed',
           error instanceof Error ? error.message : String(error),
-        );
-      }
-    }
+        ),
+    });
 
-    throw acp.RequestError.internalError(undefined, 'Flixa login timed out. Please try again.');
+    switch (outcome.status) {
+      case 'approved':
+        await setApiKey(outcome.apiKey);
+        console.error('[Flixa] Login completed');
+        return {};
+      case 'api_key_unavailable':
+      case 'api_key_limit_reached':
+        throw acp.RequestError.internalError(undefined, describeDeviceAuthKeyProblem(outcome));
+      case 'expired':
+        throw acp.RequestError.internalError(undefined, 'Flixa login expired. Please try again.');
+      case 'invalid_code':
+      case 'error':
+        throw acp.RequestError.internalError(undefined, 'Flixa login failed. Please try again.');
+      case 'timed_out':
+      case 'cancelled':
+        throw acp.RequestError.internalError(undefined, 'Flixa login timed out. Please try again.');
+    }
   }
 
   async logout(_params: acp.LogoutRequest): Promise<acp.LogoutResponse> {
@@ -1100,10 +1111,6 @@ function mapUsage(usage: ResponseUsage): acp.Usage {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object';
-}
-
-function delay(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 function fromPersistedSession(session: PersistedSession): SessionState {
