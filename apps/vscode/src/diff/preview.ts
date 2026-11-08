@@ -10,7 +10,7 @@ export async function showDiffPreview(
   originalContent: string,
   newContent: string,
   flow: 'codelens' | 'chat',
-  storePendingDiff: (diff: PendingDiff) => void
+  storePendingDiff: (diff: PendingDiff) => void,
 ): Promise<DiffPreviewResult> {
   const scheme = 'flixa-diff';
   const originalPath = `${scheme}:${originalUri.fsPath}?original`;
@@ -21,13 +21,9 @@ export async function showDiffPreview(
 
   const provider = new DiffContentProvider(originalContent, newContent);
 
-  const disposable = vscode.workspace.registerTextDocumentContentProvider(
-    scheme,
-    provider
-  );
+  const disposable = vscode.workspace.registerTextDocumentContentProvider(scheme, provider);
 
-  const title =
-    flow === 'codelens' ? 'Flixa Implement: Diff' : 'Flixa Chat: Diff';
+  const title = flow === 'codelens' ? 'Flixa Implement: Diff' : 'Flixa Chat: Diff';
 
   const pendingDiff: PendingDiff = {
     filePath: originalUri.fsPath,
@@ -37,24 +33,20 @@ export async function showDiffPreview(
   };
   storePendingDiff(pendingDiff);
 
-  await vscode.commands.executeCommand(
-    'vscode.diff',
-    originalVirtualUri,
-    newVirtualUri,
-    title,
-    { preview: true }
-  );
+  await vscode.commands.executeCommand('vscode.diff', originalVirtualUri, newVirtualUri, title, {
+    preview: true,
+  });
 
   // Show Quick Pick for apply/cancel
   const choice = await vscode.window.showQuickPick(
     [
       { label: '$(check) Apply', description: 'Apply the diff to the file', value: 'apply' },
-      { label: '$(x) Cancel', description: 'Discard the diff', value: 'cancel' }
+      { label: '$(x) Cancel', description: 'Discard the diff', value: 'cancel' },
     ],
     {
       placeHolder: 'Apply this diff?',
-      ignoreFocusOut: true
-    }
+      ignoreFocusOut: true,
+    },
   );
 
   disposable.dispose();
@@ -77,8 +69,8 @@ async function applyDiffDirectly(pendingDiff: PendingDiff): Promise<boolean> {
       new vscode.Position(0, 0),
       new vscode.Position(
         document.lineCount - 1,
-        document.lineAt(document.lineCount - 1).text.length
-      )
+        document.lineAt(document.lineCount - 1).text.length,
+      ),
     );
 
     edit.replace(fileUri, fullRange, pendingDiff.newContent);
@@ -96,7 +88,7 @@ async function applyDiffDirectly(pendingDiff: PendingDiff): Promise<boolean> {
     }
   } catch (error) {
     vscode.window.showErrorMessage(
-      `Flixa: Error applying diff: ${error instanceof Error ? error.message : String(error)}`
+      `Flixa: Error applying diff: ${error instanceof Error ? error.message : String(error)}`,
     );
     return false;
   }

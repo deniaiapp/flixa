@@ -64,7 +64,10 @@ test('loads and resumes a persisted session', async () => {
     updatedAt: new Date().toISOString(),
   };
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async () => new Response(JSON.stringify(['openai/gpt-5.5']), { status: 200 })) as unknown as typeof globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response(JSON.stringify(['openai/gpt-5.5']), {
+      status: 200,
+    })) as unknown as typeof globalThis.fetch;
   const updates: acp.SessionNotification[] = [];
   const client = {
     notify: async (_method: string, params: acp.SessionNotification) => {

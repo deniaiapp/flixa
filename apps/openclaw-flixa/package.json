@@ -2,14 +2,10 @@
   "name": "@deniai/openclaw-flixa",
   "version": "0.4.1",
   "description": "Run Flixa Ship as an OpenClaw CLI backend.",
-  "type": "module",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/deniaiapp/flixa.git",
     "directory": "apps/openclaw-flixa"
-  },
-  "publishConfig": {
-    "access": "public"
   },
   "files": [
     "dist",
@@ -17,6 +13,10 @@
     "README.md",
     "package.json"
   ],
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "sync-version": "node scripts/sync-version.mjs",
     "prebuild": "pnpm run sync-version",
@@ -25,13 +25,13 @@
     "lint": "oxlint -c ../../.oxlintrc.json src scripts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
-  "peerDependencies": {
-    "openclaw": ">=2026.5.17"
-  },
   "devDependencies": {
     "@types/node": "^26.6.5",
     "openclaw": "2026.7.1",
     "typescript": "^7.0.2"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.5.17"
   },
   "openclaw": {
     "extensions": [

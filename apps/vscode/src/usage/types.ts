@@ -1,8 +1,8 @@
-export type Tier = "free" | "go" | "plus" | "pro";
+export type Tier = 'free' | 'go' | 'plus' | 'pro';
 
-export type UsageCategory = "basic" | "premium";
+export type UsageCategory = 'basic' | 'premium';
 
-import type { ModelReasoningEfforts } from "../llm/reasoning";
+import type { ModelReasoningEfforts } from '../llm/reasoning';
 
 export interface UsageItem {
   category: UsageCategory;
@@ -22,7 +22,7 @@ export interface UsageItem {
 export interface UsageResponse {
   tier: Tier;
   planId: string | null;
-  status: "active" | "trialing" | "canceled" | null;
+  status: 'active' | 'trialing' | 'canceled' | null;
   periodEnd: string | null;
   maxModeEnabled: boolean;
   maxModeEligible: boolean;
@@ -39,7 +39,7 @@ export interface QuotaExceededErrorMeta {
   message: string;
   type: string;
   param: null;
-  code: "USAGE_LIMIT_EXCEEDED";
+  code: 'USAGE_LIMIT_EXCEEDED';
   category?: UsageCategory;
   tier?: Tier;
   canVerifyForBoost?: boolean;
@@ -51,16 +51,16 @@ export interface QuotaExceededErrorMeta {
 export interface UsageErrorResponse {
   error: {
     message: string;
-    type: "authentication_error" | "server_error" | "quota_exceeded";
+    type: 'authentication_error' | 'server_error' | 'quota_exceeded';
     param: null;
     code:
-      | "missing_auth_header"
-      | "missing_api_key"
-      | "invalid_key"
-      | "expired_key"
-      | "db_error"
-      | "usage_fetch_error"
-      | "USAGE_LIMIT_EXCEEDED";
+      | 'missing_auth_header'
+      | 'missing_api_key'
+      | 'invalid_key'
+      | 'expired_key'
+      | 'db_error'
+      | 'usage_fetch_error'
+      | 'USAGE_LIMIT_EXCEEDED';
   };
 }
 
@@ -80,7 +80,7 @@ export interface DeviceAuthPollResponse {
   apiKey?: string;
 }
 
-export type ModelTierRequirement = "free" | "plus" | "pro";
+export type ModelTierRequirement = 'free' | 'plus' | 'pro';
 
 export interface ModelAccessDefinition {
   id: string;
@@ -97,16 +97,16 @@ export interface ModelAccessDefinition {
 }
 
 const FALLBACK_PREMIUM_MODELS = new Set<string>([
-  "anthropic/claude-opus-4.6",
-  "anthropic/claude-sonnet-4.5",
-  "google/gemini-3-pro-preview",
+  'anthropic/claude-opus-4.6',
+  'anthropic/claude-sonnet-4.5',
+  'google/gemini-3-pro-preview',
 ]);
 
 const FALLBACK_TIER_BY_MODEL: Record<string, ModelTierRequirement> = {
-  "anthropic/claude-sonnet-4.5": "plus",
-  "anthropic/claude-opus-4.5": "pro",
-  "anthropic/claude-opus-4.6": "pro",
-  "google/gemini-3-pro-preview": "pro",
+  'anthropic/claude-sonnet-4.5': 'plus',
+  'anthropic/claude-opus-4.5': 'pro',
+  'anthropic/claude-opus-4.6': 'pro',
+  'google/gemini-3-pro-preview': 'pro',
 };
 
 let _premiumModels = new Set<string>(FALLBACK_PREMIUM_MODELS);
@@ -141,19 +141,19 @@ export function isPremiumModel(model: string): boolean {
 }
 
 export function getModelTierRequirement(model: string): ModelTierRequirement {
-  return _tierByModel[model] ?? "free";
+  return _tierByModel[model] ?? 'free';
 }
 
 export function canUseTier(userTier: Tier, requiredTier: ModelTierRequirement): boolean {
-  if (requiredTier === "free") {
+  if (requiredTier === 'free') {
     return true;
   }
   // Go unlocks free-tier models only.
-  if (requiredTier === "plus") {
-    return userTier === "plus" || userTier === "pro";
+  if (requiredTier === 'plus') {
+    return userTier === 'plus' || userTier === 'pro';
   }
-  if (requiredTier === "pro") {
-    return userTier === "pro";
+  if (requiredTier === 'pro') {
+    return userTier === 'pro';
   }
   return false;
 }
@@ -164,9 +164,9 @@ export function canUseTier(userTier: Tier, requiredTier: ModelTierRequirement): 
  * basic/premium, and then the basic entry stands for it.
  */
 export function primaryUsage(data: UsageResponse): UsageItem | undefined {
-	return data.usage.find((u) => u.category === 'basic') ?? data.usage[0];
+  return data.usage.find((u) => u.category === 'basic') ?? data.usage[0];
 }
 
 export function remainingPercent(item: UsageItem): number {
-	return item.limit > 0 ? Math.max(0, Math.min(100, (item.remaining / item.limit) * 100)) : 0;
+  return item.limit > 0 ? Math.max(0, Math.min(100, (item.remaining / item.limit) * 100)) : 0;
 }

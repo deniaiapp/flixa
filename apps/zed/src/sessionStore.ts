@@ -1,11 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type * as acp from '@agentclientprotocol/sdk/unstable';
-import {
-  getSessionStorePath,
-  type ApprovalMode,
-  type ReasoningEffort,
-} from './config.js';
+import { getSessionStorePath, type ApprovalMode, type ReasoningEffort } from './config.js';
 import { isReasoningEffort } from './reasoning.js';
 
 export interface PersistedSession {
@@ -124,7 +120,12 @@ function isSessionNotification(value: unknown): value is acp.SessionNotification
 }
 
 function isApprovalMode(value: unknown): value is ApprovalMode {
-  return value === 'ALL_APPROVE' || value === 'AUTO_APPROVE' || value === 'SAFE_APPROVE' || value === 'MANUAL_APPROVE';
+  return (
+    value === 'ALL_APPROVE' ||
+    value === 'AUTO_APPROVE' ||
+    value === 'SAFE_APPROVE' ||
+    value === 'MANUAL_APPROVE'
+  );
 }
 
 function isModeId(value: unknown): value is 'agent' | 'chat' {

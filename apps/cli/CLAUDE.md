@@ -27,6 +27,7 @@ Device auth against `https://deniai.app/api/device-auth` — POST `{action: "ini
 
 **Credential storage (`src/auth/keychain.ts`):**
 Platform-specific with fallback chain:
+
 - macOS → `security` CLI (Keychain)
 - Linux → `secret-tool` (libsecret), falls back to `~/.flixa/credentials`
 - Windows → DPAPI via PowerShell temp script (secret never passed as CLI arg), falls back to `~/.flixa/credentials`

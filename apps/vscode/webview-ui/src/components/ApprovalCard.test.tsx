@@ -56,7 +56,10 @@ describe('Message actions', () => {
 	it('should render slash command replies as normal text', () => {
 		render(
 			<Message
-				message={{ role: 'system', content: 'Current approval mode: safe\n\nUsage: /approval <mode>' }}
+				message={{
+					role: 'system',
+					content: 'Current approval mode: safe\n\nUsage: /approval <mode>',
+				}}
 				asReply
 			/>,
 		);
@@ -68,7 +71,9 @@ describe('Message actions', () => {
 	});
 
 	it('should hide edit when editing is not allowed', () => {
-		render(<Message message={{ role: 'user', content: 'Busy' }} onEdit={() => {}} canEdit={false} />);
+		render(
+			<Message message={{ role: 'user', content: 'Busy' }} onEdit={() => {}} canEdit={false} />,
+		);
 		expect(screen.queryByLabelText('Edit and resend')).toBeNull();
 	});
 });

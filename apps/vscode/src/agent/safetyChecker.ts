@@ -1,26 +1,26 @@
-import { generateText } from "ai";
-import * as vscode from "vscode";
-import { log } from "../logger";
-import { getFlixaProvider } from "../llm/stub";
-import type { SafetyCheckResult } from "../types";
+import { generateText } from 'ai';
+import * as vscode from 'vscode';
+import { log } from '../logger';
+import { getFlixaProvider } from '../llm/stub';
+import type { SafetyCheckResult } from '../types';
 
 function getModel(): string {
-	const config = vscode.workspace.getConfiguration("flixa");
-	return config.get<string>("model") || "openai/gpt-6-luna";
+  const config = vscode.workspace.getConfiguration('flixa');
+  return config.get<string>('model') || 'openai/gpt-6-luna';
 }
 
 export async function checkShellCommandSafety(
-	command: string,
-	aiReason?: string,
+  command: string,
+  aiReason?: string,
 ): Promise<SafetyCheckResult> {
-	const flixa = getFlixaProvider();
-	const model = getModel();
+  const flixa = getFlixaProvider();
+  const model = getModel();
 
-	const aiReasonSection = aiReason 
-		? `\n## AI's stated reason for this command:\n${aiReason}\n\nConsider this context when making your decision. If the AI has provided a valid development-related reason, lean towards SAFE.\n`
-		: '';
+  const aiReasonSection = aiReason
+    ? `\n## AI's stated reason for this command:\n${aiReason}\n\nConsider this context when making your decision. If the AI has provided a valid development-related reason, lean towards SAFE.\n`
+    : '';
 
-	const prompt = `You are a security validation AI for a developer's local workspace.
+  const prompt = `You are a security validation AI for a developer's local workspace.
 
 Your job is to determine if a shell command is SAFE to execute. Be LENIENT for typical development workflows.
 
@@ -56,50 +56,48 @@ Reply in JSON only:
 Command:
 ${command}`;
 
-	log('[Flixa] safety check prompt to AI:', prompt);
+  log('[Flixa] safety check prompt to AI:', prompt);
 
-	try {
-		const { text } = await generateText({
-			model: flixa(model),
-			prompt,
-		});
+  try {
+    const { text } = await generateText({
+      model: flixa(model),
+      prompt,
+    });
 
-		log('[Flixa] safety check AI response:', text);
+    log('[Flixa] safety check AI response:', text);
 
-		let responseText = text.trim();
-		if (responseText.startsWith("```json")) {
-			responseText = responseText
-				.replace(/^```json\n?/, "")
-				.replace(/\n?```$/, "");
-		} else if (responseText.startsWith("```")) {
-			responseText = responseText.replace(/^```\n?/, "").replace(/\n?```$/, "");
-		}
+    let responseText = text.trim();
+    if (responseText.startsWith('```json')) {
+      responseText = responseText.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+    } else if (responseText.startsWith('```')) {
+      responseText = responseText.replace(/^```\n?/, '').replace(/\n?```$/, '');
+    }
 
-		try {
-			const parsed = JSON.parse(responseText);
-			if (
-				parsed &&
-				typeof parsed === "object" &&
-				(parsed.verdict === "SAFE" || parsed.verdict === "UNSAFE") &&
-				typeof parsed.reason === "string"
-			) {
-				return {
-					verdict: parsed.verdict,
-					reason: parsed.reason,
-				};
-			}
-		} catch {
-			// JSON parse failed
-		}
+    try {
+      const parsed = JSON.parse(responseText);
+      if (
+        parsed &&
+        typeof parsed === 'object' &&
+        (parsed.verdict === 'SAFE' || parsed.verdict === 'UNSAFE') &&
+        typeof parsed.reason === 'string'
+      ) {
+        return {
+          verdict: parsed.verdict,
+          reason: parsed.reason,
+        };
+      }
+    } catch {
+      // JSON parse failed
+    }
 
-		return {
-			verdict: "UNSAFE",
-			reason: "Failed to parse safety check response",
-		};
-	} catch (error) {
-		return {
-			verdict: "UNSAFE",
-			reason: `Safety check error: ${error instanceof Error ? error.message : String(error)}`,
-		};
-	}
+    return {
+      verdict: 'UNSAFE',
+      reason: 'Failed to parse safety check response',
+    };
+  } catch (error) {
+    return {
+      verdict: 'UNSAFE',
+      reason: `Safety check error: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
 }

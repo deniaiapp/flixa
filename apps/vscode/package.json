@@ -1,44 +1,74 @@
 {
   "name": "flixa",
   "displayName": "Flixa",
-  "description": "AI-powered code implementation assistant",
   "version": "0.9.5",
-  "publisher": "deniai",
-  "icon": "assets/flixa.png",
+  "description": "AI-powered code implementation assistant",
+  "categories": [
+    "AI",
+    "Chat",
+    "Education",
+    "Machine Learning",
+    "Other",
+    "Programming Languages",
+    "Testing"
+  ],
+  "keywords": [
+    "agent",
+    "ai",
+    "chatgpt",
+    "claude",
+    "claude code",
+    "cline",
+    "codex",
+    "coding",
+    "copilot",
+    "github",
+    "gpt"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/deniaiapp/flixa",
     "directory": "apps/vscode"
   },
-  "engines": {
-    "vscode": "^1.107.0"
-  },
-  "categories": [
-    "AI",
-    "Programming Languages",
-    "Education",
-    "Machine Learning",
-    "Testing",
-    "Chat",
-    "Other"
-  ],
-  "keywords": [
-    "ai",
-    "chatgpt",
-    "claude",
-    "cline",
-    "codex",
-    "copilot",
-    "claude code",
-    "github",
-    "gpt",
-    "agent",
-    "coding"
-  ],
-  "activationEvents": [
-    "onStartupFinished"
-  ],
+  "publisher": "deniai",
   "main": "./out/extension.js",
+  "scripts": {
+    "vscode:prepublish": "pnpm run compile",
+    "package": "vsce package --no-dependencies --baseContentUrl https://github.com/deniaiapp/flixa/blob/HEAD/apps/vscode --baseImagesUrl https://github.com/deniaiapp/flixa/raw/HEAD/apps/vscode --out flixa.vsix",
+    "publish": "pnpm run package && pnpm run --no-bail \"/^publish:(vscode|openvsx)$/\"",
+    "publish:vscode": "vsce publish --packagePath flixa.vsix",
+    "publish:openvsx": "ovsx publish flixa.vsix",
+    "compile": "cd webview-ui && pnpm run build && cd .. && pnpm run build:ext",
+    "build:ext": "esbuild ./src/extension.ts --bundle --outdir=./out --platform=node --format=cjs --minify --external:vscode",
+    "build:webview": "cd webview-ui && pnpm run build",
+    "watch": "tsc -watch -p ./",
+    "lint": "oxlint -c ../../.oxlintrc.json src",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "build": "pnpm run compile",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.88",
+    "@ai-sdk/openai": "^4.0.102",
+    "@anthropic-ai/sdk": "^1.3.0",
+    "ai": "^7.0.153",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/json-schema": "^7.0.15",
+    "@types/node": "^26.6.5",
+    "@types/vscode": "1.107.0",
+    "@vscode/vsce": "^4.0.0",
+    "esbuild": "^0.28.2",
+    "ovsx": "^1.3.0",
+    "oxfmt": "^0.75.0",
+    "oxlint": "^1.90.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  },
   "contributes": {
     "configuration": {
       "title": "Flixa",
@@ -264,41 +294,11 @@
       ]
     }
   },
-  "scripts": {
-    "vscode:prepublish": "pnpm run compile",
-    "package": "vsce package --no-dependencies --baseContentUrl https://github.com/deniaiapp/flixa/blob/HEAD/apps/vscode --baseImagesUrl https://github.com/deniaiapp/flixa/raw/HEAD/apps/vscode --out flixa.vsix",
-    "publish": "pnpm run package && pnpm run --no-bail \"/^publish:(vscode|openvsx)$/\"",
-    "publish:vscode": "vsce publish --packagePath flixa.vsix",
-    "publish:openvsx": "ovsx publish flixa.vsix",
-    "compile": "cd webview-ui && pnpm run build && cd .. && pnpm run build:ext",
-    "build:ext": "esbuild ./src/extension.ts --bundle --outdir=./out --platform=node --format=cjs --minify --external:vscode",
-    "build:webview": "cd webview-ui && pnpm run build",
-    "watch": "tsc -watch -p ./",
-    "lint": "oxlint -c ../../.oxlintrc.json src",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "build": "pnpm run compile",
-    "typecheck": "tsc --noEmit -p ."
-  },
-  "dependencies": {
-    "@ai-sdk/anthropic": "^4.0.88",
-    "@ai-sdk/openai": "^4.0.102",
-    "@anthropic-ai/sdk": "^1.3.0",
-    "ai": "^7.0.153",
-    "zod": "^4.6.7"
-  },
-  "devDependencies": {
-    "@types/json-schema": "^7.0.15",
-    "@types/node": "^26.6.5",
-    "@types/vscode": "1.107.0",
-    "@vscode/vsce": "^4.0.0",
-    "esbuild": "^0.28.2",
-    "ovsx": "^1.3.0",
-    "oxlint": "^1.90.0",
-    "tailwindcss": "^4.3.3",
-    "typescript": "^7.0.2",
-    "vitest": "^5.0.5",
-    "oxfmt": "^0.75.0"
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "icon": "assets/flixa.png",
+  "engines": {
+    "vscode": "^1.107.0"
   }
 }

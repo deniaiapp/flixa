@@ -1,21 +1,21 @@
 {
   "name": "@deniai/flixa",
   "version": "0.4.1",
-  "type": "module",
   "private": false,
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
-  "bin": {
-    "flixa": "dist/index.js"
-  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/deniaiapp/flixa.git",
     "directory": "apps/cli"
   },
+  "bin": {
+    "flixa": "dist/index.js"
+  },
   "files": [
     "dist"
   ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
   "publishConfig": {
     "access": "public"
   },
@@ -31,18 +31,6 @@
     "regression:check": "tsx scripts/verify-cli-regressions.ts",
     "build": "node scripts/build.mjs && node scripts/prepare-dist.mjs",
     "typecheck": "tsc --noEmit"
-  },
-  "devDependencies": {
-    "@types/node": "^26.6.5",
-    "@types/react": "^18.3.12",
-    "esbuild": "^0.28.2",
-    "oxfmt": "^0.75.0",
-    "oxlint": "^1.90.0",
-    "tsx": "^4.23.15",
-    "typescript": "^7.0.2"
-  },
-  "peerDependencies": {
-    "typescript": "^7"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.64",
@@ -64,5 +52,17 @@
     "open": "^11.0.0",
     "react": "^18.3.1",
     "react-devtools-core": "^6.1.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/react": "^18.3.12",
+    "esbuild": "^0.28.2",
+    "oxfmt": "^0.75.0",
+    "oxlint": "^1.90.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  },
+  "peerDependencies": {
+    "typescript": "^7"
   }
 }

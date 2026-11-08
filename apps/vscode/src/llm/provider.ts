@@ -1,28 +1,28 @@
-import { createOpenAI } from "@ai-sdk/openai";
-import { getFlixaClientHeaders } from "../api/flixaClientHeaders";
-import { getFlixaApiBaseUrl } from "../usage/service";
-import { setModelAccessDefinitions, type ModelAccessDefinition } from "../usage/types";
+import { createOpenAI } from '@ai-sdk/openai';
+import { getFlixaClientHeaders } from '../api/flixaClientHeaders';
+import { getFlixaApiBaseUrl } from '../usage/service';
+import { setModelAccessDefinitions, type ModelAccessDefinition } from '../usage/types';
 import {
   getAvailableReasoningEfforts,
   isReasoningEffort,
   normalizeReasoningEfforts,
   type ReasoningEffort,
-} from "./reasoning";
+} from './reasoning';
 
 const FLIXA_BASE_URL = getFlixaApiBaseUrl();
 
 const OPENAI_BASE_URL = `${FLIXA_BASE_URL}/v1/agent/`;
-const DEFAULT_MODEL = "openai/gpt-6-luna";
-const DEFAULT_REASONING_EFFORT = "medium";
+const DEFAULT_MODEL = 'openai/gpt-6-luna';
+const DEFAULT_REASONING_EFFORT = 'medium';
 const MODELS_CACHE_DURATION_MS = 5 * 60 * 1000;
 const FALLBACK_MODEL_DEFINITIONS: ModelAccessDefinition[] = [
   {
     id: DEFAULT_MODEL,
-    label: "GPT-6 Luna",
-    description: "OpenAI flagship coding model",
-    tags: ["coding", "fast"],
+    label: 'GPT-6 Luna',
+    description: 'OpenAI flagship coding model',
+    tags: ['coding', 'fast'],
     premium: false,
-    tier: "free",
+    tier: 'free',
   },
 ];
 const FALLBACK_MODELS = FALLBACK_MODEL_DEFINITIONS.map((model) => model.id);
@@ -49,7 +49,7 @@ export function getApiKey(): string | undefined {
 
 export function getFlixaProvider() {
   return createOpenAI({
-    apiKey: _apiKey || "anonymous",
+    apiKey: _apiKey || 'anonymous',
     baseURL: OPENAI_BASE_URL,
     headers: getFlixaClientHeaders(),
   }).chat;
@@ -63,9 +63,7 @@ export function getReasoningEffort(): ReasoningEffort | undefined {
   return _selectedReasoningEffort;
 }
 
-export function getAvailableReasoningEffortsForModel(
-  model = getModel(),
-): ReasoningEffort[] {
+export function getAvailableReasoningEffortsForModel(model = getModel()): ReasoningEffort[] {
   const definition = _cachedModelDefinitions?.find((item) => item.id === model);
   return getAvailableReasoningEfforts(model, definition?.reasoningEfforts);
 }
@@ -86,11 +84,11 @@ function withCurrentModelDefinition(
   if (modelDefinitions.some((model) => model.id === currentModel)) {
     return modelDefinitions;
   }
-  return [{ id: currentModel, label: currentModel, tags: [], tier: "free" }, ...modelDefinitions];
+  return [{ id: currentModel, label: currentModel, tags: [], tier: 'free' }, ...modelDefinitions];
 }
 
-function normalizeTier(value: unknown): "free" | "plus" | "pro" | undefined {
-  if (value === "free" || value === "plus" || value === "pro") {
+function normalizeTier(value: unknown): 'free' | 'plus' | 'pro' | undefined {
+  if (value === 'free' || value === 'plus' || value === 'pro') {
     return value;
   }
   return undefined;
@@ -100,36 +98,36 @@ function normalizeTags(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) {
     return undefined;
   }
-  return value.filter((tag): tag is string => typeof tag === "string");
+  return value.filter((tag): tag is string => typeof tag === 'string');
 }
 
 function normalizeTokenUsageMultiplier(value: unknown): number | undefined {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
     return undefined;
   }
   return value;
 }
 
 function normalizeUsageTier(value: unknown): number | undefined {
-  if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
     return undefined;
   }
   return value;
 }
 
 function extractModelDefinition(model: unknown): ModelAccessDefinition | null {
-  if (typeof model === "string") {
+  if (typeof model === 'string') {
     return { id: model, label: model, tags: [] };
   }
-  if (model && typeof model === "object") {
+  if (model && typeof model === 'object') {
     const record = model as Record<string, unknown>;
-    if (typeof record.id === "string") {
+    if (typeof record.id === 'string') {
       return {
         id: record.id,
-        label: typeof record.label === "string" ? record.label : record.id,
-        description: typeof record.description === "string" ? record.description : "",
+        label: typeof record.label === 'string' ? record.label : record.id,
+        description: typeof record.description === 'string' ? record.description : '',
         tags: normalizeTags(record.tags) ?? [],
-        premium: typeof record.premium === "boolean" ? record.premium : undefined,
+        premium: typeof record.premium === 'boolean' ? record.premium : undefined,
         tier: normalizeTier(record.tier),
         tokenUsageMultiplier: normalizeTokenUsageMultiplier(record.tokenUsageMultiplier),
         usageTier: normalizeUsageTier(record.usageTier),
@@ -160,15 +158,15 @@ function parseModelDefinitions(payload: unknown): ModelAccessDefinition[] {
   if (Array.isArray(payload)) {
     return normalizeList(payload);
   }
-  if (payload && typeof payload === "object") {
+  if (payload && typeof payload === 'object') {
     const record = payload as Record<string, unknown>;
     if (Array.isArray(record.model_definitions)) {
       return normalizeList(record.model_definitions);
     }
-    if (record.model_definitions && typeof record.model_definitions === "object") {
+    if (record.model_definitions && typeof record.model_definitions === 'object') {
       const entries = Object.entries(record.model_definitions as Record<string, unknown>).map(
         ([id, value]) => {
-          if (value && typeof value === "object") {
+          if (value && typeof value === 'object') {
             return { id, ...(value as Record<string, unknown>) };
           }
           return { id };
@@ -188,7 +186,7 @@ function parseModelDefinitions(payload: unknown): ModelAccessDefinition[] {
 
 function getModelEndpoints(): string[] {
   const rawBaseUrl = getFlixaApiBaseUrl();
-  const normalizedBaseUrl = rawBaseUrl.replace(/\/+$/, "");
+  const normalizedBaseUrl = rawBaseUrl.replace(/\/+$/, '');
   const endpoints = new Set<string>();
   endpoints.add(`${normalizedBaseUrl}/v1/models`);
   endpoints.add(`${normalizedBaseUrl}/api/v1/models`);
@@ -212,7 +210,7 @@ export async function getAvailableModels(force = false): Promise<string[]> {
     try {
       const response = await fetch(endpoint, { headers });
       if (!response.ok) {
-        console.log("[Flixa] Failed to fetch models from", endpoint, response.status);
+        console.log('[Flixa] Failed to fetch models from', endpoint, response.status);
         continue;
       }
       const payload = await response.json();
@@ -237,7 +235,7 @@ export async function getAvailableModels(force = false): Promise<string[]> {
         return withCurrentModel(models);
       }
     } catch (error) {
-      console.log("[Flixa] Failed to fetch models from", endpoint, error);
+      console.log('[Flixa] Failed to fetch models from', endpoint, error);
     }
   }
 

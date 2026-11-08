@@ -46,12 +46,19 @@ export function useMessages(): UseMessagesReturn {
 	const [agentMode, setAgentMode] = useState(true);
 	const [approvalMode, setApprovalMode] = useState('AUTO_APPROVE');
 	const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
-	const [selectedReasoningEffort, setSelectedReasoningEffort] =
-		useState<ReasoningEffort | null>(DEFAULT_REASONING_EFFORT as ReasoningEffort);
+	const [selectedReasoningEffort, setSelectedReasoningEffort] = useState<ReasoningEffort | null>(
+		DEFAULT_REASONING_EFFORT as ReasoningEffort,
+	);
 	const [autoContextEnabled, setAutoContextEnabled] = useState(true);
 	const [availableModels, setAvailableModels] = useState<string[]>([DEFAULT_MODEL]);
 	const [modelDefinitions, setModelDefinitions] = useState<ModelDefinition[]>([
-		{ id: DEFAULT_MODEL, label: 'GPT-6 Luna', description: 'OpenAI flagship coding model', tags: ['coding', 'fast'], tier: 'free' },
+		{
+			id: DEFAULT_MODEL,
+			label: 'GPT-6 Luna',
+			description: 'OpenAI flagship coding model',
+			tags: ['coding', 'fast'],
+			tier: 'free',
+		},
 	]);
 	const [isLoading, setIsLoading] = useState(false);
 	const [agentRunning, setAgentRunning] = useState(false);

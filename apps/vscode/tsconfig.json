@@ -4,24 +4,13 @@
     "module": "commonjs",
     "target": "ES2022",
     "outDir": "out",
-    "lib": [
-      "ES2022"
-    ],
-    "types": [
-      "node"
-    ],
+    "lib": ["ES2022"],
+    "types": ["node"],
     "sourceMap": false,
     "rootDir": "src",
     "declaration": false,
     "declarationMap": false
   },
-  "include": [
-    "src"
-  ],
-  "exclude": [
-    "node_modules",
-    ".vscode-test",
-    "out",
-    "webview-ui"
-  ]
+  "include": ["src"],
+  "exclude": ["node_modules", ".vscode-test", "out", "webview-ui"]
 }

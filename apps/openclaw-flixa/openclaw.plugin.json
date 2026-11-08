@@ -2,13 +2,9 @@
   "id": "flixa",
   "name": "Flixa Ship",
   "description": "Run Flixa's guarded coding agent through OpenClaw.",
-  "cliBackends": [
-    "flixa"
-  ],
+  "cliBackends": ["flixa"],
   "setup": {
-    "cliBackends": [
-      "flixa"
-    ],
+    "cliBackends": ["flixa"],
     "requiresRuntime": false
   },
   "activation": {

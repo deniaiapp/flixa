@@ -197,8 +197,7 @@ export function getToolMetadata(
         : null;
   const location = fileValue ? resolveAllowedPath(fileValue, context) : null;
   const locations = location ? [{ path: location.absolute }] : [];
-  const shortCommand =
-    typeof input.command === 'string' ? input.command.slice(0, 80) : '';
+  const shortCommand = typeof input.command === 'string' ? input.command.slice(0, 80) : '';
 
   switch (name) {
     case 'read_file':
@@ -206,10 +205,18 @@ export function getToolMetadata(
     case 'list_dir':
       return { title: `List ${fileValue || 'directory'}`, kind: 'read', locations };
     case 'grep_search':
-      return { title: `Search ${typeof input.query === 'string' ? input.query.slice(0, 60) : 'workspace'}`, kind: 'search', locations: [{ path: context.cwd }] };
+      return {
+        title: `Search ${typeof input.query === 'string' ? input.query.slice(0, 60) : 'workspace'}`,
+        kind: 'search',
+        locations: [{ path: context.cwd }],
+      };
     case 'file_search':
     case 'codebase_search':
-      return { title: `Search ${typeof input.query === 'string' ? input.query.slice(0, 60) : 'workspace'}`, kind: 'search', locations: [{ path: context.cwd }] };
+      return {
+        title: `Search ${typeof input.query === 'string' ? input.query.slice(0, 60) : 'workspace'}`,
+        kind: 'search',
+        locations: [{ path: context.cwd }],
+      };
     case 'edit_file':
       return { title: `Edit ${fileValue || 'file'}`, kind: 'edit', locations };
     case 'write_file':
@@ -367,8 +374,12 @@ function resolveAllowedPath(
   context: Pick<ToolExecutionContext, 'cwd' | 'additionalDirectories'>,
 ): { absolute: string; relative: string } | null {
   const normalizedValue = value.startsWith('file://') ? fileURLToPath(value) : value;
-  const absolute = path.normalize(path.isAbsolute(normalizedValue) ? normalizedValue : path.resolve(context.cwd, normalizedValue));
-  const roots = [context.cwd, ...context.additionalDirectories].map((root) => path.normalize(path.resolve(root)));
+  const absolute = path.normalize(
+    path.isAbsolute(normalizedValue) ? normalizedValue : path.resolve(context.cwd, normalizedValue),
+  );
+  const roots = [context.cwd, ...context.additionalDirectories].map((root) =>
+    path.normalize(path.resolve(root)),
+  );
   const root = roots.find((candidate) => isPathInside(candidate, absolute));
   if (!root) {
     return null;
@@ -381,7 +392,10 @@ function resolveAllowedPath(
 
 function isPathInside(root: string, target: string): boolean {
   const relative = path.relative(root, target);
-  return relative === '' || (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
+  return (
+    relative === '' ||
+    (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative))
+  );
 }
 
 async function readWorkspaceFile(
@@ -395,9 +409,16 @@ async function readWorkspaceFile(
   }
   const content = await readFile(resolved.absolute, 'utf8');
   const lines = content.split('\n');
-  const start = typeof input.start_line === 'number' ? Math.max(1, Math.floor(input.start_line)) : 1;
-  const end = typeof input.end_line === 'number' ? Math.min(lines.length, Math.floor(input.end_line)) : lines.length;
-  const output = lines.slice(start - 1, end).map((line, index) => `${start + index}\t${line}`).join('\n');
+  const start =
+    typeof input.start_line === 'number' ? Math.max(1, Math.floor(input.start_line)) : 1;
+  const end =
+    typeof input.end_line === 'number'
+      ? Math.min(lines.length, Math.floor(input.end_line))
+      : lines.length;
+  const output = lines
+    .slice(start - 1, end)
+    .map((line, index) => `${start + index}\t${line}`)
+    .join('\n');
   const prefix = start > 1 ? `[Lines 1-${start - 1} not shown]\n` : '';
   const suffix = end < lines.length ? `\n[Lines ${end + 1}-${lines.length} not shown]` : '';
   return { success: true, output: `${prefix}${output}${suffix}`, path: resolved.absolute };
@@ -430,7 +451,10 @@ async function grepWorkspace(
   try {
     expression = new RegExp(query, caseSensitive ? '' : 'i');
   } catch (error) {
-    return { success: false, error: `Invalid regex pattern: ${error instanceof Error ? error.message : String(error)}` };
+    return {
+      success: false,
+      error: `Invalid regex pattern: ${error instanceof Error ? error.message : String(error)}`,
+    };
   }
 
   const files = await collectFiles(context, 8, 1000);
@@ -439,7 +463,10 @@ async function grepWorkspace(
     if (context.signal.aborted || results.length >= 50) {
       break;
     }
-    if (!matchesPattern(file.relative, input.include_pattern) || matchesPattern(file.relative, input.exclude_pattern)) {
+    if (
+      !matchesPattern(file.relative, input.include_pattern) ||
+      matchesPattern(file.relative, input.exclude_pattern)
+    ) {
       continue;
     }
     const content = await readTextIfSmall(file.absolute);
@@ -468,7 +495,10 @@ async function searchWorkspaceFiles(
     .filter((entry) => entry.score > 0)
     .sort((a, b) => b.score - a.score || a.file.relative.localeCompare(b.file.relative))
     .slice(0, 10);
-  return { success: true, output: ranked.map((entry) => entry.file.relative).join('\n') || 'No files found' };
+  return {
+    success: true,
+    output: ranked.map((entry) => entry.file.relative).join('\n') || 'No files found',
+  };
 }
 
 async function searchWorkspaceCode(
@@ -484,7 +514,12 @@ async function searchWorkspaceCode(
   const ranked: Array<{ score: number; relative: string; lines: string[] }> = [];
 
   for (const file of files) {
-    if (requestedDirectories.length > 0 && !requestedDirectories.some((directory) => file.relative.startsWith(directory.replace(/\\/g, '/')))) {
+    if (
+      requestedDirectories.length > 0 &&
+      !requestedDirectories.some((directory) =>
+        file.relative.startsWith(directory.replace(/\\/g, '/')),
+      )
+    ) {
       continue;
     }
     const content = await readTextIfSmall(file.absolute);
@@ -492,11 +527,14 @@ async function searchWorkspaceCode(
       continue;
     }
     const lower = content.toLowerCase();
-    const score = terms.reduce((total, term) => total + countOccurrences(lower, term), 0) + (lower.includes(query) ? 5 : 0);
+    const score =
+      terms.reduce((total, term) => total + countOccurrences(lower, term), 0) +
+      (lower.includes(query) ? 5 : 0);
     if (score === 0) {
       continue;
     }
-    const matchingLines = content.split('\n')
+    const matchingLines = content
+      .split('\n')
       .map((line, index) => ({ line, index }))
       .filter(({ line }) => terms.some((term) => line.toLowerCase().includes(term)))
       .slice(0, 3)
@@ -507,7 +545,14 @@ async function searchWorkspaceCode(
   ranked.sort((a, b) => b.score - a.score || a.relative.localeCompare(b.relative));
   return {
     success: true,
-    output: ranked.slice(0, 20).map((entry) => `${entry.relative} (score: ${entry.score})${entry.lines.length ? `:\n${entry.lines.join('\n')}` : ''}`).join('\n\n') || 'No relevant code found',
+    output:
+      ranked
+        .slice(0, 20)
+        .map(
+          (entry) =>
+            `${entry.relative} (score: ${entry.score})${entry.lines.length ? `:\n${entry.lines.join('\n')}` : ''}`,
+        )
+        .join('\n\n') || 'No relevant code found',
   };
 }
 
@@ -536,7 +581,13 @@ async function editWorkspaceFile(
   }
   await mkdir(path.dirname(resolved.absolute), { recursive: true });
   await writeFile(resolved.absolute, newText, 'utf8');
-  return { success: true, output: `File edited: ${resolved.relative}`, path: resolved.absolute, oldText, newText };
+  return {
+    success: true,
+    output: `File edited: ${resolved.relative}`,
+    path: resolved.absolute,
+    oldText,
+    newText,
+  };
 }
 
 async function writeWorkspaceFile(
@@ -560,7 +611,13 @@ async function writeWorkspaceFile(
   }
   await mkdir(path.dirname(resolved.absolute), { recursive: true });
   await writeFile(resolved.absolute, content, 'utf8');
-  return { success: true, output: `File written: ${resolved.relative}`, path: resolved.absolute, oldText, newText: content };
+  return {
+    success: true,
+    output: `File written: ${resolved.relative}`,
+    path: resolved.absolute,
+    oldText,
+    newText: content,
+  };
 }
 
 async function deleteWorkspaceFile(
@@ -574,7 +631,13 @@ async function deleteWorkspaceFile(
   }
   const oldText = await readFile(resolved.absolute, 'utf8');
   await unlink(resolved.absolute);
-  return { success: true, output: `File deleted: ${resolved.relative}`, path: resolved.absolute, oldText, newText: '' };
+  return {
+    success: true,
+    output: `File deleted: ${resolved.relative}`,
+    path: resolved.absolute,
+    oldText,
+    newText: '',
+  };
 }
 
 async function runTerminalCommand(
@@ -583,7 +646,10 @@ async function runTerminalCommand(
 ): Promise<ToolExecutionResult> {
   const command = typeof input.command === 'string' ? input.command : '';
   if (command.length > MAX_COMMAND_LENGTH) {
-    return { success: false, error: `Command length ${command.length} exceeds maximum ${MAX_COMMAND_LENGTH}` };
+    return {
+      success: false,
+      error: `Command length ${command.length} exceeds maximum ${MAX_COMMAND_LENGTH}`,
+    };
   }
   if (command.includes('\0')) {
     return { success: false, error: 'Command contains null bytes' };
@@ -611,7 +677,11 @@ async function runTerminalCommand(
     let settled = false;
     const timeout = setTimeout(() => {
       child.kill();
-      finish({ success: false, output: trimOutput(output), error: 'Command timed out after 60 seconds' });
+      finish({
+        success: false,
+        output: trimOutput(output),
+        error: 'Command timed out after 60 seconds',
+      });
     }, 60_000);
     const abort = () => {
       child.kill();
@@ -633,9 +703,15 @@ async function runTerminalCommand(
     };
     child.stdout.on('data', consume);
     child.stderr.on('data', consume);
-    child.on('error', (error) => finish({ success: false, output: trimOutput(output), error: error.message }));
+    child.on('error', (error) =>
+      finish({ success: false, output: trimOutput(output), error: error.message }),
+    );
     child.on('close', (code) => {
-      finish(code === 0 ? { success: true, output: trimOutput(output) || '(no output)' } : { success: false, output: trimOutput(output), error: `Exit code: ${code}` });
+      finish(
+        code === 0
+          ? { success: true, output: trimOutput(output) || '(no output)' }
+          : { success: false, output: trimOutput(output), error: `Exit code: ${code}` },
+      );
     });
   });
 }
@@ -646,7 +722,15 @@ async function collectFiles(
   maxFiles: number,
 ): Promise<Array<{ absolute: string; relative: string }>> {
   const results: Array<{ absolute: string; relative: string }> = [];
-  await collectFilesFromDirectory(context.cwd, context.cwd, 0, maxDepth, maxFiles, context, results);
+  await collectFilesFromDirectory(
+    context.cwd,
+    context.cwd,
+    0,
+    maxDepth,
+    maxFiles,
+    context,
+    results,
+  );
   for (const directory of context.additionalDirectories) {
     if (results.length >= maxFiles) {
       break;
@@ -681,7 +765,15 @@ async function collectFilesFromDirectory(
     }
     const absolute = path.join(directory, entry.name);
     if (entry.isDirectory()) {
-      await collectFilesFromDirectory(absolute, root, depth + 1, maxDepth, maxFiles, context, results);
+      await collectFilesFromDirectory(
+        absolute,
+        root,
+        depth + 1,
+        maxDepth,
+        maxFiles,
+        context,
+        results,
+      );
     } else if (entry.isFile()) {
       results.push({ absolute, relative: path.relative(root, absolute).replace(/\\/g, '/') });
     }
@@ -709,7 +801,8 @@ function matchesPattern(filePath: string, pattern: unknown): boolean {
     return false;
   }
   const normalized = pattern.replace(/\\/g, '/');
-  const normalizedPattern = normalized.includes('/') || normalized.includes('**') ? normalized : `**/${normalized}`;
+  const normalizedPattern =
+    normalized.includes('/') || normalized.includes('**') ? normalized : `**/${normalized}`;
   let expression = '^';
   for (let index = 0; index < normalizedPattern.length; index += 1) {
     const character = normalizedPattern[index];
@@ -772,7 +865,10 @@ function trimOutput(value: string): string {
 
 async function readPackageInfo(cwd: string): Promise<string> {
   try {
-    const content = JSON.parse(await readFile(path.join(cwd, 'package.json'), 'utf8')) as Record<string, unknown>;
+    const content = JSON.parse(await readFile(path.join(cwd, 'package.json'), 'utf8')) as Record<
+      string,
+      unknown
+    >;
     const lines: string[] = [];
     if (typeof content.name === 'string') {
       lines.push(`Name: ${content.name}`);
@@ -805,7 +901,10 @@ async function readPackageInfo(cwd: string): Promise<string> {
 
 async function readTsConfigInfo(cwd: string): Promise<string> {
   try {
-    const content = JSON.parse(await readFile(path.join(cwd, 'tsconfig.json'), 'utf8')) as Record<string, unknown>;
+    const content = JSON.parse(await readFile(path.join(cwd, 'tsconfig.json'), 'utf8')) as Record<
+      string,
+      unknown
+    >;
     const compilerOptions = isRecord(content.compilerOptions) ? content.compilerOptions : {};
     const lines: string[] = [];
     for (const key of ['target', 'module', 'strict', 'outDir']) {
@@ -873,11 +972,19 @@ function findHunkIndex(lines: string[], oldLines: string[], expectedIndex: numbe
   if (oldLines.length === 0) {
     return Math.min(expectedIndex, lines.length);
   }
-  if (lines.slice(expectedIndex, expectedIndex + oldLines.length).every((line, index) => line === oldLines[index])) {
+  if (
+    lines
+      .slice(expectedIndex, expectedIndex + oldLines.length)
+      .every((line, index) => line === oldLines[index])
+  ) {
     return expectedIndex;
   }
   for (let index = 0; index <= lines.length - oldLines.length; index += 1) {
-    if (lines.slice(index, index + oldLines.length).every((line, lineIndex) => line === oldLines[lineIndex])) {
+    if (
+      lines
+        .slice(index, index + oldLines.length)
+        .every((line, lineIndex) => line === oldLines[lineIndex])
+    ) {
       return index;
     }
   }

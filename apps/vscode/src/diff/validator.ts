@@ -21,7 +21,7 @@ export function validateDiff(
   diff: string,
   flow: 'codelens' | 'chat',
   activeFilePath: string,
-  scopeRange?: { startLine: number; endLine: number }
+  scopeRange?: { startLine: number; endLine: number },
 ): DiffValidationResult {
   if (!diff || diff.trim() === '') {
     return { valid: false, error: 'Empty diff received' };
@@ -105,12 +105,7 @@ export function parseDiff(diff: string): ParsedDiff | null {
         };
       }
     } else if (currentHunk) {
-      if (
-        line.startsWith(' ') ||
-        line.startsWith('+') ||
-        line.startsWith('-') ||
-        line === ''
-      ) {
+      if (line.startsWith(' ') || line.startsWith('+') || line.startsWith('-') || line === '') {
         currentHunk.lines.push(line);
       }
     }
@@ -177,7 +172,10 @@ function parseSimplifiedDiff(diff: string, originalContent: string): ParsedDiff 
   return { oldFile: '', newFile: '', hunks };
 }
 
-function createHunkFromSimplifiedLines(hunkLines: string[], originalLines: string[]): ParsedDiffHunk | null {
+function createHunkFromSimplifiedLines(
+  hunkLines: string[],
+  originalLines: string[],
+): ParsedDiffHunk | null {
   // Extract the lines to search for in original
   const searchLines: string[] = [];
   for (const line of hunkLines) {
@@ -242,7 +240,9 @@ function createHunkFromSimplifiedLines(hunkLines: string[], originalLines: strin
     }
   }
 
-  console.log(`[Flixa] Simplified diff: found at index ${foundIndex}, oldCount=${oldCount}, newCount=${newCount}`);
+  console.log(
+    `[Flixa] Simplified diff: found at index ${foundIndex}, oldCount=${oldCount}, newCount=${newCount}`,
+  );
 
   return {
     oldStart: foundIndex + 1, // 1-indexed
@@ -309,27 +309,22 @@ function countChangedLines(parsed: ParsedDiff): number {
 
 function isBinaryPatch(diff: string): boolean {
   return (
-    diff.includes('Binary files') ||
-    diff.includes('GIT binary patch') ||
-    diff.includes('literal ')
+    diff.includes('Binary files') || diff.includes('GIT binary patch') || diff.includes('literal ')
   );
 }
 
-export function applyDiffToContent(
-  originalContent: string,
-  diff: string
-): string | null {
+export function applyDiffToContent(originalContent: string, diff: string): string | null {
   console.log('[Flixa] Raw diff:\n', diff);
 
   // First try standard unified diff parsing
   let parsed = parseDiff(diff);
-  
+
   // If standard parsing fails, try simplified diff format (no line numbers)
   if (!parsed || parsed.hunks.length === 0) {
     console.log('[Flixa] Standard diff parsing failed, trying simplified format');
     parsed = parseSimplifiedDiff(diff, originalContent);
   }
-  
+
   if (!parsed || parsed.hunks.length === 0) {
     console.log('[Flixa] Failed to parse diff (both formats)');
     return null;
@@ -345,7 +340,9 @@ export function applyDiffToContent(
 
   for (const hunk of sortedHunks) {
     const startIndex = hunk.oldStart - 1;
-    console.log(`[Flixa] Processing hunk: oldStart=${hunk.oldStart}, oldCount=${hunk.oldCount}, startIndex=${startIndex}`);
+    console.log(
+      `[Flixa] Processing hunk: oldStart=${hunk.oldStart}, oldCount=${hunk.oldCount}, startIndex=${startIndex}`,
+    );
 
     // Verify context lines match before applying
     let originalLineIndex = startIndex;
@@ -356,12 +353,12 @@ export function applyDiffToContent(
         // Context line - verify it matches original with flexible whitespace matching
         const expectedContent = line.substring(1);
         const actualContent = lines[originalLineIndex];
-        
+
         // Normalize whitespace for comparison: collapse multiple spaces/tabs to single space
         const normalizeWhitespace = (str: string) => str.replace(/\s+/g, ' ').trim();
         const expectedNormalized = normalizeWhitespace(expectedContent);
         const actualNormalized = actualContent ? normalizeWhitespace(actualContent) : '';
-        
+
         if (expectedNormalized !== actualNormalized) {
           // If content differs significantly, fail validation
           if (expectedContent.trim() !== '' && actualContent?.trim() !== expectedContent.trim()) {
@@ -377,12 +374,12 @@ export function applyDiffToContent(
         // Deleted line - verify it exists in original with flexible matching
         const expectedContent = line.substring(1);
         const actualContent = lines[originalLineIndex];
-        
+
         // Normalize whitespace for comparison
         const normalizeWhitespace = (str: string) => str.replace(/\s+/g, ' ').trim();
         const expectedNormalized = normalizeWhitespace(expectedContent);
         const actualNormalized = actualContent ? normalizeWhitespace(actualContent) : '';
-        
+
         if (expectedNormalized !== actualNormalized) {
           // If content differs significantly, fail validation
           if (expectedContent.trim() !== '' && actualContent?.trim() !== expectedContent.trim()) {
@@ -438,7 +435,9 @@ export function applyDiffToContent(
       }
     }
 
-    console.log(`[Flixa] Replacing ${hunk.oldCount} lines at index ${startIndex} with ${newLines.length} new lines`);
+    console.log(
+      `[Flixa] Replacing ${hunk.oldCount} lines at index ${startIndex} with ${newLines.length} new lines`,
+    );
 
     // Replace the old lines with new lines
     lines.splice(startIndex, hunk.oldCount, ...newLines);
@@ -496,7 +495,9 @@ function applyHunkFuzzy(lines: string[], hunk: ParsedDiffHunk): boolean | null {
     return null;
   }
 
-  console.log(`[Flixa] Fuzzy match found at index ${bestMatchIndex} (expected ${hunk.oldStart - 1}), score ${bestMatchScore}/${searchLines.length}`);
+  console.log(
+    `[Flixa] Fuzzy match found at index ${bestMatchIndex} (expected ${hunk.oldStart - 1}), score ${bestMatchScore}/${searchLines.length}`,
+  );
 
   // Build the new lines
   const newLines: string[] = [];

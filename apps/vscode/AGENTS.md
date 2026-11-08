@@ -9,6 +9,7 @@ All agents operating in this repository MUST follow the rules below.
 ## PROJECT OVERVIEW
 
 Flixa is a VS Code extension that provides AI-powered code implementation assistance.
+
 - Extension backend: TypeScript in `src/` (CommonJS, targets VS Code API)
 - Webview UI: React + TypeScript in `webview-ui/` (ESM, Vite bundled)
 
@@ -49,11 +50,13 @@ Tests use Vitest (`vitest.config.mts`). The `zed/` ACP agent is a separate pnpm 
 ### TypeScript Configuration
 
 **Extension (`src/`):**
+
 - Target: ES2022, Module: CommonJS
 - Strict mode enabled
 - Output: `out/`
 
 **Webview (`webview-ui/src/`):**
+
 - Target: ES2020, Module: ESNext
 - Strict mode, noUnusedLocals, noUnusedParameters
 - JSX: react-jsx
@@ -67,10 +70,10 @@ Tests use Vitest (`vitest.config.mts`). The `zed/` ACP agent is a separate pnpm 
 
 ```typescript
 // Good
-import * as vscode from 'vscode';
-import { createOpenAI } from '@ai-sdk/openai';
-import type { AgentAction, ApprovalMode } from '../types';
-import { executeShellAction } from './actions';
+import * as vscode from "vscode";
+import { createOpenAI } from "@ai-sdk/openai";
+import type { AgentAction, ApprovalMode } from "../types";
+import { executeShellAction } from "./actions";
 ```
 
 ### Naming Conventions
@@ -89,10 +92,7 @@ import { executeShellAction } from './actions';
 - Use discriminated unions for action types:
 
 ```typescript
-export type AgentAction =
-  | AgentActionShell
-  | AgentActionWriteFile
-  | AgentActionEditFile;
+export type AgentAction = AgentActionShell | AgentActionWriteFile | AgentActionEditFile;
 ```
 
 ### Error Handling
@@ -106,7 +106,7 @@ export type AgentAction =
 // Pattern for validation
 export function validateDiff(diff: string): DiffValidationResult {
   if (!diff) {
-    return { valid: false, error: 'Empty diff received' };
+    return { valid: false, error: "Empty diff received" };
   }
   return { valid: true };
 }
@@ -133,6 +133,7 @@ You are a coding agent.
 
 Your role is to IMPLEMENT exactly what is specified.
 You are NOT allowed to:
+
 - redesign
 - refactor
 - optimize
@@ -157,6 +158,7 @@ You behave like a compiler, not a product manager.
 - Do NOT touch billing or plan logic unless explicitly requested
 
 If something is ambiguous:
+
 - Choose the most literal and mechanical interpretation
 - Implement it directly
 
@@ -183,6 +185,7 @@ When asked to implement:
 - Do not apply best practices unless explicitly instructed
 
 Correctness is defined as:
+
 > "Does this match the written instructions exactly?"
 
 Nothing else matters.

@@ -1,8 +1,4 @@
-import {
-  FLIXA_VERSION,
-  getApiKey,
-  getConfig,
-} from './config.js';
+import { FLIXA_VERSION, getApiKey, getConfig } from './config.js';
 import {
   normalizeReasoningEfforts,
   type ModelReasoningEfforts,
@@ -93,13 +89,10 @@ export async function compactResponse(
   instructions: string,
 ): Promise<CreateResponseResult> {
   const config = getConfig();
-  const payload = await requestJson(
-    `${config.apiBaseUrl}/v1/agent/responses/compact`,
-    {
-      method: 'POST',
-      body: { model, input, instructions },
-    },
-  );
+  const payload = await requestJson(`${config.apiBaseUrl}/v1/agent/responses/compact`, {
+    method: 'POST',
+    body: { model, input, instructions },
+  });
 
   if (!isRecord(payload) || !Array.isArray(payload.output)) {
     throw new Error('Compact response missing output array');
@@ -116,10 +109,7 @@ export interface ModelDefinition {
 
 export async function listModels(): Promise<ModelDefinition[]> {
   const config = getConfig();
-  const endpoints = [
-    `${config.apiBaseUrl}/v1/models`,
-    `${config.apiBaseUrl}/api/v1/models`,
-  ];
+  const endpoints = [`${config.apiBaseUrl}/v1/models`, `${config.apiBaseUrl}/api/v1/models`];
 
   for (const endpoint of endpoints) {
     try {
@@ -160,9 +150,7 @@ export async function initiateDeviceAuth(): Promise<DeviceAuthInitiateResponse> 
   return payload as unknown as DeviceAuthInitiateResponse;
 }
 
-export async function pollDeviceAuth(
-  deviceCode: string,
-): Promise<DeviceAuthPollResponse> {
+export async function pollDeviceAuth(deviceCode: string): Promise<DeviceAuthPollResponse> {
   const config = getConfig();
   const payload = await requestJson(`${config.deniAiBaseUrl}/api/device-auth`, {
     method: 'POST',
@@ -211,10 +199,7 @@ async function requestJson(
 
   if (!response.ok) {
     const message =
-      extractErrorMessage(payload) ||
-      text ||
-      response.statusText ||
-      `HTTP ${response.status}`;
+      extractErrorMessage(payload) || text || response.statusText || `HTTP ${response.status}`;
     throw new FlixaApiError(response.status, message, payload);
   }
 
@@ -238,7 +223,8 @@ function extractModels(payload: unknown): ModelDefinition[] {
       models.set(value, { id: value, name: value });
     } else if (isRecord(value) && typeof value.id === 'string') {
       const name = [value.name, value.label, value.id].find(
-        (candidate): candidate is string => typeof candidate === 'string' && candidate.trim().length > 0,
+        (candidate): candidate is string =>
+          typeof candidate === 'string' && candidate.trim().length > 0,
       )!;
       models.set(value.id, {
         id: value.id,

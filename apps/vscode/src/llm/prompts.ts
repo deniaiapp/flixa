@@ -223,10 +223,10 @@ export function buildImplementPrompt(
   commentPayload: string,
   fullFileText: string,
   scopeRange?: { startLine: number; endLine: number },
-  scopeText?: string
+  scopeText?: string,
 ): string {
   const hasSelection = scopeText && scopeText !== fullFileText;
-  
+
   if (hasSelection && scopeRange) {
     return `File: ${filePath}
 Language: ${languageId}

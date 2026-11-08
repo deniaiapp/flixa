@@ -19,19 +19,22 @@ describe('applyUnifiedDiff', () => {
 
   test('applies an insertion hunk', () => {
     const original = 'second\n';
-    const diff = [
-      '--- a/example.txt',
-      '+++ b/example.txt',
-      '@@ -1,0 +1,1 @@',
-      '+first',
-      '',
-    ].join('\n');
+    const diff = ['--- a/example.txt', '+++ b/example.txt', '@@ -1,0 +1,1 @@', '+first', ''].join(
+      '\n',
+    );
 
     expect(applyUnifiedDiff(original, diff)).toBe('first\nsecond\n');
   });
 
   test('rejects a hunk with mismatched context', () => {
-    const diff = ['--- a/example.ts', '+++ b/example.ts', '@@ -1,1 +1,1 @@', '-missing', '+replacement', ''].join('\n');
+    const diff = [
+      '--- a/example.ts',
+      '+++ b/example.ts',
+      '@@ -1,1 +1,1 @@',
+      '-missing',
+      '+replacement',
+      '',
+    ].join('\n');
 
     expect(applyUnifiedDiff('actual\n', diff)).toBeNull();
   });

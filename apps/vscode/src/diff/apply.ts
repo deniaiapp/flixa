@@ -3,7 +3,7 @@ import { PendingDiff } from '../types';
 
 export async function applyPendingDiff(
   pendingDiff: PendingDiff | null,
-  clearPendingDiff: () => void
+  clearPendingDiff: () => void,
 ): Promise<boolean> {
   if (!pendingDiff) {
     vscode.window.showErrorMessage('No pending diff to apply.');
@@ -20,8 +20,8 @@ export async function applyPendingDiff(
       new vscode.Position(0, 0),
       new vscode.Position(
         document.lineCount - 1,
-        document.lineAt(document.lineCount - 1).text.length
-      )
+        document.lineAt(document.lineCount - 1).text.length,
+      ),
     );
 
     edit.replace(fileUri, fullRange, pendingDiff.newContent);
@@ -38,7 +38,7 @@ export async function applyPendingDiff(
     }
   } catch (error) {
     vscode.window.showErrorMessage(
-      `Flixa: Error applying diff: ${error instanceof Error ? error.message : String(error)}`
+      `Flixa: Error applying diff: ${error instanceof Error ? error.message : String(error)}`,
     );
     return false;
   }

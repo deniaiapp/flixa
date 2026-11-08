@@ -1,19 +1,19 @@
 import * as vscode from 'vscode';
 import type {
-	CachedUsage,
-	DeviceAuthInitiateResponse,
-	DeviceAuthPollResponse,
-	QuotaExceededErrorMeta,
-	Tier,
-	UsageCategory,
-	UsageItem,
-	UsageResponse,
+  CachedUsage,
+  DeviceAuthInitiateResponse,
+  DeviceAuthPollResponse,
+  QuotaExceededErrorMeta,
+  Tier,
+  UsageCategory,
+  UsageItem,
+  UsageResponse,
 } from './types';
 import {
-	extractApiErrorCode,
-	getClientSignalUserMessage,
-	getFlixaClientHeaders,
-	logMissingClientSignal,
+  extractApiErrorCode,
+  getClientSignalUserMessage,
+  getFlixaClientHeaders,
+  logMissingClientSignal,
 } from '../api/flixaClientHeaders';
 import { log } from '../logger';
 import { canUseTier, getModelTierRequirement, primaryUsage } from './types';
@@ -24,488 +24,459 @@ const POLL_INTERVAL_MS = 5000;
 const DEVICE_AUTH_TIMEOUT_MS = 15 * 60 * 1000;
 
 function getDeniAiBaseUrl(): string {
-	return 'https://deniai.app';
+  return 'https://deniai.app';
 }
 
 export function getFlixaApiBaseUrl(): string {
-	return 'https://flixa-api.deniai.app';
+  return 'https://flixa-api.deniai.app';
 }
 
 export function getBillingUrl(): string {
-	return `${getDeniAiBaseUrl()}/settings/billing`;
+  return `${getDeniAiBaseUrl()}/settings/billing`;
 }
 
 export async function showQuotaExceededDialog(
-	error: QuotaExceededErrorMeta,
-	onAfterAction?: () => Promise<void>
+  error: QuotaExceededErrorMeta,
+  onAfterAction?: () => Promise<void>,
 ): Promise<void> {
-	// Usage is one pool shared with Deni AI chat and Deni Run, not split by model class.
-	const title = 'Usage limit reached';
-	const message = `${title}: ${error.message}`;
-	const canVerify = error.canVerifyForBoost === true;
-	const canUpgrade = error.canUpgrade === true;
-	const primaryAction = canVerify ? 'Verify card' : canUpgrade ? 'Upgrade' : 'Close';
-	const actions = [primaryAction];
+  // Usage is one pool shared with Deni AI chat and Deni Run, not split by model class.
+  const title = 'Usage limit reached';
+  const message = `${title}: ${error.message}`;
+  const canVerify = error.canVerifyForBoost === true;
+  const canUpgrade = error.canUpgrade === true;
+  const primaryAction = canVerify ? 'Verify card' : canUpgrade ? 'Upgrade' : 'Close';
+  const actions = [primaryAction];
 
-	if (canVerify && canUpgrade) {
-		actions.push('Upgrade');
-	} else if (primaryAction !== 'Close') {
-		actions.push('Close');
-	}
+  if (canVerify && canUpgrade) {
+    actions.push('Upgrade');
+  } else if (primaryAction !== 'Close') {
+    actions.push('Close');
+  }
 
-	const selected = await vscode.window.showErrorMessage(
-		message,
-		{ modal: true },
-		...actions
-	);
+  const selected = await vscode.window.showErrorMessage(message, { modal: true }, ...actions);
 
-	if (selected === 'Verify card' && error.verifyUrl) {
-		vscode.env.openExternal(vscode.Uri.parse(error.verifyUrl));
-	} else if (selected === 'Upgrade' && error.upgradeUrl) {
-		vscode.env.openExternal(vscode.Uri.parse(error.upgradeUrl));
-	}
+  if (selected === 'Verify card' && error.verifyUrl) {
+    vscode.env.openExternal(vscode.Uri.parse(error.verifyUrl));
+  } else if (selected === 'Upgrade' && error.upgradeUrl) {
+    vscode.env.openExternal(vscode.Uri.parse(error.upgradeUrl));
+  }
 
-	if (onAfterAction) {
-		await onAfterAction();
-	}
+  if (onAfterAction) {
+    await onAfterAction();
+  }
 }
 
 function normalizeUsageItem(item: Partial<UsageItem>): UsageItem | null {
-	if (
-		(item.category !== 'basic' && item.category !== 'premium') ||
-		typeof item.limit !== 'number' ||
-		typeof item.used !== 'number'
-	) {
-		return null;
-	}
+  if (
+    (item.category !== 'basic' && item.category !== 'premium') ||
+    typeof item.limit !== 'number' ||
+    typeof item.used !== 'number'
+  ) {
+    return null;
+  }
 
-	return {
-		category: item.category,
-		limit: item.limit,
-		used: item.used,
-		unit: typeof item.unit === 'string' ? item.unit : 'units',
-		remaining:
-			typeof item.remaining === 'number'
-				? item.remaining
-				: Math.max(item.limit - item.used, 0),
-		periodStart: typeof item.periodStart === 'string' ? item.periodStart : '',
-		periodEnd: typeof item.periodEnd === 'string' ? item.periodEnd : '',
-	};
+  return {
+    category: item.category,
+    limit: item.limit,
+    used: item.used,
+    unit: typeof item.unit === 'string' ? item.unit : 'units',
+    remaining:
+      typeof item.remaining === 'number' ? item.remaining : Math.max(item.limit - item.used, 0),
+    periodStart: typeof item.periodStart === 'string' ? item.periodStart : '',
+    periodEnd: typeof item.periodEnd === 'string' ? item.periodEnd : '',
+  };
 }
 
 function normalizeUsageResponse(payload: unknown): UsageResponse {
-	const record = payload as Partial<UsageResponse>;
-	const planId = record.planId ?? null;
-	const usage = Array.isArray(record.usage)
-		? record.usage
-			.map((item) => normalizeUsageItem(item as Partial<UsageItem>))
-			.filter((item): item is UsageItem => !!item)
-		: [];
+  const record = payload as Partial<UsageResponse>;
+  const planId = record.planId ?? null;
+  const usage = Array.isArray(record.usage)
+    ? record.usage
+        .map((item) => normalizeUsageItem(item as Partial<UsageItem>))
+        .filter((item): item is UsageItem => !!item)
+    : [];
 
-	return {
-		tier: record.tier ?? 'free',
-		planId,
-		status: record.status ?? null,
-		periodEnd: record.periodEnd ?? usage[0]?.periodEnd ?? null,
-		maxModeEnabled: record.maxModeEnabled ?? false,
-		maxModeEligible: record.maxModeEligible ?? false,
-		isTeam: record.isTeam === true,
-		hasVerifiedPaymentMethod: record.hasVerifiedPaymentMethod ?? false,
-		cardVerifiedAt: record.cardVerifiedAt ?? null,
-		cardFunding: record.cardFunding ?? null,
-		verifyUrl: record.verifyUrl ?? null,
-		upgradeUrl: record.upgradeUrl ?? null,
-		usage,
-	};
+  return {
+    tier: record.tier ?? 'free',
+    planId,
+    status: record.status ?? null,
+    periodEnd: record.periodEnd ?? usage[0]?.periodEnd ?? null,
+    maxModeEnabled: record.maxModeEnabled ?? false,
+    maxModeEligible: record.maxModeEligible ?? false,
+    isTeam: record.isTeam === true,
+    hasVerifiedPaymentMethod: record.hasVerifiedPaymentMethod ?? false,
+    cardVerifiedAt: record.cardVerifiedAt ?? null,
+    cardFunding: record.cardFunding ?? null,
+    verifyUrl: record.verifyUrl ?? null,
+    upgradeUrl: record.upgradeUrl ?? null,
+    usage,
+  };
 }
 
 export class UsageService {
-	private _context: vscode.ExtensionContext;
-	private _cache: CachedUsage | null = null;
-	private _onUsageChanged = new vscode.EventEmitter<UsageResponse | null>();
-	public readonly onUsageChanged = this._onUsageChanged.event;
-	private _lowQuotaWarningShown: Set<UsageCategory> = new Set();
+  private _context: vscode.ExtensionContext;
+  private _cache: CachedUsage | null = null;
+  private _onUsageChanged = new vscode.EventEmitter<UsageResponse | null>();
+  public readonly onUsageChanged = this._onUsageChanged.event;
+  private _lowQuotaWarningShown: Set<UsageCategory> = new Set();
 
-	constructor(context: vscode.ExtensionContext) {
-		this._context = context;
-	}
+  constructor(context: vscode.ExtensionContext) {
+    this._context = context;
+  }
 
-	async getApiKey(): Promise<string | undefined> {
-		return this._context.secrets.get(API_KEY_SECRET_KEY);
-	}
+  async getApiKey(): Promise<string | undefined> {
+    return this._context.secrets.get(API_KEY_SECRET_KEY);
+  }
 
-	async setApiKey(key: string | undefined): Promise<void> {
-		if (key) {
-			await this._context.secrets.store(API_KEY_SECRET_KEY, key);
-		} else {
-			await this._context.secrets.delete(API_KEY_SECRET_KEY);
-		}
-		this._cache = null;
-		this._lowQuotaWarningShown.clear();
-		if (key) {
-			await this.fetchUsage(true);
-		} else {
-			this._onUsageChanged.fire(null);
-		}
-	}
+  async setApiKey(key: string | undefined): Promise<void> {
+    if (key) {
+      await this._context.secrets.store(API_KEY_SECRET_KEY, key);
+    } else {
+      await this._context.secrets.delete(API_KEY_SECRET_KEY);
+    }
+    this._cache = null;
+    this._lowQuotaWarningShown.clear();
+    if (key) {
+      await this.fetchUsage(true);
+    } else {
+      this._onUsageChanged.fire(null);
+    }
+  }
 
-	async logout(): Promise<void> {
-		await this.setApiKey(undefined);
-	}
+  async logout(): Promise<void> {
+    await this.setApiKey(undefined);
+  }
 
-	async isLoggedIn(): Promise<boolean> {
-		const key = await this.getApiKey();
-		return !!key;
-	}
+  async isLoggedIn(): Promise<boolean> {
+    const key = await this.getApiKey();
+    return !!key;
+  }
 
-	getCachedUsage(): UsageResponse | null {
-		if (!this._cache) {
-			return null;
-		}
-		return this._cache.data;
-	}
+  getCachedUsage(): UsageResponse | null {
+    if (!this._cache) {
+      return null;
+    }
+    return this._cache.data;
+  }
 
-	getTier(): Tier | null {
-		const data = this.getCachedUsage();
-		return data?.tier ?? null;
-	}
+  getTier(): Tier | null {
+    const data = this.getCachedUsage();
+    return data?.tier ?? null;
+  }
 
-	canUseModel(model: string): boolean {
-		const tier = this.getTier();
-		if (!tier) {
-			return false;
-		}
-		const required = getModelTierRequirement(model);
-		return canUseTier(tier, required);
-	}
+  canUseModel(model: string): boolean {
+    const tier = this.getTier();
+    if (!tier) {
+      return false;
+    }
+    const required = getModelTierRequirement(model);
+    return canUseTier(tier, required);
+  }
 
-	async fetchUsage(force = false): Promise<UsageResponse | null> {
-		const apiKey = await this.getApiKey();
-		if (!apiKey) {
-			this._onUsageChanged.fire(null);
-			return null;
-		}
+  async fetchUsage(force = false): Promise<UsageResponse | null> {
+    const apiKey = await this.getApiKey();
+    if (!apiKey) {
+      this._onUsageChanged.fire(null);
+      return null;
+    }
 
-		if (!force && this._cache) {
-			const age = Date.now() - this._cache.fetchedAt;
-			if (age < CACHE_DURATION_MS) {
-				return this._cache.data;
-			}
-		}
+    if (!force && this._cache) {
+      const age = Date.now() - this._cache.fetchedAt;
+      if (age < CACHE_DURATION_MS) {
+        return this._cache.data;
+      }
+    }
 
-		try {
-			const apiBaseUrl = getFlixaApiBaseUrl();
-			const endpoints = [
-				`${apiBaseUrl}/v1/deni/billing-status`,
-				`${apiBaseUrl}/v1/deni/usage`,
-			];
-			let response: Response | null = null;
-			let usedEndpoint = endpoints[0];
-			for (const endpoint of endpoints) {
-				usedEndpoint = endpoint;
-				response = await fetch(endpoint, {
-					headers: {
-						...getFlixaClientHeaders(),
-						Authorization: `Bearer ${apiKey}`,
-					},
-				});
-				if (response.status !== 404) {
-					break;
-				}
-			}
+    try {
+      const apiBaseUrl = getFlixaApiBaseUrl();
+      const endpoints = [`${apiBaseUrl}/v1/deni/billing-status`, `${apiBaseUrl}/v1/deni/usage`];
+      let response: Response | null = null;
+      let usedEndpoint = endpoints[0];
+      for (const endpoint of endpoints) {
+        usedEndpoint = endpoint;
+        response = await fetch(endpoint, {
+          headers: {
+            ...getFlixaClientHeaders(),
+            Authorization: `Bearer ${apiKey}`,
+          },
+        });
+        if (response.status !== 404) {
+          break;
+        }
+      }
 
-			if (response?.status === 401 || response?.status === 403) {
-				let errorCode: string | null = null;
-				try {
-					const body = (await response.json()) as unknown;
-					errorCode = extractApiErrorCode(body);
-				} catch {
-					// ignore
-				}
+      if (response?.status === 401 || response?.status === 403) {
+        let errorCode: string | null = null;
+        try {
+          const body = (await response.json()) as unknown;
+          errorCode = extractApiErrorCode(body);
+        } catch {
+          // ignore
+        }
 
-				if (errorCode === 'missing_client_signal') {
-					logMissingClientSignal(usedEndpoint);
-				}
+        if (errorCode === 'missing_client_signal') {
+          logMissingClientSignal(usedEndpoint);
+        }
 
-				const clientMessage =
-					(errorCode && getClientSignalUserMessage(errorCode)) ||
-					(response.status === 401
-						? 'API key is invalid or expired. Please log in again.'
-						: null);
+        const clientMessage =
+          (errorCode && getClientSignalUserMessage(errorCode)) ||
+          (response.status === 401 ? 'API key is invalid or expired. Please log in again.' : null);
 
-				if (response.status === 401) {
-					await this.logout();
-				}
+        if (response.status === 401) {
+          await this.logout();
+        }
 
-				if (clientMessage) {
-					vscode.window.showErrorMessage(`Flixa: ${clientMessage}`);
-					return null;
-				}
+        if (clientMessage) {
+          vscode.window.showErrorMessage(`Flixa: ${clientMessage}`);
+          return null;
+        }
 
-				if (response.status === 403) {
-					vscode.window.showErrorMessage(
-						'Flixa: Access denied. Please contact support.'
-					);
-					return null;
-				}
+        if (response.status === 403) {
+          vscode.window.showErrorMessage('Flixa: Access denied. Please contact support.');
+          return null;
+        }
 
-				vscode.window.showErrorMessage(
-					'Deni AI: API key is invalid or expired. Please log in again.'
-				);
-				return null;
-			}
+        vscode.window.showErrorMessage(
+          'Deni AI: API key is invalid or expired. Please log in again.',
+        );
+        return null;
+      }
 
-			if (!response || !response.ok) {
-				throw new Error(`HTTP ${response?.status ?? 'unknown'}`);
-			}
+      if (!response || !response.ok) {
+        throw new Error(`HTTP ${response?.status ?? 'unknown'}`);
+      }
 
-			const data = normalizeUsageResponse(await response.json());
-			this._cache = {
-				data,
-				fetchedAt: Date.now(),
-			};
-			this._onUsageChanged.fire(data);
-			return data;
-		} catch (error) {
-			console.log('[Flixa] fetchUsage - error:', error);
-			if (this._cache) {
-				return this._cache.data;
-			}
-			return null;
-		}
-	}
+      const data = normalizeUsageResponse(await response.json());
+      this._cache = {
+        data,
+        fetchedAt: Date.now(),
+      };
+      this._onUsageChanged.fire(data);
+      return data;
+    } catch (error) {
+      console.log('[Flixa] fetchUsage - error:', error);
+      if (this._cache) {
+        return this._cache.data;
+      }
+      return null;
+    }
+  }
 
-	incrementUsage(category: UsageCategory): void {
-		if (!this._cache) {
-			return;
-		}
-		const usageItem = this._cache.data.usage.find(
-			(u) => u.category === category
-		);
-		if (usageItem && usageItem.remaining > 0) {
-			usageItem.used += 1;
-			usageItem.remaining -= 1;
-			this._onUsageChanged.fire(this._cache.data);
-		}
-	}
+  incrementUsage(category: UsageCategory): void {
+    if (!this._cache) {
+      return;
+    }
+    const usageItem = this._cache.data.usage.find((u) => u.category === category);
+    if (usageItem && usageItem.remaining > 0) {
+      usageItem.used += 1;
+      usageItem.remaining -= 1;
+      this._onUsageChanged.fire(this._cache.data);
+    }
+  }
 
-	async refreshAfterSend(category: UsageCategory): Promise<void> {
-		void category;
-		setTimeout(() => {
-			this.fetchUsage(true);
-		}, 1000);
-	}
+  async refreshAfterSend(category: UsageCategory): Promise<void> {
+    void category;
+    setTimeout(() => {
+      this.fetchUsage(true);
+    }, 1000);
+  }
 
-	getUsageForCategory(category: UsageCategory): {
-		used: number;
-		limit: number;
-		remaining: number;
-	} | null {
-		const data = this.getCachedUsage();
-		if (!data) {
-			return null;
-		}
-		const item = data.usage.find((u) => u.category === category);
-		if (!item) {
-			return null;
-		}
-		return {
-			used: item.used,
-			limit: item.limit,
-			remaining: item.remaining,
-		};
-	}
+  getUsageForCategory(category: UsageCategory): {
+    used: number;
+    limit: number;
+    remaining: number;
+  } | null {
+    const data = this.getCachedUsage();
+    if (!data) {
+      return null;
+    }
+    const item = data.usage.find((u) => u.category === category);
+    if (!item) {
+      return null;
+    }
+    return {
+      used: item.used,
+      limit: item.limit,
+      remaining: item.remaining,
+    };
+  }
 
-	checkQuotaAndWarn(category: UsageCategory): {
-		canProceed: boolean;
-		maxModeEnabled: boolean;
-		maxModeEligible: boolean;
-		remaining: number;
-		limit: number;
-	} {
-		const data = this.getCachedUsage();
-		if (!data) {
-			return {
-				canProceed: true,
-				maxModeEnabled: false,
-				maxModeEligible: false,
-				remaining: 0,
-				limit: 0,
-			};
-		}
+  checkQuotaAndWarn(category: UsageCategory): {
+    canProceed: boolean;
+    maxModeEnabled: boolean;
+    maxModeEligible: boolean;
+    remaining: number;
+    limit: number;
+  } {
+    const data = this.getCachedUsage();
+    if (!data) {
+      return {
+        canProceed: true,
+        maxModeEnabled: false,
+        maxModeEligible: false,
+        remaining: 0,
+        limit: 0,
+      };
+    }
 
-		const item = primaryUsage(data);
-		if (!item) {
-			return {
-				canProceed: true,
-				maxModeEnabled: data.maxModeEnabled,
-				maxModeEligible: data.maxModeEligible,
-				remaining: 0,
-				limit: 0,
-			};
-		}
+    const item = primaryUsage(data);
+    if (!item) {
+      return {
+        canProceed: true,
+        maxModeEnabled: data.maxModeEnabled,
+        maxModeEligible: data.maxModeEligible,
+        remaining: 0,
+        limit: 0,
+      };
+    }
 
-		const percentage = (item.remaining / item.limit) * 100;
-		if (percentage <= 10 && percentage > 0) {
-			if (!this._lowQuotaWarningShown.has(category)) {
-				this._lowQuotaWarningShown.add(category);
-				vscode.window.showWarningMessage(
-					`Deni AI: monthly usage is low (${Math.round(percentage)}% left)`
-				);
-			}
-		}
+    const percentage = (item.remaining / item.limit) * 100;
+    if (percentage <= 10 && percentage > 0) {
+      if (!this._lowQuotaWarningShown.has(category)) {
+        this._lowQuotaWarningShown.add(category);
+        vscode.window.showWarningMessage(
+          `Deni AI: monthly usage is low (${Math.round(percentage)}% left)`,
+        );
+      }
+    }
 
-		return {
-			canProceed: item.remaining > 0 || data.maxModeEnabled,
-			maxModeEnabled: data.maxModeEnabled,
-			maxModeEligible: data.maxModeEligible,
-			remaining: item.remaining,
-			limit: item.limit,
-		};
-	}
+    return {
+      canProceed: item.remaining > 0 || data.maxModeEnabled,
+      maxModeEnabled: data.maxModeEnabled,
+      maxModeEligible: data.maxModeEligible,
+      remaining: item.remaining,
+      limit: item.limit,
+    };
+  }
 
-	resetWarnings(): void {
-		this._lowQuotaWarningShown.clear();
-	}
+  resetWarnings(): void {
+    this._lowQuotaWarningShown.clear();
+  }
 
-	getBillingUrl(): string {
-		return getBillingUrl();
-	}
+  getBillingUrl(): string {
+    return getBillingUrl();
+  }
 
-	async loginWithDeviceAuth(): Promise<boolean> {
-		const baseUrl = getDeniAiBaseUrl();
+  async loginWithDeviceAuth(): Promise<boolean> {
+    const baseUrl = getDeniAiBaseUrl();
 
-		let initiateResponse: DeviceAuthInitiateResponse;
-		try {
-			const res = await fetch(`${baseUrl}/api/device-auth`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ action: 'initiate' }),
-			});
-			if (!res.ok) {
-				const responseText = await res.text();
-				log(
-					'[Flixa] loginWithDeviceAuth initiate failed',
-					JSON.stringify({
-						status: res.status,
-						statusText: res.statusText,
-						baseUrl,
-						responseText,
-					})
-				);
-				throw new Error(`HTTP ${res.status}`);
-			}
-			initiateResponse = (await res.json()) as DeviceAuthInitiateResponse;
-		} catch (error) {
-			log('[Flixa] loginWithDeviceAuth initiate error', error);
-			vscode.window.showErrorMessage(
-				'Deni AI: Failed to initiate login. Please try again.'
-			);
-			return false;
-		}
+    let initiateResponse: DeviceAuthInitiateResponse;
+    try {
+      const res = await fetch(`${baseUrl}/api/device-auth`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'initiate' }),
+      });
+      if (!res.ok) {
+        const responseText = await res.text();
+        log(
+          '[Flixa] loginWithDeviceAuth initiate failed',
+          JSON.stringify({
+            status: res.status,
+            statusText: res.statusText,
+            baseUrl,
+            responseText,
+          }),
+        );
+        throw new Error(`HTTP ${res.status}`);
+      }
+      initiateResponse = (await res.json()) as DeviceAuthInitiateResponse;
+    } catch (error) {
+      log('[Flixa] loginWithDeviceAuth initiate error', error);
+      vscode.window.showErrorMessage('Deni AI: Failed to initiate login. Please try again.');
+      return false;
+    }
 
-		const { userCode, deviceCode } = initiateResponse;
-		const authUrl = `${baseUrl}/flixa/authorize?code=${userCode}`;
+    const { userCode, deviceCode } = initiateResponse;
+    const authUrl = `${baseUrl}/flixa/authorize?code=${userCode}`;
 
-		vscode.env.openExternal(vscode.Uri.parse(authUrl));
+    vscode.env.openExternal(vscode.Uri.parse(authUrl));
 
-		return new Promise((resolve) => {
-			vscode.window.withProgress(
-				{
-					location: vscode.ProgressLocation.Notification,
-					title: `Deni AI: Waiting for approval... Code: ${userCode}`,
-					cancellable: true,
-				},
-				async (_progress, token) => {
-					const startTime = Date.now();
-					let cancelled = false;
+    return new Promise((resolve) => {
+      vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: `Deni AI: Waiting for approval... Code: ${userCode}`,
+          cancellable: true,
+        },
+        async (_progress, token) => {
+          const startTime = Date.now();
+          let cancelled = false;
 
-					token.onCancellationRequested(() => {
-						cancelled = true;
-					});
+          token.onCancellationRequested(() => {
+            cancelled = true;
+          });
 
-					while (!cancelled) {
-						const elapsed = Date.now() - startTime;
-						if (elapsed > DEVICE_AUTH_TIMEOUT_MS) {
-							vscode.window.showErrorMessage(
-								'Deni AI: Login timed out. Please try again.'
-							);
-							resolve(false);
-							return;
-						}
+          while (!cancelled) {
+            const elapsed = Date.now() - startTime;
+            if (elapsed > DEVICE_AUTH_TIMEOUT_MS) {
+              vscode.window.showErrorMessage('Deni AI: Login timed out. Please try again.');
+              resolve(false);
+              return;
+            }
 
-						await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+            await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
 
-						if (cancelled) {
-							resolve(false);
-							return;
-						}
+            if (cancelled) {
+              resolve(false);
+              return;
+            }
 
-						try {
-							const res = await fetch(`${baseUrl}/api/device-auth`, {
-								method: 'POST',
-								headers: { 'Content-Type': 'application/json' },
-								body: JSON.stringify({ action: 'poll', deviceCode }),
-							});
+            try {
+              const res = await fetch(`${baseUrl}/api/device-auth`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'poll', deviceCode }),
+              });
 
-							if (res.status === 410) {
-								log(
-									'[Flixa] loginWithDeviceAuth poll expired',
-									JSON.stringify({ deviceCode })
-								);
-								vscode.window.showErrorMessage(
-									'Deni AI: Login expired. Please try again.'
-								);
-								resolve(false);
-								return;
-							}
+              if (res.status === 410) {
+                log('[Flixa] loginWithDeviceAuth poll expired', JSON.stringify({ deviceCode }));
+                vscode.window.showErrorMessage('Deni AI: Login expired. Please try again.');
+                resolve(false);
+                return;
+              }
 
-							if (!res.ok) {
-								const responseText = await res.text();
-								log(
-									'[Flixa] loginWithDeviceAuth poll failed',
-									JSON.stringify({
-										status: res.status,
-										statusText: res.statusText,
-										baseUrl,
-										deviceCode,
-										responseText,
-									})
-								);
-								vscode.window.showErrorMessage(
-									'Deni AI: Login failed. Please try again.'
-								);
-								resolve(false);
-								return;
-							}
+              if (!res.ok) {
+                const responseText = await res.text();
+                log(
+                  '[Flixa] loginWithDeviceAuth poll failed',
+                  JSON.stringify({
+                    status: res.status,
+                    statusText: res.statusText,
+                    baseUrl,
+                    deviceCode,
+                    responseText,
+                  }),
+                );
+                vscode.window.showErrorMessage('Deni AI: Login failed. Please try again.');
+                resolve(false);
+                return;
+              }
 
-							const pollResponse =
-								(await res.json()) as DeviceAuthPollResponse;
-							log(
-								'[Flixa] loginWithDeviceAuth poll response',
-								JSON.stringify({
-									deviceCode,
-									approved: pollResponse.approved,
-									hasApiKey: !!pollResponse.apiKey,
-								})
-							);
+              const pollResponse = (await res.json()) as DeviceAuthPollResponse;
+              log(
+                '[Flixa] loginWithDeviceAuth poll response',
+                JSON.stringify({
+                  deviceCode,
+                  approved: pollResponse.approved,
+                  hasApiKey: !!pollResponse.apiKey,
+                }),
+              );
 
-							if (pollResponse.approved && pollResponse.apiKey) {
-								await this.setApiKey(pollResponse.apiKey);
-								vscode.window.showInformationMessage(
-									'Deni AI: Logged in successfully!'
-								);
-								resolve(true);
-								return;
-							}
-						} catch (error) {
-							log('[Flixa] loginWithDeviceAuth poll error', error);
-						}
-					}
+              if (pollResponse.approved && pollResponse.apiKey) {
+                await this.setApiKey(pollResponse.apiKey);
+                vscode.window.showInformationMessage('Deni AI: Logged in successfully!');
+                resolve(true);
+                return;
+              }
+            } catch (error) {
+              log('[Flixa] loginWithDeviceAuth poll error', error);
+            }
+          }
 
-					resolve(false);
-				}
-			);
-		});
-	}
+          resolve(false);
+        },
+      );
+    });
+  }
 }

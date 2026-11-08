@@ -2,26 +2,19 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { generateNonce } from '../utils/format';
 
-export function getWebviewHtml(
-	webview: vscode.Webview,
-	extensionUri: vscode.Uri
-): string {
-	const webviewUiBuildPath = path.join(
-		extensionUri.fsPath,
-		'webview-ui',
-		'build'
-	);
+export function getWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
+  const webviewUiBuildPath = path.join(extensionUri.fsPath, 'webview-ui', 'build');
 
-	const scriptUri = webview.asWebviewUri(
-		vscode.Uri.file(path.join(webviewUiBuildPath, 'assets', 'index.js'))
-	);
-	const styleUri = webview.asWebviewUri(
-		vscode.Uri.file(path.join(webviewUiBuildPath, 'assets', 'index.css'))
-	);
+  const scriptUri = webview.asWebviewUri(
+    vscode.Uri.file(path.join(webviewUiBuildPath, 'assets', 'index.js')),
+  );
+  const styleUri = webview.asWebviewUri(
+    vscode.Uri.file(path.join(webviewUiBuildPath, 'assets', 'index.css')),
+  );
 
-	const nonce = generateNonce();
+  const nonce = generateNonce();
 
-	return `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">

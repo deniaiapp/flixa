@@ -6,7 +6,12 @@ import { showDiffPreview } from './diff/preview';
 import { applyPendingDiff } from './diff/apply';
 import { PendingDiff, ImplementRequest, ApprovalMode } from './types';
 import { setOutputChannel } from './logger';
-import { UsageService, UsageStatusBarItem, showQuotaExceededDialog, showUsageDetailPanel } from './usage';
+import {
+  UsageService,
+  UsageStatusBarItem,
+  showQuotaExceededDialog,
+  showUsageDetailPanel,
+} from './usage';
 import { setApiKey } from './llm/provider';
 
 let pendingDiff: PendingDiff | null = null;
@@ -49,19 +54,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   context.subscriptions.push(
     vscode.window.onDidChangeWindowState(async (state) => {
-      if (state.focused && usageService && await usageService.isLoggedIn()) {
+      if (state.focused && usageService && (await usageService.isLoggedIn())) {
         await usageService.fetchUsage(true);
       }
-    })
+    }),
   );
 
   const codeLensProvider = new FlixaCodeLensProvider();
   const codeLensDisposable = vscode.languages.registerCodeLensProvider(
-    [
-      { scheme: 'file', pattern: '**/*' },
-      { scheme: 'untitled' }
-    ],
-    codeLensProvider
+    [{ scheme: 'file', pattern: '**/*' }, { scheme: 'untitled' }],
+    codeLensProvider,
   );
   context.subscriptions.push(codeLensDisposable);
 
@@ -69,7 +71,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     context.extensionUri,
     context,
     storePendingDiff,
-    usageService
+    usageService,
   );
 
   usageService.onUsageChanged((data) => {
@@ -81,7 +83,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   const chatViewDisposable = vscode.window.registerWebviewViewProvider(
     ChatViewProvider.viewType,
-    chatViewProvider
+    chatViewProvider,
   );
   context.subscriptions.push(chatViewDisposable);
 
@@ -89,71 +91,46 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     'flixa.implementComment',
     async (uri: vscode.Uri, line: number, commentPayload: string) => {
       await handleImplement(uri, commentPayload);
-    }
+    },
   );
   context.subscriptions.push(implementCommand);
 
-  const openChatCommand = vscode.commands.registerCommand(
-    'flixa.openChat',
-    async () => {
-      await vscode.commands.executeCommand('flixa.chatView.focus');
-    }
-  );
+  const openChatCommand = vscode.commands.registerCommand('flixa.openChat', async () => {
+    await vscode.commands.executeCommand('flixa.chatView.focus');
+  });
   context.subscriptions.push(openChatCommand);
 
-  const newChatCommand = vscode.commands.registerCommand(
-    'flixa.newChat',
-    () => {
-      chatViewProvider?.newChat();
-    }
-  );
+  const newChatCommand = vscode.commands.registerCommand('flixa.newChat', () => {
+    chatViewProvider?.newChat();
+  });
   context.subscriptions.push(newChatCommand);
 
-  const chatHistoryCommand = vscode.commands.registerCommand(
-    'flixa.showChatHistory',
-    async () => {
-      await chatViewProvider?.showChatHistory();
-    }
-  );
+  const chatHistoryCommand = vscode.commands.registerCommand('flixa.showChatHistory', async () => {
+    await chatViewProvider?.showChatHistory();
+  });
   context.subscriptions.push(chatHistoryCommand);
 
-  const openSettingsCommand = vscode.commands.registerCommand(
-    'flixa.openSettings',
-    async () => {
-      await vscode.commands.executeCommand(
-        'workbench.action.openSettings',
-        '@ext:deniai.flixa'
-      );
-    }
-  );
+  const openSettingsCommand = vscode.commands.registerCommand('flixa.openSettings', async () => {
+    await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:deniai.flixa');
+  });
   context.subscriptions.push(openSettingsCommand);
 
-  const openPlanCommand = vscode.commands.registerCommand(
-    'flixa.openPlan',
-    async () => {
-      if (usageService) {
-        const billingUrl =
-          usageService.getCachedUsage()?.upgradeUrl ?? usageService.getBillingUrl();
-        await vscode.env.openExternal(vscode.Uri.parse(billingUrl));
-      }
+  const openPlanCommand = vscode.commands.registerCommand('flixa.openPlan', async () => {
+    if (usageService) {
+      const billingUrl = usageService.getCachedUsage()?.upgradeUrl ?? usageService.getBillingUrl();
+      await vscode.env.openExternal(vscode.Uri.parse(billingUrl));
     }
-  );
+  });
   context.subscriptions.push(openPlanCommand);
 
-  const applyDiffCommand = vscode.commands.registerCommand(
-    'flixa.applyDiff',
-    async () => {
-      await applyPendingDiff(pendingDiff, clearPendingDiff);
-    }
-  );
+  const applyDiffCommand = vscode.commands.registerCommand('flixa.applyDiff', async () => {
+    await applyPendingDiff(pendingDiff, clearPendingDiff);
+  });
   context.subscriptions.push(applyDiffCommand);
 
-  const inlineEditCommand = vscode.commands.registerCommand(
-    'flixa.inlineEdit',
-    async () => {
-      await handleInlineEdit();
-    }
-  );
+  const inlineEditCommand = vscode.commands.registerCommand('flixa.inlineEdit', async () => {
+    await handleInlineEdit();
+  });
   context.subscriptions.push(inlineEditCommand);
 
   const toggleAgentModeCommand = vscode.commands.registerCommand(
@@ -163,10 +140,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         const current = chatViewProvider.getAgentMode();
         chatViewProvider.setAgentMode(!current);
         vscode.window.showInformationMessage(
-          `Flixa: Agent mode ${!current ? 'enabled' : 'disabled'}`
+          `Flixa: Agent mode ${!current ? 'enabled' : 'disabled'}`,
         );
       }
-    }
+    },
   );
   context.subscriptions.push(toggleAgentModeCommand);
 
@@ -203,11 +180,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
       if (selected && chatViewProvider) {
         chatViewProvider.setApprovalMode(selected.value);
-        vscode.window.showInformationMessage(
-          `Flixa: Approval mode set to ${selected.label}`
-        );
+        vscode.window.showInformationMessage(`Flixa: Approval mode set to ${selected.label}`);
       }
-    }
+    },
   );
   context.subscriptions.push(setApprovalModeCommand);
 
@@ -217,55 +192,43 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       if (usageService) {
         await showUsageDetailPanel(usageService);
       }
-    }
+    },
   );
   context.subscriptions.push(showUsageDetailCommand);
 
-  const loginCommand = vscode.commands.registerCommand(
-    'flixa.login',
-    async () => {
-      if (!usageService) {
-        return;
-      }
-      const loggedIn = await usageService.loginWithDeviceAuth();
-      if (loggedIn && chatViewProvider) {
-        await chatViewProvider.refreshState();
-      }
+  const loginCommand = vscode.commands.registerCommand('flixa.login', async () => {
+    if (!usageService) {
+      return;
     }
-  );
+    const loggedIn = await usageService.loginWithDeviceAuth();
+    if (loggedIn && chatViewProvider) {
+      await chatViewProvider.refreshState();
+    }
+  });
   context.subscriptions.push(loginCommand);
 
-  const logoutCommand = vscode.commands.registerCommand(
-    'flixa.logout',
-    async () => {
-      if (usageService) {
-        await usageService.logout();
-        vscode.window.showInformationMessage('Deni AI: Logged out');
-      }
+  const logoutCommand = vscode.commands.registerCommand('flixa.logout', async () => {
+    if (usageService) {
+      await usageService.logout();
+      vscode.window.showInformationMessage('Deni AI: Logged out');
     }
-  );
+  });
   context.subscriptions.push(logoutCommand);
 
-  const refreshUsageCommand = vscode.commands.registerCommand(
-    'flixa.refreshUsage',
-    async () => {
-      if (usageService) {
-        await usageService.fetchUsage(true);
-      }
+  const refreshUsageCommand = vscode.commands.registerCommand('flixa.refreshUsage', async () => {
+    if (usageService) {
+      await usageService.fetchUsage(true);
     }
-  );
+  });
   context.subscriptions.push(refreshUsageCommand);
 }
 
-async function handleImplement(
-  uri: vscode.Uri,
-  commentPayload: string
-): Promise<void> {
+async function handleImplement(uri: vscode.Uri, commentPayload: string): Promise<void> {
   await vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
       title: 'Flixa: Generating implementation...',
-      cancellable: false
+      cancellable: false,
     },
     async () => {
       const document = await vscode.workspace.openTextDocument(uri);
@@ -301,7 +264,7 @@ async function handleImplement(
 
       await showDiffPreview(uri, fullFileText, response.newContent, 'codelens', storePendingDiff);
       clearPendingDiff();
-    }
+    },
   );
 }
 
@@ -322,7 +285,7 @@ async function handleInlineEdit(): Promise<void> {
   const input = await vscode.window.showInputBox({
     prompt: 'What do you want to do?',
     placeHolder: 'e.g., "add error handling", "refactor this function", "create a todo app"',
-    ignoreFocusOut: true
+    ignoreFocusOut: true,
   });
 
   if (!input) {
@@ -339,7 +302,7 @@ async function handleInlineEdit(): Promise<void> {
     {
       location: vscode.ProgressLocation.Notification,
       title: 'Flixa: Generating...',
-      cancellable: false
+      cancellable: false,
     },
     async () => {
       const request: ImplementRequest = {
@@ -375,6 +338,6 @@ async function handleInlineEdit(): Promise<void> {
 
       await showDiffPreview(uri, fullFileText, response.newContent, 'codelens', storePendingDiff);
       clearPendingDiff();
-    }
+    },
   );
 }

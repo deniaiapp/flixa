@@ -136,11 +136,12 @@ export default function App() {
 		setModelVSCode(model);
 		const modelDefinition = modelDefinitions.find((definition) => definition.id === model);
 		const availableEfforts = getAvailableReasoningEfforts(model, modelDefinition?.reasoningEfforts);
-		const nextEffort = selectedReasoningEffort && availableEfforts.includes(selectedReasoningEffort)
-			? selectedReasoningEffort
-			: availableEfforts.includes('medium')
-				? 'medium'
-				: availableEfforts[0] ?? null;
+		const nextEffort =
+			selectedReasoningEffort && availableEfforts.includes(selectedReasoningEffort)
+				? selectedReasoningEffort
+				: availableEfforts.includes('medium')
+					? 'medium'
+					: (availableEfforts[0] ?? null);
 		if (nextEffort !== selectedReasoningEffort) {
 			setSelectedReasoningEffort(nextEffort);
 			setReasoningEffortVSCode(nextEffort ?? '');

@@ -1,26 +1,14 @@
 import { expect, test } from 'vitest';
-import {
-  getAvailableReasoningEfforts,
-  normalizeReasoningEfforts,
-} from './reasoning';
+import { getAvailableReasoningEfforts, normalizeReasoningEfforts } from './reasoning';
 
 test('uses the efforts provided by the backend', () => {
   expect(
     getAvailableReasoningEfforts('openai/gpt-6-luna', ['low', 'medium', 'high', 'xhigh', 'max']),
-  ).toEqual([
-    'low',
-    'medium',
-    'high',
-    'xhigh',
-    'max',
-  ]);
+  ).toEqual(['low', 'medium', 'high', 'xhigh', 'max']);
 });
 
 test('normalizes provider efforts and hides none and minimal', () => {
-  expect(normalizeReasoningEfforts(['none', 'minimal', 'low', 'max'])).toEqual([
-    'low',
-    'max',
-  ]);
+  expect(normalizeReasoningEfforts(['none', 'minimal', 'low', 'max'])).toEqual(['low', 'max']);
 });
 
 test('does not expose reasoning options when the provider disables them', () => {

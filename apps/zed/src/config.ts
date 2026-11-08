@@ -13,11 +13,7 @@ export const DEFAULT_APPROVAL_MODE = 'AUTO_APPROVE';
 export const DEFAULT_COMPACT_TOKEN_THRESHOLD = 200_000;
 export const DEFAULT_MAX_AGENT_ITERATIONS = 100;
 
-export type ApprovalMode =
-  | 'ALL_APPROVE'
-  | 'AUTO_APPROVE'
-  | 'SAFE_APPROVE'
-  | 'MANUAL_APPROVE';
+export type ApprovalMode = 'ALL_APPROVE' | 'AUTO_APPROVE' | 'SAFE_APPROVE' | 'MANUAL_APPROVE';
 
 export interface FlixaConfig {
   apiBaseUrl: string;
@@ -41,10 +37,7 @@ function getConfigDirectory(): string {
     return path.join(os.homedir(), 'Library', 'Application Support', 'Flixa');
   }
 
-  return path.join(
-    process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'),
-    'flixa',
-  );
+  return path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'flixa');
 }
 
 export function getApiKeyPath(): string {

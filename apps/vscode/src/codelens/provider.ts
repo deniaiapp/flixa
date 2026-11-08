@@ -15,10 +15,8 @@ export interface DetectedComment {
 }
 
 export class FlixaCodeLensProvider implements vscode.CodeLensProvider {
-  private _onDidChangeCodeLenses: vscode.EventEmitter<void> =
-    new vscode.EventEmitter<void>();
-  public readonly onDidChangeCodeLenses: vscode.Event<void> =
-    this._onDidChangeCodeLenses.event;
+  private _onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
+  public readonly onDidChangeCodeLenses: vscode.Event<void> = this._onDidChangeCodeLenses.event;
 
   constructor() {
     vscode.workspace.onDidChangeTextDocument(() => {
@@ -28,7 +26,7 @@ export class FlixaCodeLensProvider implements vscode.CodeLensProvider {
 
   public provideCodeLenses(
     document: vscode.TextDocument,
-    _token: vscode.CancellationToken
+    _token: vscode.CancellationToken,
   ): vscode.CodeLens[] {
     console.log('[Flixa CodeLens] provideCodeLenses called for:', document.uri.fsPath);
     const codeLenses: vscode.CodeLens[] = [];
@@ -38,7 +36,7 @@ export class FlixaCodeLensProvider implements vscode.CodeLensProvider {
     for (const comment of detectedComments) {
       const range = new vscode.Range(
         new vscode.Position(comment.line, 0),
-        new vscode.Position(comment.line, 0)
+        new vscode.Position(comment.line, 0),
       );
 
       const codeLens = new vscode.CodeLens(range, {

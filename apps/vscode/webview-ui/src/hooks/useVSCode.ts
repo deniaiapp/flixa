@@ -3,7 +3,12 @@ import { vscode } from '../vscode';
 import type { ImageAttachment } from '../types';
 
 export interface UseVSCodeReturn {
-	sendMessage: (text: string, images?: ImageAttachment[], excludedActiveFilePath?: string, queued?: boolean) => void;
+	sendMessage: (
+		text: string,
+		images?: ImageAttachment[],
+		excludedActiveFilePath?: string,
+		queued?: boolean,
+	) => void;
 	respondApproval: (id: string, decision: 'approve' | 'reject') => void;
 	copyToClipboard: (text: string) => void;
 	editMessage: (index: number, message: string) => void;
@@ -25,9 +30,23 @@ export interface UseVSCodeReturn {
 }
 
 export function useVSCode(): UseVSCodeReturn {
-	const sendMessage = useCallback((text: string, images?: ImageAttachment[], excludedActiveFilePath?: string, queued?: boolean) => {
-		vscode.postMessage({ type: 'sendMessage', message: text, images, excludedActiveFilePath, queued });
-	}, []);
+	const sendMessage = useCallback(
+		(
+			text: string,
+			images?: ImageAttachment[],
+			excludedActiveFilePath?: string,
+			queued?: boolean,
+		) => {
+			vscode.postMessage({
+				type: 'sendMessage',
+				message: text,
+				images,
+				excludedActiveFilePath,
+				queued,
+			});
+		},
+		[],
+	);
 
 	const respondApproval = useCallback((id: string, decision: 'approve' | 'reject') => {
 		vscode.postMessage({ type: 'approvalResponse', id, decision });

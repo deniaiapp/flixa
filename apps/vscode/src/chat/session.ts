@@ -1,210 +1,206 @@
 import type * as vscode from 'vscode';
 import type {
-	ChatCompletionToolCall,
-	ReferencedContextFile,
-	SerializedActionResult,
-	SerializedToolResult,
-	SessionMessage,
+  ChatCompletionToolCall,
+  ReferencedContextFile,
+  SerializedActionResult,
+  SerializedToolResult,
+  SessionMessage,
 } from '../types';
 import { isSlashCommandMessage } from './slashCommands';
 
 export interface ChatMessage {
-	role: 'user' | 'assistant' | 'system' | 'result' | 'tool' | 'executing';
-	content: string;
-	results?: SerializedActionResult[];
-	tool_calls?: ChatCompletionToolCall[];
-	toolResults?: SerializedToolResult[];
-	executingAction?: string;
-	executingOutput?: string;
-	activeSelection?: string;
-	activeFilePath?: string;
-	activeSelectionLabel?: string;
-	mentionedFiles?: ReferencedContextFile[];
+  role: 'user' | 'assistant' | 'system' | 'result' | 'tool' | 'executing';
+  content: string;
+  results?: SerializedActionResult[];
+  tool_calls?: ChatCompletionToolCall[];
+  toolResults?: SerializedToolResult[];
+  executingAction?: string;
+  executingOutput?: string;
+  activeSelection?: string;
+  activeFilePath?: string;
+  activeSelectionLabel?: string;
+  mentionedFiles?: ReferencedContextFile[];
 }
 
 export interface ChatSession {
-	id: string;
-	name: string;
-	messages: ChatMessage[];
-	createdAt: number;
-	/** Canonical Responses input window after standalone compact (use as-is). */
-	compactedInput?: unknown[];
-	/** Length of getSessionMessages() at the time of last compact. */
-	compactedSessionMessageCount?: number;
+  id: string;
+  name: string;
+  messages: ChatMessage[];
+  createdAt: number;
+  /** Canonical Responses input window after standalone compact (use as-is). */
+  compactedInput?: unknown[];
+  /** Length of getSessionMessages() at the time of last compact. */
+  compactedSessionMessageCount?: number;
 }
 
 export class SessionManager {
-	private _sessions: ChatSession[] = [];
-	private _currentSessionId: string = '';
-	private _context: vscode.ExtensionContext;
+  private _sessions: ChatSession[] = [];
+  private _currentSessionId: string = '';
+  private _context: vscode.ExtensionContext;
 
-	constructor(context: vscode.ExtensionContext) {
-		this._context = context;
-		this._loadSessions();
-	}
+  constructor(context: vscode.ExtensionContext) {
+    this._context = context;
+    this._loadSessions();
+  }
 
-	private _loadSessions(): void {
-		const saved = this._context.globalState.get<ChatSession[]>('chatSessions');
-		if (saved && saved.length > 0) {
-			this._sessions = saved;
-			this._currentSessionId =
-				this._context.globalState.get<string>('currentSessionId') ||
-				saved[0].id;
-		} else {
-			this.createNewSession();
-		}
-	}
+  private _loadSessions(): void {
+    const saved = this._context.globalState.get<ChatSession[]>('chatSessions');
+    if (saved && saved.length > 0) {
+      this._sessions = saved;
+      this._currentSessionId =
+        this._context.globalState.get<string>('currentSessionId') || saved[0].id;
+    } else {
+      this.createNewSession();
+    }
+  }
 
-	private _saveSessions(): void {
-		this._context.globalState.update('chatSessions', this._sessions);
-		this._context.globalState.update(
-			'currentSessionId',
-			this._currentSessionId
-		);
-	}
+  private _saveSessions(): void {
+    this._context.globalState.update('chatSessions', this._sessions);
+    this._context.globalState.update('currentSessionId', this._currentSessionId);
+  }
 
-	get sessions(): ChatSession[] {
-		return this._sessions;
-	}
+  get sessions(): ChatSession[] {
+    return this._sessions;
+  }
 
-	get currentSessionId(): string {
-		return this._currentSessionId;
-	}
+  get currentSessionId(): string {
+    return this._currentSessionId;
+  }
 
-	set currentSessionId(id: string) {
-		this._currentSessionId = id;
-		this._saveSessions();
-	}
+  set currentSessionId(id: string) {
+    this._currentSessionId = id;
+    this._saveSessions();
+  }
 
-	getCurrentSession(): ChatSession | undefined {
-		return this._sessions.find((s) => s.id === this._currentSessionId);
-	}
+  getCurrentSession(): ChatSession | undefined {
+    return this._sessions.find((s) => s.id === this._currentSessionId);
+  }
 
-	getMessages(): ChatMessage[] {
-		const session = this.getCurrentSession();
-		return session ? session.messages : [];
-	}
+  getMessages(): ChatMessage[] {
+    const session = this.getCurrentSession();
+    return session ? session.messages : [];
+  }
 
-	setMessages(messages: ChatMessage[]): void {
-		const session = this.getCurrentSession();
-		if (session) {
-			session.messages = messages;
-		}
-	}
+  setMessages(messages: ChatMessage[]): void {
+    const session = this.getCurrentSession();
+    if (session) {
+      session.messages = messages;
+    }
+  }
 
-	pushMessage(msg: ChatMessage): void {
-		const session = this.getCurrentSession();
-		if (session) {
-			session.messages.push(msg);
-		}
-	}
+  pushMessage(msg: ChatMessage): void {
+    const session = this.getCurrentSession();
+    if (session) {
+      session.messages.push(msg);
+    }
+  }
 
-	filterMessages(predicate: (m: ChatMessage) => boolean): void {
-		const session = this.getCurrentSession();
-		if (session) {
-			session.messages = session.messages.filter(predicate);
-		}
-	}
+  filterMessages(predicate: (m: ChatMessage) => boolean): void {
+    const session = this.getCurrentSession();
+    if (session) {
+      session.messages = session.messages.filter(predicate);
+    }
+  }
 
-	createNewSession(): string {
-		const id = Date.now().toString();
-		const session: ChatSession = {
-			id,
-			name: `Chat ${this._sessions.length + 1}`,
-			messages: [],
-			createdAt: Date.now(),
-			compactedInput: undefined,
-			compactedSessionMessageCount: undefined,
-		};
-		this._sessions.unshift(session);
-		this._currentSessionId = id;
-		this._saveSessions();
-		return id;
-	}
+  createNewSession(): string {
+    const id = Date.now().toString();
+    const session: ChatSession = {
+      id,
+      name: `Chat ${this._sessions.length + 1}`,
+      messages: [],
+      createdAt: Date.now(),
+      compactedInput: undefined,
+      compactedSessionMessageCount: undefined,
+    };
+    this._sessions.unshift(session);
+    this._currentSessionId = id;
+    this._saveSessions();
+    return id;
+  }
 
-	deleteSession(sessionId: string): void {
-		this._sessions = this._sessions.filter((s) => s.id !== sessionId);
-		if (this._currentSessionId === sessionId) {
-			if (this._sessions.length === 0) {
-				this.createNewSession();
-			} else {
-				this._currentSessionId = this._sessions[0].id;
-			}
-		}
-		this._saveSessions();
-	}
+  deleteSession(sessionId: string): void {
+    this._sessions = this._sessions.filter((s) => s.id !== sessionId);
+    if (this._currentSessionId === sessionId) {
+      if (this._sessions.length === 0) {
+        this.createNewSession();
+      } else {
+        this._currentSessionId = this._sessions[0].id;
+      }
+    }
+    this._saveSessions();
+  }
 
-	clearHistory(): void {
-		this.setMessages([]);
-		this.clearCompactedInput();
-		this._saveSessions();
-	}
+  clearHistory(): void {
+    this.setMessages([]);
+    this.clearCompactedInput();
+    this._saveSessions();
+  }
 
-	save(): void {
-		this._saveSessions();
-	}
+  save(): void {
+    this._saveSessions();
+  }
 
-	getCompactedInput(): unknown[] | null {
-		const session = this.getCurrentSession();
-		if (!session?.compactedInput || session.compactedInput.length === 0) {
-			return null;
-		}
-		return session.compactedInput;
-	}
+  getCompactedInput(): unknown[] | null {
+    const session = this.getCurrentSession();
+    if (!session?.compactedInput || session.compactedInput.length === 0) {
+      return null;
+    }
+    return session.compactedInput;
+  }
 
-	getCompactedSessionMessageCount(): number {
-		const session = this.getCurrentSession();
-		return session?.compactedSessionMessageCount ?? 0;
-	}
+  getCompactedSessionMessageCount(): number {
+    const session = this.getCurrentSession();
+    return session?.compactedSessionMessageCount ?? 0;
+  }
 
-	setCompactedInput(input: unknown[], sessionMessageCount: number): void {
-		const session = this.getCurrentSession();
-		if (!session) {
-			return;
-		}
-		session.compactedInput = input;
-		session.compactedSessionMessageCount = sessionMessageCount;
-		this._saveSessions();
-	}
+  setCompactedInput(input: unknown[], sessionMessageCount: number): void {
+    const session = this.getCurrentSession();
+    if (!session) {
+      return;
+    }
+    session.compactedInput = input;
+    session.compactedSessionMessageCount = sessionMessageCount;
+    this._saveSessions();
+  }
 
-	clearCompactedInput(): void {
-		const session = this.getCurrentSession();
-		if (!session) {
-			return;
-		}
-		session.compactedInput = undefined;
-		session.compactedSessionMessageCount = undefined;
-		this._saveSessions();
-	}
+  clearCompactedInput(): void {
+    const session = this.getCurrentSession();
+    if (!session) {
+      return;
+    }
+    session.compactedInput = undefined;
+    session.compactedSessionMessageCount = undefined;
+    this._saveSessions();
+  }
 
-	updateSessionName(sessionId: string, name: string): void {
-		const session = this._sessions.find((s) => s.id === sessionId);
-		if (session) {
-			session.name = name;
-			this._saveSessions();
-		}
-	}
+  updateSessionName(sessionId: string, name: string): void {
+    const session = this._sessions.find((s) => s.id === sessionId);
+    if (session) {
+      session.name = name;
+      this._saveSessions();
+    }
+  }
 
-	getSessionMessages(): SessionMessage[] {
-		return this.getMessages()
-			.filter(
-				(m) =>
-					(m.role === 'user' ||
-						m.role === 'assistant' ||
-						m.role === 'result' ||
-						m.role === 'tool') &&
-					!(m.role === 'user' && isSlashCommandMessage(m.content))
-			)
-			.map((m) => ({
-				role: m.role as 'user' | 'assistant' | 'result' | 'tool',
-				content: m.content,
-				results: m.results,
-				tool_calls: m.tool_calls,
-				toolResults: m.toolResults,
-				activeSelection: m.activeSelection,
-				activeFilePath: m.activeFilePath,
-				activeSelectionLabel: m.activeSelectionLabel,
-				mentionedFiles: m.mentionedFiles,
-			}));
-	}
+  getSessionMessages(): SessionMessage[] {
+    return this.getMessages()
+      .filter(
+        (m) =>
+          (m.role === 'user' ||
+            m.role === 'assistant' ||
+            m.role === 'result' ||
+            m.role === 'tool') &&
+          !(m.role === 'user' && isSlashCommandMessage(m.content)),
+      )
+      .map((m) => ({
+        role: m.role as 'user' | 'assistant' | 'result' | 'tool',
+        content: m.content,
+        results: m.results,
+        tool_calls: m.tool_calls,
+        toolResults: m.toolResults,
+        activeSelection: m.activeSelection,
+        activeFilePath: m.activeFilePath,
+        activeSelectionLabel: m.activeSelectionLabel,
+        mentionedFiles: m.mentionedFiles,
+      }));
+  }
 }

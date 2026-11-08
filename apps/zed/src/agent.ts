@@ -183,7 +183,10 @@ export class FlixaAgent {
 
   async authenticate(params: acp.AuthenticateRequest): Promise<acp.AuthenticateResponse> {
     if (params.methodId !== 'flixa-login') {
-      throw acp.RequestError.invalidParams(undefined, `Unsupported authentication method: ${params.methodId}`);
+      throw acp.RequestError.invalidParams(
+        undefined,
+        `Unsupported authentication method: ${params.methodId}`,
+      );
     }
 
     const existingKey = await getApiKey();
@@ -267,7 +270,10 @@ export class FlixaAgent {
         break;
       }
       default:
-        throw acp.RequestError.invalidParams(undefined, `Unsupported configuration option: ${params.configId}`);
+        throw acp.RequestError.invalidParams(
+          undefined,
+          `Unsupported configuration option: ${params.configId}`,
+        );
     }
 
     await this.persistSession(params.sessionId, session);
@@ -293,10 +299,14 @@ export class FlixaAgent {
       }
 
       session.promptCount += 1;
-      session.input.push({ role: 'user', content: await this.buildUserPrompt(promptText, session) });
-      const usage = session.modeId === 'chat'
-        ? await this.runChatTurn(session, params.sessionId, client, controller.signal)
-        : await this.runAgentTurn(session, params.sessionId, client, controller.signal);
+      session.input.push({
+        role: 'user',
+        content: await this.buildUserPrompt(promptText, session),
+      });
+      const usage =
+        session.modeId === 'chat'
+          ? await this.runChatTurn(session, params.sessionId, client, controller.signal)
+          : await this.runAgentTurn(session, params.sessionId, client, controller.signal);
 
       return {
         stopReason: 'end_turn',
@@ -356,7 +366,10 @@ export class FlixaAgent {
         return latestUsage;
       }
 
-      if (config.compactTokenThreshold > 0 && estimateTokenCount(session.input) >= config.compactTokenThreshold) {
+      if (
+        config.compactTokenThreshold > 0 &&
+        estimateTokenCount(session.input) >= config.compactTokenThreshold
+      ) {
         const compacted = await compactResponse(session.model, session.input, AGENT_SYSTEM_PROMPT);
         session.input = compacted.output;
         await this.sendMessage(sessionId, client, 'Context compacted.', 'agent');
@@ -422,7 +435,14 @@ export class FlixaAgent {
       rawInput: toolCall.input,
     });
 
-    const permission = await this.shouldAllowTool(session, client, sessionId, toolCall, metadata, signal);
+    const permission = await this.shouldAllowTool(
+      session,
+      client,
+      sessionId,
+      toolCall,
+      metadata,
+      signal,
+    );
     if (!permission.allowed) {
       const result = { success: false, error: permission.reason, output: permission.reason };
       await this.updateToolCall(client, sessionId, toolCall, 'failed', permission.reason);
@@ -431,7 +451,14 @@ export class FlixaAgent {
 
     await this.updateToolCall(client, sessionId, toolCall, 'in_progress');
     const result = await executeTool(toolCall.name, toolCall.input, context);
-    await this.updateToolCall(client, sessionId, toolCall, result.success ? 'completed' : 'failed', result.output || result.error, result);
+    await this.updateToolCall(
+      client,
+      sessionId,
+      toolCall,
+      result.success ? 'completed' : 'failed',
+      result.output || result.error,
+      result,
+    );
     return result;
   }
 
@@ -479,22 +506,25 @@ export class FlixaAgent {
       return { allowed: false, reason: 'Action cancelled' };
     }
 
-    const response = await client.request<acp.RequestPermissionResponse>(acp.methods.client.session.requestPermission, {
-      sessionId,
-      toolCall: {
-        toolCallId: toolCall.id,
-        name: toolCall.name,
-        title: metadata.title,
-        kind: metadata.kind,
-        status: 'pending',
-        locations: metadata.locations,
-        rawInput: toolCall.input,
+    const response = await client.request<acp.RequestPermissionResponse>(
+      acp.methods.client.session.requestPermission,
+      {
+        sessionId,
+        toolCall: {
+          toolCallId: toolCall.id,
+          name: toolCall.name,
+          title: metadata.title,
+          kind: metadata.kind,
+          status: 'pending',
+          locations: metadata.locations,
+          rawInput: toolCall.input,
+        },
+        options: [
+          { optionId: 'allow', name: 'Allow this action', kind: 'allow_once' },
+          { optionId: 'reject', name: 'Reject this action', kind: 'reject_once' },
+        ],
       },
-      options: [
-        { optionId: 'allow', name: 'Allow this action', kind: 'allow_once' },
-        { optionId: 'reject', name: 'Reject this action', kind: 'reject_once' },
-      ],
-    });
+    );
     if (response.outcome.outcome !== 'selected' || response.outcome.optionId !== 'allow') {
       return { allowed: false, reason: 'User rejected action' };
     }
@@ -575,7 +605,12 @@ export class FlixaAgent {
         await this.handleCompactCommand(session, params.sessionId, client, signal);
         return true;
       default:
-        await this.sendMessage(params.sessionId, client, `Unknown command: /${parsed.name}\n\n${SLASH_HELP}`, 'agent');
+        await this.sendMessage(
+          params.sessionId,
+          client,
+          `Unknown command: /${parsed.name}\n\n${SLASH_HELP}`,
+          'agent',
+        );
         return true;
     }
   }
@@ -589,11 +624,22 @@ export class FlixaAgent {
     const models = await this.getModels(session.cwd);
     if (args.length === 0) {
       const currentName = models.find((model) => model.id === session.model)?.name ?? session.model;
-      await this.sendMessage(sessionId, client, `Current model: ${currentName}\n\nAvailable models:\n${models.map((model) => `- ${model.name}`).join('\n')}`, 'agent');
+      await this.sendMessage(
+        sessionId,
+        client,
+        `Current model: ${currentName}\n\nAvailable models:\n${models.map((model) => `- ${model.name}`).join('\n')}`,
+        'agent',
+      );
       return;
     }
     const requested = args.join(' ');
-    const match = models.find((model) => model.id === requested) || models.find((model) => model.id.toLowerCase() === requested.toLowerCase() || model.name.toLowerCase() === requested.toLowerCase());
+    const match =
+      models.find((model) => model.id === requested) ||
+      models.find(
+        (model) =>
+          model.id.toLowerCase() === requested.toLowerCase() ||
+          model.name.toLowerCase() === requested.toLowerCase(),
+      );
     if (!match) {
       await this.sendMessage(sessionId, client, `Unknown model: ${requested}`, 'agent');
       return;
@@ -610,16 +656,31 @@ export class FlixaAgent {
     client: acp.AgentContext,
   ): Promise<void> {
     if (args.length === 0) {
-      await this.sendMessage(sessionId, client, `Current approval mode: ${formatApprovalMode(session.approvalMode)}\n\nOptions: auto, safe, manual, all`, 'agent');
+      await this.sendMessage(
+        sessionId,
+        client,
+        `Current approval mode: ${formatApprovalMode(session.approvalMode)}\n\nOptions: auto, safe, manual, all`,
+        'agent',
+      );
       return;
     }
     const mode = parseApprovalMode(args[0]);
     if (!mode) {
-      await this.sendMessage(sessionId, client, 'Unknown approval mode. Options: auto, safe, manual, all', 'agent');
+      await this.sendMessage(
+        sessionId,
+        client,
+        'Unknown approval mode. Options: auto, safe, manual, all',
+        'agent',
+      );
       return;
     }
     session.approvalMode = mode;
-    await this.sendMessage(sessionId, client, `Approval mode set to ${formatApprovalMode(mode)}.`, 'agent');
+    await this.sendMessage(
+      sessionId,
+      client,
+      `Approval mode set to ${formatApprovalMode(mode)}.`,
+      'agent',
+    );
   }
 
   private async handleCompactCommand(
@@ -638,7 +699,12 @@ export class FlixaAgent {
       return;
     }
     session.input = compacted.output;
-    await this.sendMessage(sessionId, client, `Context compacted (~${before.toLocaleString()} tokens before).`, 'agent');
+    await this.sendMessage(
+      sessionId,
+      client,
+      `Context compacted (~${before.toLocaleString()} tokens before).`,
+      'agent',
+    );
   }
 
   private async getModels(cwd: string): Promise<ModelDefinition[]> {
@@ -677,9 +743,15 @@ export class FlixaAgent {
           : undefined,
         abortSignal: signal,
       });
-      const responseText = parseResponsesAgentOutput(result.output).text.trim().replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '');
+      const responseText = parseResponsesAgentOutput(result.output)
+        .text.trim()
+        .replace(/^```(?:json)?\s*/, '')
+        .replace(/\s*```$/, '');
       const parsed = JSON.parse(responseText) as Record<string, unknown>;
-      if ((parsed.verdict === 'SAFE' || parsed.verdict === 'UNSAFE') && typeof parsed.reason === 'string') {
+      if (
+        (parsed.verdict === 'SAFE' || parsed.verdict === 'UNSAFE') &&
+        typeof parsed.reason === 'string'
+      ) {
         return { safe: parsed.verdict === 'SAFE', reason: parsed.reason };
       }
       return { safe: false, reason: 'Failed to parse safety check response' };
@@ -723,24 +795,21 @@ export class FlixaAgent {
       });
     }
     configOptions.push({
-        type: 'select',
-        id: 'approval_mode',
-        name: 'Approval mode',
-        currentValue: formatApprovalMode(session.approvalMode),
-        options: [
-          { value: 'auto', name: 'Auto Approve' },
-          { value: 'safe', name: 'Safe Approve' },
-          { value: 'manual', name: 'Manual Approve' },
-          { value: 'all', name: 'All Approve' },
-        ],
-      });
+      type: 'select',
+      id: 'approval_mode',
+      name: 'Approval mode',
+      currentValue: formatApprovalMode(session.approvalMode),
+      options: [
+        { value: 'auto', name: 'Auto Approve' },
+        { value: 'safe', name: 'Safe Approve' },
+        { value: 'manual', name: 'Manual Approve' },
+        { value: 'all', name: 'All Approve' },
+      ],
+    });
     return configOptions;
   }
 
-  private syncReasoningEffort(
-    session: SessionState,
-    modelEfforts?: ModelReasoningEfforts,
-  ): void {
+  private syncReasoningEffort(session: SessionState, modelEfforts?: ModelReasoningEfforts): void {
     const availableEfforts = getAvailableReasoningEfforts(session.model, modelEfforts);
     if (availableEfforts.length === 0) {
       session.reasoningEffort = undefined;
@@ -879,7 +948,12 @@ export function parseResponsesAgentOutput(output: unknown[]): ParsedModelOutput 
         input = item.arguments;
       }
       toolCalls.push({
-        id: typeof item.call_id === 'string' ? item.call_id : typeof item.id === 'string' ? item.id : `call-${toolCalls.length + 1}`,
+        id:
+          typeof item.call_id === 'string'
+            ? item.call_id
+            : typeof item.id === 'string'
+              ? item.id
+              : `call-${toolCalls.length + 1}`,
         name: item.name,
         input,
       });
@@ -901,7 +975,10 @@ function extractOutputText(content: unknown): string {
     .join('');
 }
 
-async function promptBlocksToText(blocks: acp.ContentBlock[], session: SessionState): Promise<string> {
+async function promptBlocksToText(
+  blocks: acp.ContentBlock[],
+  session: SessionState,
+): Promise<string> {
   const parts: string[] = [];
   for (const block of blocks) {
     if (block.type === 'text') {
