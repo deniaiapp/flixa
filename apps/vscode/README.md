@@ -26,8 +26,8 @@ Rest assured, you can take a break safely.
 
 ## Zed
 
-The `zed/` directory contains the Flixa ACP integration for Zed's Agent Panel. See [zed/README.md](zed/README.md) for build and configuration instructions.
-The ACP Registry submission metadata is in `acp-registry/flixa/`.
+The `apps/zed/` package in the Flixa repository contains the Flixa ACP integration for Zed's Agent Panel. See [apps/zed/README.md](https://github.com/deniaiapp/flixa/blob/main/apps/zed/README.md) for build and configuration instructions.
+The ACP Registry submission metadata is in `apps/zed/acp-registry/flixa/`.
 
 ## Publishing
 

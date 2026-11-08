@@ -2,7 +2,6 @@
 .vscode-test/**
 vscode-out/**
 src/**
-zed/**
 .gitignore
 *.map
 node_modules/**
@@ -12,11 +11,9 @@ webview-ui/src/**
 webview-ui/*.json
 webview-ui/*.ts
 webview-ui/*.html
-webview-ui/pnpm-lock.yaml
 webview-ui/tsconfig.tsbuildinfo
 webview-ui/*.map
 AGENTS.md
 CLAUDE.md
-pnpm-lock.yaml
-pnpm-workspace.yaml
 vitest.config.mts
+*.vsix

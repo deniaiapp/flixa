@@ -5,7 +5,8 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/deniai-app/flixa.git"
+    "url": "https://github.com/deniaiapp/flixa.git",
+    "directory": "apps/zed"
   },
   "homepage": "https://deniai.app",
   "type": "module",
@@ -27,7 +28,8 @@
     "build": "esbuild ./src/index.ts --bundle --outfile=./dist/flixa-zed.js --platform=node --format=esm --minify && esbuild ./src/flixa-acp.ts --bundle --outdir=./dist --platform=node --format=esm --minify",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "prepublishOnly": "pnpm run typecheck && vitest run && pnpm run build"
+    "prepublishOnly": "pnpm run typecheck && vitest run && pnpm run build",
+    "lint": "oxlint -c ../../.oxlintrc.json src"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "2.0.2",
@@ -37,6 +39,7 @@
     "@types/node": "^26.6.5",
     "esbuild": "^0.28.2",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "oxlint": "^1.90.0"
   }
 }

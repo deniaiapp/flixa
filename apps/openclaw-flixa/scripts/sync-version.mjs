@@ -3,8 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const integrationRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
-const repositoryRoot = join(integrationRoot, "..", "..");
-const rootPackagePath = join(repositoryRoot, "package.json");
+const rootPackagePath = join(integrationRoot, "..", "cli", "package.json");
 const pluginPackagePath = join(integrationRoot, "package.json");
 
 const rootPackage = readJson(rootPackagePath);

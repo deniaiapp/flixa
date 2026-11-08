@@ -1,0 +1,20 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "ignorePatterns": [
+    "apps/cli/src/providers/models-dev.generated.ts",
+    "**/dist/**",
+    "**/out/**",
+    "**/build/**",
+    "pnpm-lock.yaml"
+  ],
+  "overrides": [
+    {
+      "files": ["apps/vscode/**/*.{ts,tsx,mts}", "apps/zed/**/*.ts"],
+      "options": { "singleQuote": true }
+    },
+    {
+      "files": ["apps/vscode/webview-ui/**/*.{ts,tsx}"],
+      "options": { "useTabs": true }
+    }
+  ]
+}

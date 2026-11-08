@@ -1,4 +1,19 @@
+packages:
+  - apps/*
+  - apps/vscode/webview-ui
+  - packages/*
+
 allowBuilds:
   esbuild: true
+  "@vscode/ripgrep": true
   "@vscode/vsce-sign": true
   keytar: true
+  "@google/genai": false
+  openclaw: false
+  protobufjs: false
+  tree-sitter-bash: false
+
+minimumReleaseAgeExclude:
+  - "@ai-sdk/openai-compatible@2.0.85"
+  - "@ai-sdk/provider-utils@4.0.61"
+  - "@ai-sdk/mistral@3.0.74"

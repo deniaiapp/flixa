@@ -5,10 +5,9 @@ This directory contains Flixa's Agent Client Protocol (ACP) integration for Zed.
 ## Build
 
 ```sh
-cd zed
 pnpm install
-pnpm run typecheck
-pnpm run build
+pnpm --filter @deniai/flixa-zed run typecheck
+pnpm --filter @deniai/flixa-zed run build
 ```
 
 ## Configure Zed
@@ -21,7 +20,7 @@ Add an external agent to Zed's settings. Replace the path with the absolute path
     "Flixa": {
       "type": "custom",
       "command": "node",
-      "args": ["<your-path>/deni-ai-code/zed/dist/flixa-zed.js"],
+      "args": ["<your-path>/flixa/apps/zed/dist/flixa-zed.js"],
       "env": {}
     }
   }
@@ -36,11 +35,6 @@ The ACP agent supports `/help`, `/clear`, `/compact`, `/stop`, `/agent`, `/chat`
 
 ## Publish
 
-The ACP Registry entry is prepared in `acp-registry/flixa/`. Publish the package from this directory after signing in to npm:
-
-```sh
-cd zed
-pnpm publish --access public
-```
+The ACP Registry entry is prepared in `acp-registry/flixa/` (inside `apps/zed`). Releases are published by the `Release Zed agent` workflow when a `zed-v*` tag is pushed.
 
 The registry submission uses the published package version and is ready to copy into the ACP Registry repository.

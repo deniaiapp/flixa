@@ -2,9 +2,10 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "..", "integrations", "openclaw-flixa");
-const repositoryRoot = join(root, "..", "..");
-const rootPackage = readJson(join(repositoryRoot, "package.json"));
+const cliRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
+const root = join(cliRoot, "..", "openclaw-flixa");
+const repositoryRoot = join(cliRoot, "..", "..");
+const rootPackage = readJson(join(cliRoot, "package.json"));
 const packageJson = readJson(join(root, "package.json"));
 const manifest = readJson(join(root, "openclaw.plugin.json"));
 const entry = readFileSync(join(root, "src", "index.ts"), "utf8");

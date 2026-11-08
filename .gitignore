@@ -1,7 +1,29 @@
-.vscode/devhost-userdata
-.vscode/devhost-extensions
+# dependencies
 node_modules/
+
+# build output
 out/
+dist/
 build/
 vscode-out/
 *.vsix
+*.tgz
+*.tsbuildinfo
+
+# local state
+.flixa
+.env
+.env.*.local
+.env.local
+.vscode/devhost-userdata
+.vscode/devhost-extensions
+.cache
+.eslintcache
+coverage
+*.lcov
+logs
+.idea
+.DS_Store
+
+# reference code kept outside the repo
+copy-this-code-and-it

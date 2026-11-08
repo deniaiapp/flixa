@@ -10,7 +10,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deniaiapp/flixa-cli.git"
+    "url": "git+https://github.com/deniaiapp/flixa.git",
+    "directory": "apps/cli"
   },
   "files": [
     "dist"
@@ -23,19 +24,20 @@
     "start": "tsx src/index.ts",
     "providers:update": "node scripts/update-models-dev.mjs",
     "openclaw:check": "node scripts/verify-openclaw-integration.mjs",
-    "lint": "oxlint src scripts integrations/openclaw-flixa/src integrations/openclaw-flixa/scripts",
-    "format": "oxfmt src scripts integrations/openclaw-flixa/src integrations/openclaw-flixa/scripts",
-    "format:check": "oxfmt --check src scripts integrations/openclaw-flixa/src integrations/openclaw-flixa/scripts",
-    "check": "pnpm exec tsc --noEmit && pnpm run lint && pnpm run format:check && pnpm run regression:check && pnpm run build && pnpm run openclaw:check",
+    "lint": "oxlint -c ../../.oxlintrc.json src scripts",
+    "format": "oxfmt src scripts",
+    "format:check": "oxfmt --check src scripts",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run regression:check && pnpm run build && pnpm run openclaw:check",
     "regression:check": "tsx scripts/verify-cli-regressions.ts",
-    "build": "node scripts/build.mjs && node scripts/prepare-dist.mjs"
+    "build": "node scripts/build.mjs && node scripts/prepare-dist.mjs",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@types/node": "^25.5.0",
+    "@types/node": "^26.6.5",
     "@types/react": "^18.3.12",
     "esbuild": "^0.28.2",
-    "oxfmt": "^0.64.0",
-    "oxlint": "^1.79.0",
+    "oxfmt": "^0.75.0",
+    "oxlint": "^1.90.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   },
@@ -62,6 +64,5 @@
     "open": "^11.0.0",
     "react": "^18.3.1",
     "react-devtools-core": "^6.1.5"
-  },
-  "packageManager": "pnpm@12.18.0"
+  }
 }

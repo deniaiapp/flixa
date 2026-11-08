@@ -5,7 +5,8 @@
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deniaiapp/flixa-cli.git"
+    "url": "git+https://github.com/deniaiapp/flixa.git",
+    "directory": "apps/openclaw-flixa"
   },
   "publishConfig": {
     "access": "public"
@@ -20,14 +21,16 @@
     "sync-version": "node scripts/sync-version.mjs",
     "prebuild": "pnpm run sync-version",
     "build": "tsc -p tsconfig.json",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "lint": "oxlint -c ../../.oxlintrc.json src scripts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "peerDependencies": {
     "openclaw": ">=2026.5.17"
   },
   "devDependencies": {
-    "@types/node": "^25.5.0",
-    "openclaw": ">=2026.5.17",
+    "@types/node": "^26.6.5",
+    "openclaw": "2026.7.1",
     "typescript": "^7.0.2"
   },
   "openclaw": {

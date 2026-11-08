@@ -243,14 +243,13 @@ reports that copying was unavailable.
 ### OpenClaw integration
 
 The first OpenClaw integration is available under
-`integrations/openclaw-flixa`. It registers Flixa as an OpenClaw CLI backend,
+`apps/openclaw-flixa` in the Flixa monorepo. It registers Flixa as an OpenClaw CLI backend,
 so OpenClaw owns channels, pairing, and Gateway sessions while Flixa owns the
 coding loop and permissions.
 
 ```sh
-cd integrations/openclaw-flixa
-npm install
-npm run build
+pnpm install
+pnpm --filter @deniai/openclaw-flixa run build
 ```
 
 ### Claude Code integration
