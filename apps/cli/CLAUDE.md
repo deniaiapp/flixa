@@ -23,7 +23,7 @@ No test runner is configured.
 The CLI is built with **commander** and structured as: `src/index.ts` registers commands → `src/commands/*.ts` implement each command → `src/auth/` handles credential storage.
 
 **Auth flow (`src/auth/service.ts`):**
-Device auth against `https://deniai.app/api/device-auth` — POST `{action: "initiate"}` to get a `deviceCode`/`userCode`, then poll with `{action: "poll", deviceCode}` every 5s until `approved: true` returns an `apiKey`.
+Device auth runs through `@deniai/flixa-api-client` (`packages/api-client`) against `https://deniai.app/api/device-auth` — POST `{action: "initiate"}` to get a `deviceCode`/`userCode`, then poll with `{action: "poll", deviceCode}` every 5s until `approved: true` returns an `apiKey` (or reports that no key could be issued / the API key limit was reached).
 
 **Credential storage (`src/auth/keychain.ts`):**
 Platform-specific with fallback chain:
