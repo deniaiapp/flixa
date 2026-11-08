@@ -7,9 +7,9 @@ This file provides guidance to coding agents when working with this repository.
 - `pnpm install` — install dependencies
 - `pnpm run dev` — run the CLI directly from `src/index.ts` via tsx
 - `pnpm run build` — bundle to `dist/` and prepare the published package
-- `pnpm run lint` — run oxlint over CLI, scripts, and OpenClaw integration sources
+- `pnpm run lint` — run oxlint over CLI sources and scripts (the OpenClaw plugin lives in `apps/openclaw-flixa`)
 - `pnpm run format:check` — verify oxfmt formatting
-- `pnpm run check` — typecheck, lint, format check, build, and integration smoke
+- `pnpm run check` — typecheck, lint, format check, regression checks, build, and OpenClaw integration contract check
 - No test runner is configured; do not claim tests passed unless you ran some other concrete verification
 - Useful targeted checks:
   - `pnpm run dev --help`

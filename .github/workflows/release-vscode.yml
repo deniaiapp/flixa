@@ -1,0 +1,77 @@
+name: Release VS Code extension
+
+# Packages apps/vscode and publishes it to the VS Code Marketplace and Open VSX when a
+# vscode-v<version> tag is pushed. The tag must match apps/vscode/package.json.
+#
+# Secrets:
+# - VSCE_PAT: Azure DevOps personal access token for the "deniai" Marketplace publisher
+# - OVSX_PAT: Open VSX access token for the "deniai" namespace
+
+on:
+  push:
+    tags:
+      - "vscode-v*"
+  workflow_dispatch:
+
+concurrency:
+  group: release-vscode
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "26"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify the tag matches the extension version
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./apps/vscode/package.json').version")
+          if [ "${GITHUB_REF_NAME}" != "vscode-v${VERSION}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match apps/vscode/package.json version ${VERSION}." >&2
+            exit 1
+          fi
+
+      - name: Typecheck, lint, and test
+        working-directory: apps/vscode
+        run: pnpm run typecheck && pnpm run lint && pnpm test
+
+      # vsce runs vscode:prepublish (webview Vite build + esbuild bundle) before packaging.
+      - name: Package
+        working-directory: apps/vscode
+        run: pnpm run package
+
+      - name: Publish to the VS Code Marketplace
+        if: github.ref_type == 'tag'
+        working-directory: apps/vscode
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: pnpm exec vsce publish --packagePath flixa.vsix
+
+      - name: Publish to Open VSX
+        if: github.ref_type == 'tag'
+        working-directory: apps/vscode
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: pnpm exec ovsx publish flixa.vsix
+
+      - name: Upload the VSIX
+        uses: actions/upload-artifact@v4
+        with:
+          name: flixa-vsix
+          path: apps/vscode/flixa.vsix

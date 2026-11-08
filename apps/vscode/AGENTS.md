@@ -41,7 +41,7 @@ cd webview-ui && pnpm run dev
 pnpm test
 ```
 
-Tests use Vitest (`vitest.config.mts`). The `zed/` ACP agent is a separate pnpm project (`cd zed && pnpm test`).
+Tests use Vitest (`vitest.config.mts`). Run these commands from `apps/vscode`. The Zed ACP agent is a separate workspace package (`apps/zed`, `pnpm --filter @deniai/flixa-zed test`). See the root `AGENTS.md` for monorepo-wide rules.
 
 ---
 

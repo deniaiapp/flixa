@@ -1,0 +1,62 @@
+name: Release Zed agent
+
+# Publishes @deniai/flixa-zed (apps/zed) to npm when a zed-v<version> tag is pushed. The tag
+# must match apps/zed/package.json. After publishing, update
+# apps/zed/acp-registry/flixa/agent.json and submit it to the ACP Registry.
+#
+# npm uses trusted publishing (OIDC provenance, no NPM_TOKEN secret). NOTE: a trusted publisher
+# for @deniai/flixa-zed must be configured on npm for deniaiapp/flixa (workflow
+# release-zed.yml) before this workflow can publish.
+
+on:
+  push:
+    tags:
+      - "zed-v*"
+
+concurrency:
+  group: release-zed
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "26"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify the tag matches the package version
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./apps/zed/package.json').version")
+          if [ "${GITHUB_REF_NAME}" != "zed-v${VERSION}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match apps/zed/package.json version ${VERSION}." >&2
+            exit 1
+          fi
+
+      - name: Typecheck, test, and build
+        working-directory: apps/zed
+        run: pnpm run typecheck && pnpm test && pnpm run build
+
+      # `pnpm pack` rewrites workspace: protocol specifiers (the bundled API client) before npm
+      # publishes the tarball with provenance.
+      - name: Pack
+        working-directory: apps/zed
+        run: pnpm pack --out flixa-zed.tgz
+
+      - name: Publish
+        working-directory: apps/zed
+        run: npm publish flixa-zed.tgz --access public --provenance

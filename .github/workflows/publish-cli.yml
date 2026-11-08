@@ -1,11 +1,34 @@
-name: Publish
+name: Publish CLI
+
+# Publishes @deniai/flixa (apps/cli), @deniai/openclaw-flixa (apps/openclaw-flixa), and the
+# Flixa Ship skill (skills/flixa-ship).
+#
+# - push to main touching the CLI, the OpenClaw plugin, the skill, or the shared API client
+#   -> canary release ({version}-canary.{run_number}, npm dist-tag "canary")
+# - cli-v* tag -> stable release
+#
+# npm uses trusted publishing (OIDC provenance, no NPM_TOKEN secret). NOTE: the npm trusted
+# publisher for @deniai/flixa and @deniai/openclaw-flixa is still configured for
+# deniaiapp/flixa-cli. It must be re-pointed to deniaiapp/flixa (workflow publish-cli.yml)
+# before this workflow can publish.
 
 on:
   push:
     branches:
-      - master
+      - main
+    paths:
+      - "apps/cli/**"
+      - "apps/openclaw-flixa/**"
+      - "skills/**"
+      - "packages/api-client/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/publish-cli.yml"
     tags:
-      - "v*"
+      - "cli-v*"
+
+concurrency:
+  group: publish-cli-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   publish:
@@ -21,46 +44,60 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: "24"
+          node-version: "26"
           registry-url: "https://registry.npmjs.org"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build
-        run: pnpm run build
-
       - name: Read CLI package version
         id: package
         shell: bash
         run: |
-          VERSION=$(node -p "require('./package.json').version")
+          VERSION=$(node -p "require('./apps/cli/package.json').version")
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
-      - name: Install OpenClaw plugin dependencies
-        working-directory: integrations/openclaw-flixa
-        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Verify the tag matches the CLI version
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: |
+          if [ "${GITHUB_REF_NAME}" != "cli-v${{ steps.package.outputs.version }}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match apps/cli/package.json version ${{ steps.package.outputs.version }}." >&2
+            exit 1
+          fi
+
+      - name: Set canary version
+        if: github.ref_type == 'branch'
+        working-directory: apps/cli
+        run: npm version "${{ steps.package.outputs.version }}-canary.${{ github.run_number }}" --no-git-tag-version
+
+      - name: Build CLI
+        run: pnpm --filter @deniai/flixa run build
 
       - name: Build OpenClaw plugin
-        working-directory: integrations/openclaw-flixa
         env:
           FLIXA_RELEASE_VERSION: ${{ github.ref_type == 'branch' && format('{0}-canary.{1}', steps.package.outputs.version, github.run_number) || steps.package.outputs.version }}
-        run: pnpm run build
+        run: pnpm --filter @deniai/openclaw-flixa run build
+
+      # `pnpm pack` rewrites workspace: protocol specifiers (the bundled API client) before npm
+      # publishes the tarball with provenance.
+      - name: Pack CLI
+        working-directory: apps/cli
+        run: pnpm pack --out flixa-cli.tgz
 
       - name: Publish canary
         if: github.ref_type == 'branch'
-        run: |
-          npm version "${{ steps.package.outputs.version }}-canary.${{ github.run_number }}" --no-git-tag-version
-          npm publish --tag canary --access public --provenance
+        working-directory: apps/cli
+        run: npm publish flixa-cli.tgz --tag canary --access public --provenance
 
       - name: Publish OpenClaw plugin canary
         if: github.ref_type == 'branch'
-        working-directory: integrations/openclaw-flixa
+        working-directory: apps/openclaw-flixa
         run: npm publish --tag canary --access public --provenance
 
       - name: Publish OpenClaw plugin to ClawHub canary
         if: github.ref_type == 'branch'
-        working-directory: integrations/openclaw-flixa
+        working-directory: apps/openclaw-flixa
         env:
           CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
           VERSION: ${{ steps.package.outputs.version }}
@@ -78,9 +115,9 @@ jobs:
             --owner deniai \
             --version "${VERSION}-canary.${RUN_NUMBER}" \
             --tags canary \
-            --source-repo deniaiapp/flixa-cli \
+            --source-repo deniaiapp/flixa \
             --source-commit "${GITHUB_SHA}" \
-            --source-path integrations/openclaw-flixa \
+            --source-path apps/openclaw-flixa \
             --wait \
             --json
 
@@ -106,23 +143,24 @@ jobs:
             --tags canary \
             --topics coding,ship,verification \
             --changelog "Flixa Ship canary ${VERSION}-canary.${RUN_NUMBER}" \
-            --source-repo deniaiapp/flixa-cli \
+            --source-repo deniaiapp/flixa \
             --source-commit "${GITHUB_SHA}" \
             --source-path skills/flixa-ship \
             --json
 
       - name: Publish release
         if: github.ref_type == 'tag'
-        run: npm publish --access public --provenance
+        working-directory: apps/cli
+        run: npm publish flixa-cli.tgz --access public --provenance
 
       - name: Publish OpenClaw plugin release
         if: github.ref_type == 'tag'
-        working-directory: integrations/openclaw-flixa
+        working-directory: apps/openclaw-flixa
         run: npm publish --access public --provenance
 
       - name: Publish OpenClaw plugin to ClawHub release
         if: github.ref_type == 'tag'
-        working-directory: integrations/openclaw-flixa
+        working-directory: apps/openclaw-flixa
         env:
           CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
           VERSION: ${{ steps.package.outputs.version }}
@@ -139,9 +177,9 @@ jobs:
             --owner deniai \
             --version "${VERSION}" \
             --tags latest \
-            --source-repo deniaiapp/flixa-cli \
+            --source-repo deniaiapp/flixa \
             --source-commit "${GITHUB_SHA}" \
-            --source-path integrations/openclaw-flixa \
+            --source-path apps/openclaw-flixa \
             --wait \
             --json
 
@@ -166,7 +204,7 @@ jobs:
             --tags latest \
             --topics coding,ship,verification \
             --changelog "Flixa Ship ${VERSION}" \
-            --source-repo deniaiapp/flixa-cli \
+            --source-repo deniaiapp/flixa \
             --source-commit "${GITHUB_SHA}" \
             --source-path skills/flixa-ship \
             --json

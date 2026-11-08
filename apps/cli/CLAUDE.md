@@ -14,8 +14,8 @@ No test runner is configured.
 
 ## Publishing
 
-- `main` branch push → canary release (`{version}-canary.{run_number}`) via GitHub Actions
-- `v*` tag push → stable release via GitHub Actions
+- `main` branch push touching the CLI → canary release (`{version}-canary.{run_number}`) via `.github/workflows/publish-cli.yml` at the monorepo root
+- `cli-v*` tag push → stable release via the same workflow
 - Uses npm trusted publishing (OIDC provenance, no `NPM_TOKEN` secret needed)
 
 ## Architecture

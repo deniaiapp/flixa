@@ -30,7 +30,8 @@
     "check": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run regression:check && pnpm run build && pnpm run openclaw:check",
     "regression:check": "tsx scripts/verify-cli-regressions.ts",
     "build": "node scripts/build.mjs && node scripts/prepare-dist.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "pnpm run regression:check"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.64",
