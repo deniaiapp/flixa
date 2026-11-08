@@ -31,7 +31,8 @@ Run from the repository root:
 - One package: `pnpm --filter <name> run <script>` (for example
   `pnpm --filter @deniai/flixa run check`, `pnpm --filter flixa run compile`).
 
-`apps/cli` has no unit tests; its `test` script runs `scripts/verify-cli-regressions.ts`.
+`apps/cli` has no unit tests; its `test` script runs `scripts/verify-cli-regressions.ts` and
+`scripts/verify-agent-e2e.ts` (a full tool-using turn against a local mock Responses server).
 `pnpm --filter flixa run package` builds a VSIX locally; never run the `publish*` scripts.
 
 ## Shared configuration
@@ -58,11 +59,26 @@ Run from the repository root:
   it: the CLI build has an esbuild plugin for this; VS Code and Zed bundle everything.
 - Add vitest coverage in `packages/api-client/src/*.test.ts` (mock `fetch`) for changes.
 
-## Decisions for later phases
+## Shared agent core (`packages/core`)
 
-- F3 (tool unification) will align agent tool names to the CLI style: `Bash`, `Read`,
-  `Write`, `Edit`, `Grep`, `Glob`, and so on. Tool implementations and agent loops are
-  still per app until then (F3/F4); do not merge them piecemeal.
+- Tools use the CLI-style names `Bash`, `Read`, `Write`, `Edit`, `Grep`, `Glob`, `LS`, and
+  `Delete`. Each tool is an `AgentTool` (JSON Schema input, `execute(input, ctx)`) that only
+  talks to a `ToolHost`. The Node host (`@deniai/flixa-core/node`) serves the CLI and Zed;
+  the VS Code host lives in `apps/vscode/src/agent/host.ts`. Client-only tools (the CLI's
+  GitStatus, GitDiff, TodoWrite, WebFetch, BashOutput, KillShell, Skill, Task) stay in the
+  client as `AgentTool`s.
+- Approval modes `ALL_APPROVE`, `AUTO_APPROVE`, `SAFE_APPROVE`, `MANUAL_APPROVE` (the
+  extension's contract) are policies over tool categories; `needsApproval(tool, input, mode)`
+  also applies the shared shell-safety rules (`assessCommandSafety`: blocked commands never
+  run, risky ones skip the AI review). The CLI expresses its own modes as policies.
+- `runAgentLoop` streams `/v1/agent/responses`, runs tools through the policy (approval and
+  AI review are client callbacks), emits typed events, honors an AbortSignal, and compacts
+  locally (the server's `/responses/compact` rejects `openai/*` models). The CLI (Flixa
+  provider), Zed, and the extension's agent mode use it; BYOK providers in the CLI keep the
+  AI SDK loop with the same tools.
+- Saved sessions with the old Cursor-style names are mapped by `migrateLegacyResponseItems`
+  / `mapLegacyToolArguments` when replayed.
+- Add vitest coverage in `packages/core/src/*.test.ts` for changes.
 
 ## Releases and CI
 
