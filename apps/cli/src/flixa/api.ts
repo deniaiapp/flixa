@@ -304,27 +304,6 @@ export function chatHistoryToModelMessages(history: ChatMessage[]): ModelMessage
   }));
 }
 
-export function createToolResultMessage(
-  results: Array<{
-    callId: string;
-    name: string;
-    output: string;
-  }>,
-): ModelMessage {
-  return {
-    role: "tool",
-    content: results.map((result) => ({
-      type: "tool-result" as const,
-      toolCallId: result.callId,
-      toolName: result.name,
-      output: {
-        type: "text" as const,
-        value: result.output,
-      },
-    })),
-  };
-}
-
 export function extractOutputText(response: FlixaResponse): string {
   return extractResponseDisplayParts(response).assistantText;
 }

@@ -22,6 +22,7 @@ const PATH_ARG_TOOLS: Record<string, string> = {
   Edit: "file_path",
   Grep: "path",
   Glob: "path",
+  LS: "path",
 };
 
 const RULE_KEYS = ["allow", "deny", "ask"] as const;

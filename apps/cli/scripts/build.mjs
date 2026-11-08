@@ -4,13 +4,17 @@ import { build } from "esbuild";
 const require = createRequire(import.meta.url);
 
 // Workspace packages are bundled (they are not published); everything else stays external.
-const WORKSPACE_PACKAGES = ["@deniai/flixa-api-client"];
+const WORKSPACE_PACKAGES = [
+  "@deniai/flixa-api-client",
+  "@deniai/flixa-core",
+  "@deniai/flixa-core/node",
+];
 
 /** @type {import("esbuild").Plugin} */
 const bundleWorkspacePackages = {
   name: "bundle-workspace-packages",
   setup(pluginBuild) {
-    pluginBuild.onResolve({ filter: /^@deniai\/flixa-api-client$/ }, (args) =>
+    pluginBuild.onResolve({ filter: /^@deniai\/flixa-(api-client|core)(\/node)?$/ }, (args) =>
       WORKSPACE_PACKAGES.includes(args.path) ? { path: require.resolve(args.path) } : undefined,
     );
   },

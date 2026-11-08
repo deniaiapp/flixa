@@ -27,11 +27,12 @@
     "lint": "oxlint -c ../../.oxlintrc.json src scripts",
     "format": "oxfmt src scripts",
     "format:check": "oxfmt --check src scripts",
-    "check": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run regression:check && pnpm run build && pnpm run openclaw:check",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run regression:check && pnpm run e2e:check && pnpm run build && pnpm run openclaw:check",
     "regression:check": "tsx scripts/verify-cli-regressions.ts",
     "build": "node scripts/build.mjs && node scripts/prepare-dist.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "pnpm run regression:check"
+    "test": "pnpm run regression:check && pnpm run e2e:check",
+    "e2e:check": "tsx scripts/verify-agent-e2e.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.64",
@@ -56,6 +57,7 @@
   },
   "devDependencies": {
     "@deniai/flixa-api-client": "workspace:*",
+    "@deniai/flixa-core": "workspace:*",
     "@types/node": "^26.6.5",
     "@types/react": "^18.3.12",
     "esbuild": "^0.28.2",

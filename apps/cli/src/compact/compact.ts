@@ -1,18 +1,12 @@
+import {
+  compactConversation,
+  MAX_SUMMARY_OUTPUT_TOKENS,
+  type SummaryGenerator,
+} from "@deniai/flixa-core";
 import { createResponse, extractOutputText, type ChatMessage } from "../flixa/api.ts";
 import { generateProviderText, type ResolvedProviderContext } from "../providers/runtime.ts";
 
 const DEFAULT_AUTO_COMPACT_CHARS = 240_000;
-// The summarizer prompt itself must fit in a context window, so very long
-// transcripts keep their newest part and drop the oldest.
-const MAX_TRANSCRIPT_CHARS = 400_000;
-const MAX_SUMMARY_OUTPUT_TOKENS = 4_000;
-
-const SUMMARY_SYSTEM_PROMPT = [
-  "You compress a coding-assistant conversation so work can continue in a fresh context window.",
-  "Write a dense, factual summary. Do not call tools and do not answer the conversation's questions again.",
-  "Preserve: the user's goals and constraints, decisions made and why, files and paths touched, commands run and their outcomes, errors hit, the current state of the work, and the concrete next steps.",
-  "Keep exact identifiers, file paths, and commands verbatim. Omit pleasantries and anything already resolved that no longer matters.",
-].join(" ");
 
 export interface CompactResult {
   history: ChatMessage[];
@@ -40,7 +34,7 @@ export function shouldAutoCompact(history: readonly ChatMessage[]): boolean {
   return threshold > 0 && history.length >= 4 && estimateHistoryChars(history) > threshold;
 }
 
-export type SummaryGenerator = (system: string, prompt: string) => Promise<string>;
+export type { SummaryGenerator };
 
 /** Builds a summarizer bound to the provider that is serving the conversation. */
 export function createSummaryGenerator(options: {
@@ -83,60 +77,23 @@ export async function compactHistory(options: {
   generate: SummaryGenerator;
   instructions?: string;
 }): Promise<CompactResult> {
-  if (options.history.length < 2) {
-    throw new Error("Nothing to compact yet.");
-  }
-
-  const focus = options.instructions?.trim();
-  const prompt = [
-    "Summarize the conversation below.",
-    ...(focus ? [`Extra focus from the user: ${focus}`] : []),
-    "",
-    "<conversation>",
-    renderTranscript(options.history),
-    "</conversation>",
-  ].join("\n");
-
-  const summary = (await options.generate(SUMMARY_SYSTEM_PROMPT, prompt)).trim();
-  if (!summary) {
-    throw new Error("The model returned an empty summary.");
-  }
-
-  const history: ChatMessage[] = [
-    {
-      role: "user",
-      content: [
-        "This session continues from an earlier conversation that was compacted to save context.",
-        "Summary of the earlier conversation:",
-        "",
-        summary,
-      ].join("\n"),
-    },
-    {
-      role: "assistant",
-      content:
-        "Understood. I have the summary of the earlier conversation and will continue from it.",
-    },
-  ];
+  const result = await compactConversation({
+    items: options.history.map((message) => ({ role: message.role, content: message.content })),
+    generate: options.generate,
+    instructions: options.instructions,
+    keepLatestRequest: false,
+  });
+  const history = result.items.map((item): ChatMessage => ({
+    role: item["role"] === "assistant" ? "assistant" : "user",
+    content: typeof item["content"] === "string" ? item["content"] : "",
+  }));
 
   return {
     history,
-    summary,
+    summary: result.summary,
     charsBefore: estimateHistoryChars(options.history),
     charsAfter: estimateHistoryChars(history),
   };
-}
-
-function renderTranscript(history: readonly ChatMessage[]): string {
-  const rendered = history
-    .map((message) => `${message.role === "user" ? "User" : "Assistant"}:\n${message.content}`)
-    .join("\n\n");
-
-  if (rendered.length <= MAX_TRANSCRIPT_CHARS) {
-    return rendered;
-  }
-
-  return `[Earlier messages omitted]\n${rendered.slice(-MAX_TRANSCRIPT_CHARS)}`;
 }
 
 export function formatCompactResult(result: CompactResult): string {

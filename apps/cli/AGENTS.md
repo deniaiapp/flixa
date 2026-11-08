@@ -9,8 +9,8 @@ This file provides guidance to coding agents when working with this repository.
 - `pnpm run build` — bundle to `dist/` and prepare the published package
 - `pnpm run lint` — run oxlint over CLI sources and scripts (the OpenClaw plugin lives in `apps/openclaw-flixa`)
 - `pnpm run format:check` — verify oxfmt formatting
-- `pnpm run check` — typecheck, lint, format check, regression checks, build, and OpenClaw integration contract check
-- No test runner is configured; do not claim tests passed unless you ran some other concrete verification
+- `pnpm run check` — typecheck, lint, format check, regression checks, the agent e2e check, build, and OpenClaw integration contract check
+- No unit test runner is configured. `pnpm test` runs `scripts/verify-cli-regressions.ts` and `scripts/verify-agent-e2e.ts` (one full tool-using turn of `flixa chat --print` against a local mock of `/v1/agent/responses`); do not claim other tests passed
 - Useful targeted checks:
   - `pnpm run dev --help`
   - `pnpm run dev <command> --help`
@@ -22,6 +22,13 @@ This file provides guidance to coding agents when working with this repository.
   - config in `~/.flixa/config.json`
   - credentials via `src/auth/` with OS-specific secure storage and `~/.flixa/` fallbacks
   - chat/session persistence in `src/sessions/store.ts`
+- Agent tools and the Flixa agent loop come from `@deniai/flixa-core` (`packages/core`): the
+  core tools (Bash, Read, Write, Edit, Grep, Glob, LS) run on the core Node host, and
+  `src/agent-tools/tools.ts` adds the CLI-only tools (GitStatus, GitDiff, TodoWrite, WebFetch,
+  BashOutput, KillShell, Skill, Task). `src/agent-tools/runner.ts` runs Flixa turns through the
+  core `runAgentLoop`; its CLI modes (default, accept edits, auto, yolo, plan) map to shared
+  approval policies in `getCliApprovalPolicy`. BYOK providers still use the AI SDK loop in
+  `src/providers/runtime.ts` with the same tools.
 - Provider resolution is shared through `src/providers/registry.ts` and `src/providers/runtime.ts`; adding or changing a provider usually requires touching both registry/defaults and command/runtime behavior.
 - Instruction files loaded into chat sessions are assembled by `src/instructions/files.ts` from parent directories, in order: `CLAUDE.md`, `AGENTS.md`, `.claude/CLAUDE.md`.
 

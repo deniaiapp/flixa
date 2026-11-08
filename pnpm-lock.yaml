@@ -248,6 +248,9 @@ importers:
       '@deniai/flixa-api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@deniai/flixa-core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@types/node':
         specifier: ^26.6.5
         version: 26.6.5
