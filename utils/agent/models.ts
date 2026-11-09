@@ -226,6 +226,20 @@ export const MODEL_DEFINITIONS: ModelDefinition[] = [
     maxOutputTokens: 128_000,
     tier: "free",
   },
+  // Claude Fable 5.2 standard rates verified 2026-11-09:
+  // $8 / 1M input tokens and $40 / 1M output tokens.
+  // https://platform.claude.com/docs/en/about-claude/pricing
+  {
+    id: "anthropic/claude-fable-5.2",
+    usageTier: 9,
+    label: "Claude Fable 5.2",
+    description: "Anthropic's most capable model for demanding reasoning and long-horizon agentic work.",
+    tags: ["powerful", "coding", "agentic", "long-context"],
+    efforts: ANTHROPIC_FABLE_OPUS_EFFORTS,
+    contextWindow: 1_000_000,
+    maxOutputTokens: 128_000,
+    tier: "plus",
+  },
   {
     id: "anthropic/claude-fable-5.1",
     usageTier: 10,
@@ -306,6 +320,8 @@ export function listModelDefinitions(): Array<
 const MODEL_ALIASES: ReadonlyMap<string, string> = new Map([
   ["gpt-5.6", "openai/gpt-5.6-sol"],
   ["openai/gpt-5.6", "openai/gpt-5.6-sol"],
+  ["claude-fable-5-2", "anthropic/claude-fable-5.2"],
+  ["anthropic/claude-fable-5-2", "anthropic/claude-fable-5.2"],
   ["claude-opus-5-5", "anthropic/claude-opus-5.5"],
   ["anthropic/claude-opus-5-5", "anthropic/claude-opus-5.5"],
   ["claude-sonnet-5-5", "anthropic/claude-sonnet-5.5"],
@@ -390,7 +406,31 @@ const ANTHROPIC_SONNET_5_5_CAPABILITIES: AnthropicCapabilities = {
   },
 };
 
+/**
+ * Claude Fable 5.2: thinking is always on (`enabled` with a budget is rejected;
+ * adaptive only) and effort goes up to xhigh / max.
+ */
+const ANTHROPIC_FABLE_5_2_CAPABILITIES: AnthropicCapabilities = {
+  ...ANTHROPIC_SONNET_5_5_CAPABILITIES,
+  thinking: {
+    supported: true,
+    types: {
+      enabled: { supported: false },
+      adaptive: { supported: true },
+    },
+  },
+};
+
 export const ANTHROPIC_MODEL_DEFINITIONS: AnthropicModelDefinition[] = [
+  {
+    type: "model",
+    id: "claude-fable-5-2",
+    display_name: "Claude Fable 5.2",
+    created_at: "2026-11-09T00:00:00Z",
+    max_input_tokens: 1000000,
+    max_tokens: 128000,
+    capabilities: ANTHROPIC_FABLE_5_2_CAPABILITIES,
+  },
   {
     type: "model",
     id: "claude-fable-5",

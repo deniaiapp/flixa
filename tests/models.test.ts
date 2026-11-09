@@ -14,6 +14,38 @@ import {
   resolveAvailableModelId,
 } from "../utils/agent/models";
 
+describe("Claude Fable 5.2 model support", () => {
+  test("registers the official model id, limits, pricing tier, and efforts", () => {
+    const model = getModelDefinition("claude-fable-5-2");
+    const anthropicModel = ANTHROPIC_MODEL_DEFINITIONS.find(
+      (entry) => entry.id === "claude-fable-5-2",
+    );
+
+    assert.equal(model?.id, "anthropic/claude-fable-5.2");
+    assert.equal(model?.tier, "plus");
+    assert.equal(getRequiredTierForModel("claude-fable-5-2"), "plus");
+    assert.equal(model?.contextWindow, 1_000_000);
+    assert.equal(model?.maxOutputTokens, 128_000);
+    assert.deepEqual(model?.efforts, ["low", "medium", "high", "xhigh", "max"]);
+    assert.equal(getModelTokenUsageMultiplier("claude-fable-5-2"), 10);
+    assert.equal(
+      resolveAvailableModelId("anthropic/claude-fable-5-2"),
+      "anthropic/claude-fable-5.2",
+    );
+    assert.partialDeepStrictEqual(anthropicModel, {
+      display_name: "Claude Fable 5.2",
+      max_input_tokens: 1_000_000,
+      max_tokens: 128_000,
+    });
+    assert.deepEqual(anthropicModel?.capabilities.effort.xhigh, {
+      supported: true,
+    });
+    assert.deepEqual(anthropicModel?.capabilities.thinking.types.enabled, {
+      supported: false,
+    });
+  });
+});
+
 describe("Claude Sonnet 5.5 model support", () => {
   test("registers the official model id, limits, pricing tier, and efforts", () => {
     const model = getModelDefinition("claude-sonnet-5-5");
