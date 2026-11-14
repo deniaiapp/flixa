@@ -23,8 +23,18 @@ Built with **TypeScript**, **Hono**, and **Node.js**.
 
 ## Installation
 
+The backend lives in `apps/backend` of the Flixa monorepo. Install from the repository
+root (one lockfile for the workspace), then run the commands below from `apps/backend`:
+
 ```bash
 pnpm install
+cd apps/backend
+```
+
+The Docker image is built from the repository root:
+
+```bash
+docker build -f apps/backend/Dockerfile -t flixa-backend .
 ```
 
 ### API Endpoint

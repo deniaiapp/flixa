@@ -1,7 +1,7 @@
 # Agent guide for the Flixa monorepo
 
-Flixa clients for the Deni AI / Flixa API: a CLI, a VS Code extension, a Zed ACP agent,
-and an OpenClaw plugin. pnpm workspace, Node.js 26+, TypeScript 7, oxlint, oxfmt,
+The Flixa API backend and its clients: a CLI, a VS Code extension, a Zed ACP agent, and
+an OpenClaw plugin. pnpm workspace, Node.js 26+, TypeScript 7, oxlint, oxfmt,
 vitest, esbuild.
 
 ## Layout
@@ -13,6 +13,7 @@ vitest, esbuild.
 | `apps/vscode/webview-ui` | `flixa-webview-ui` (private)         | React 19 + Vite + Tailwind 4 chat UI, built into `webview-ui/build` for the VSIX. |
 | `apps/zed`               | `@deniai/flixa-zed` (npm)            | ACP agent for Zed. ACP Registry metadata lives in `apps/zed/acp-registry/`.       |
 | `apps/openclaw-flixa`    | `@deniai/openclaw-flixa` (npm)       | OpenClaw CLI backend; its version follows `apps/cli/package.json`.                |
+| `apps/backend`           | `@deniai/flixa-backend` (private)    | Hono API at `flixa-api.deniai.app` (Docker image). See `apps/backend/AGENTS.md`.  |
 | `packages/api-client`    | `@deniai/flixa-api-client` (private) | Shared API client. Consumed as TypeScript source and bundled into each app.       |
 | `packages/core`          | `@deniai/flixa-core` (private)       | Shared agent tools, tool hosts, approval policy, and agent loop. Bundled too.     |
 | `skills/flixa-ship`      | ClawHub skill                        | Published together with the CLI.                                                  |
@@ -30,6 +31,10 @@ Run from the repository root:
 - `pnpm run check` — all of the above.
 - One package: `pnpm --filter <name> run <script>` (for example
   `pnpm --filter @deniai/flixa run check`, `pnpm --filter flixa run compile`).
+
+`apps/backend` tests use `node:test` through `tsx` (not vitest). Its Docker image is built
+from the repository root: `docker build -f apps/backend/Dockerfile .`
+(`apps/backend/Dockerfile.dockerignore` applies). Local runs read `apps/backend/.env`.
 
 `apps/cli` has no unit tests; its `test` script runs `scripts/verify-cli-regressions.ts` and
 `scripts/verify-agent-e2e.ts` (a full tool-using turn against a local mock Responses server).

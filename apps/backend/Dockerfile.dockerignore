@@ -1,0 +1,13 @@
+**/node_modules
+**/dist
+**/dist-*
+**/build
+**/out
+**/coverage
+.git
+**/.env
+**/.env.*
+**/*.log
+**/*.exe
+**/*.vsix
+apps/backend/tests

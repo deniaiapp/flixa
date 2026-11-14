@@ -6,7 +6,7 @@
 There is no dedicated `src/` folder; keep new modules close to the feature they support. Follow the existing split: route layer in `routes/`, reusable logic in `utils/`, cross-cutting concerns in `middleware/`.
 
 ## Build, Test, and Development Commands
-Requires Node.js 26+ and pnpm. Install dependencies with `pnpm install`. TypeScript runs directly through `tsx`; `.env` is loaded if present.
+This package is `apps/backend` in the Flixa monorepo. Requires Node.js 26+ and pnpm. Install dependencies with `pnpm install` from the repository root (one workspace lockfile); run the commands below from `apps/backend` or with `pnpm --filter @deniai/flixa-backend run <script>`. TypeScript runs directly through `tsx`; `.env` is loaded if present.
 
 - `pnpm start`: start the API locally (`tsx server.ts`).
 - `pnpm dev`: start with auto-reload (`tsx watch`).
@@ -14,7 +14,8 @@ Requires Node.js 26+ and pnpm. Install dependencies with `pnpm install`. TypeScr
 - `pnpm run build`: bundle `server.ts` with esbuild into `dist/server.js` (run it with `pnpm run start:dist`).
 - `pnpm test`: run the test suite (`node:test` via `tsx --test`).
 - `pnpm run typecheck`: run TypeScript checks with `tsc --noEmit`.
-- `pnpm exec oxlint .` and `pnpm exec oxfmt . --check`: optional lint/format validation using installed tools.
+- `pnpm run lint`: oxlint with the shared root `.oxlintrc.json`. Formatting is oxfmt from the root (`pnpm run format` / `format:check`) and is checked in CI.
+- Docker image: `docker build -f apps/backend/Dockerfile .` from the repository root.
 
 ## Coding Style & Naming Conventions
 Use TypeScript and keep modules small and single-purpose. Match the surrounding file style rather than reformatting unrelated code. Existing code uses:

@@ -1,6 +1,7 @@
 {
-  "name": "flixa-backend",
+  "name": "@deniai/flixa-backend",
   "version": "1.0.0",
+  "private": true,
   "description": "OpenAI API style backend with /v1/agent router",
   "type": "module",
   "main": "server.ts",
@@ -12,6 +13,7 @@
     "dev:prod-env": "tsx watch --env-file=.env.production server.ts",
     "build": "esbuild server.ts --bundle --platform=node --format=esm --target=node26 --outdir=dist --external:pg-native --banner:js=\"import { createRequire as __flixaCreateRequire } from 'node:module'; const require = __flixaCreateRequire(import.meta.url);\"",
     "typecheck": "tsc --noEmit",
+    "lint": "oxlint -c ../../.oxlintrc.json .",
     "test": "tsx --test --experimental-test-module-mocks \"tests/**/*.test.ts\"",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node --env-file-if-exists=.env ./node_modules/drizzle-kit/bin.cjs migrate",
@@ -47,10 +49,7 @@
     "@types/pg": "^8.23.1",
     "drizzle-kit": "^0.31.11",
     "esbuild": "^0.28.2",
-    "oxfmt": "^0.74.0",
-    "oxlint": "^1.89.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
-  },
-  "packageManager": "pnpm@12.18.0"
+  }
 }
