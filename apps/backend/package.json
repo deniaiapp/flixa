@@ -33,16 +33,16 @@
     "tools:unban-flixa-user": "tsx --env-file-if-exists=.env tools/unban-flixa-user.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.137.0",
-    "@hono/node-server": "^2.1.5",
+    "@anthropic-ai/sdk": "^1.8.0",
+    "@hono/node-server": "^2.1.8",
     "drizzle-orm": "^0.45.4",
-    "hono": "^4.13.14",
-    "openai": "^7.43.0",
+    "hono": "^4.13.18",
+    "openai": "^7.56.0",
     "pg": "^8.23.1"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.5.11",
-    "@types/node": "^26.6.5",
+    "@electric-sql/pglite": "^0.5.16",
+    "@types/node": "^26.6.6",
     "@types/pg": "^8.23.1",
     "drizzle-kit": "^0.31.11",
     "esbuild": "^0.28.2",

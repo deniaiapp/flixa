@@ -50,26 +50,26 @@
     "typecheck": "tsc --noEmit -p ."
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^4.0.88",
-    "@ai-sdk/openai": "^4.0.102",
-    "@anthropic-ai/sdk": "^1.3.0",
-    "ai": "^7.0.153",
+    "@ai-sdk/anthropic": "^4.0.104",
+    "@ai-sdk/openai": "^4.0.117",
+    "@anthropic-ai/sdk": "^1.8.0",
+    "ai": "^7.0.172",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@deniai/flixa-api-client": "workspace:*",
     "@deniai/flixa-core": "workspace:*",
     "@types/json-schema": "^7.0.15",
-    "@types/node": "^26.6.5",
+    "@types/node": "^26.6.6",
     "@types/vscode": "1.107.0",
-    "@vscode/vsce": "^4.0.0",
+    "@vscode/vsce": "^4.1.1",
     "esbuild": "^0.28.2",
-    "ovsx": "^1.3.0",
-    "oxfmt": "^0.75.0",
-    "oxlint": "^1.90.0",
-    "tailwindcss": "^4.3.3",
+    "ovsx": "^1.4.0",
+    "oxfmt": "^0.78.0",
+    "oxlint": "^1.93.0",
+    "tailwindcss": "^4.3.5",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.5"
+    "vitest": "^5.1.0"
   },
   "contributes": {
     "configuration": {
