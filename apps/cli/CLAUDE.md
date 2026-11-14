@@ -16,7 +16,7 @@ No test runner is configured.
 
 - `main` branch push touching the CLI → canary release (`{version}-canary.{run_number}`) via `.github/workflows/publish-cli.yml` at the monorepo root
 - `cli-v*` tag push → stable release via the same workflow
-- Uses npm trusted publishing (OIDC provenance, no `NPM_TOKEN` secret needed)
+- Uses npm trusted publishing (OIDC provenance, no `NPM_TOKEN` secret needed) with staged publishing: the workflow runs `npm stage publish`, and a maintainer approves each version with `npm stage approve <stage-id>` (2FA) before it is installable
 
 ## Architecture
 

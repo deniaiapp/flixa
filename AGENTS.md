@@ -90,8 +90,9 @@ from the repository root: `docker build -f apps/backend/Dockerfile .`
 - `.github/workflows/ci.yml` — typecheck, lint, format check, tests, builds, VSIX package
   (no publish); the CLI also runs on Windows.
 - `publish-cli.yml` — CLI + OpenClaw plugin + Flixa Ship skill: canary on `main` pushes
-  touching them, stable on `cli-v*` tags. npm trusted publishing must be re-pointed from
-  `deniaiapp/flixa-cli` to `deniaiapp/flixa` before it works.
+  touching them, stable on `cli-v*` tags. npm versions are staged (`npm stage publish`
+  through trusted publishing) and go live only after a maintainer runs
+  `npm stage approve <stage-id>` with 2FA; ClawHub publishes are not staged.
 - `update-providers.yml` — daily models.dev refresh that bumps the CLI patch version and
   pushes a `cli-v*` tag.
 - `release-vscode.yml` — `vscode-v*` tags (secrets `VSCE_PAT`, `OVSX_PAT`).

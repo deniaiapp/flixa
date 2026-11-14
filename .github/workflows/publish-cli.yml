@@ -7,10 +7,12 @@ name: Publish CLI
 #   -> canary release ({version}-canary.{run_number}, npm dist-tag "canary")
 # - cli-v* tag -> stable release
 #
-# npm uses trusted publishing (OIDC provenance, no NPM_TOKEN secret). NOTE: the npm trusted
-# publisher for @deniai/flixa and @deniai/openclaw-flixa is still configured for
-# deniaiapp/flixa-cli. It must be re-pointed to deniaiapp/flixa (workflow publish-cli.yml)
-# before this workflow can publish.
+# npm uses trusted publishing (OIDC provenance, no NPM_TOKEN secret) with staged publishing:
+# the workflow runs `npm stage publish`, so each npm version waits until a maintainer approves
+# it with 2FA (`npm stage list @deniai/flixa`, then `npm stage approve <stage-id>`). The trusted
+# publishers for @deniai/flixa and @deniai/openclaw-flixa must allow staging from this repo:
+#   npm trust github <package> --file publish-cli.yml --repo deniaiapp/flixa --allow-stage-publish
+# ClawHub publishes are not staged.
 
 on:
   push:
@@ -47,6 +49,10 @@ jobs:
           node-version: "26"
           registry-url: "https://registry.npmjs.org"
 
+      # `npm stage` ships with npm 11.20.
+      - name: Update npm
+        run: npm install --global npm@^11.20.0
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -80,20 +86,20 @@ jobs:
         run: pnpm --filter @deniai/openclaw-flixa run build
 
       # `pnpm pack` rewrites workspace: protocol specifiers (the bundled API client) before npm
-      # publishes the tarball with provenance.
+      # stages the tarball with provenance.
       - name: Pack CLI
         working-directory: apps/cli
         run: pnpm pack --out flixa-cli.tgz
 
-      - name: Publish canary
+      - name: Stage canary
         if: github.ref_type == 'branch'
         working-directory: apps/cli
-        run: npm publish flixa-cli.tgz --tag canary --access public --provenance
+        run: npm stage publish flixa-cli.tgz --tag canary --access public --provenance
 
-      - name: Publish OpenClaw plugin canary
+      - name: Stage OpenClaw plugin canary
         if: github.ref_type == 'branch'
         working-directory: apps/openclaw-flixa
-        run: npm publish --tag canary --access public --provenance
+        run: npm stage publish --tag canary --access public --provenance
 
       - name: Publish OpenClaw plugin to ClawHub canary
         if: github.ref_type == 'branch'
@@ -148,15 +154,15 @@ jobs:
             --source-path skills/flixa-ship \
             --json
 
-      - name: Publish release
+      - name: Stage release
         if: github.ref_type == 'tag'
         working-directory: apps/cli
-        run: npm publish flixa-cli.tgz --access public --provenance
+        run: npm stage publish flixa-cli.tgz --access public --provenance
 
-      - name: Publish OpenClaw plugin release
+      - name: Stage OpenClaw plugin release
         if: github.ref_type == 'tag'
         working-directory: apps/openclaw-flixa
-        run: npm publish --access public --provenance
+        run: npm stage publish --access public --provenance
 
       - name: Publish OpenClaw plugin to ClawHub release
         if: github.ref_type == 'tag'
