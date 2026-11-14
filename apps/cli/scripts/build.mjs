@@ -28,7 +28,7 @@ await build({
   bundle: true,
   platform: "node",
   format: "esm",
-  target: "node20",
+  target: "node26",
   packages: "external",
   plugins: [bundleWorkspacePackages],
   logLevel: "info",

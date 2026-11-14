@@ -1,5 +1,8 @@
-import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
-import type { CliBackendPlugin } from "openclaw/plugin-sdk/cli-backend";
+import { definePluginEntry, type OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
+
+// Newer openclaw releases no longer ship type declarations for openclaw/plugin-sdk/cli-backend;
+// derive the backend type from the plugin API instead.
+type CliBackendPlugin = Parameters<OpenClawPluginApi["registerCliBackend"]>[0];
 
 const DEFAULT_MODEL_REF = "flixa/openai/gpt-6-luna";
 
