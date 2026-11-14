@@ -82,7 +82,11 @@ describe("validateDeniApiKey negative cache", () => {
   test("rejects over-long keys without a query", async () => {
     const result = await validateDeniApiKey(`deni_${"x".repeat(300)}`);
 
-    assert.deepEqual(result, { valid: false, error: "Invalid API key format", code: "invalid_key" });
+    assert.deepEqual(result, {
+      valid: false,
+      error: "Invalid API key format",
+      code: "invalid_key",
+    });
     assert.equal(lookups, 0);
   });
 
@@ -100,7 +104,10 @@ describe("validateDeniApiKey negative cache", () => {
     while (hangingLookups.length > 0) hangingLookups.shift()!();
     const results = await Promise.all(pending);
 
-    assert.equal(results.every((result) => !result.valid && result.code === "invalid_key"), true);
+    assert.equal(
+      results.every((result) => !result.valid && result.code === "invalid_key"),
+      true,
+    );
     assert.equal(lookups, 8 + 64);
   });
 });

@@ -5,14 +5,7 @@ import type {
 } from "openai/resources/chat/completions";
 import type OpenAI from "openai";
 
-export type ReasoningEffort =
-  | "none"
-  | "minimal"
-  | "low"
-  | "medium"
-  | "high"
-  | "xhigh"
-  | "max";
+export type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 
 export interface AgentRequest {
   model: string;

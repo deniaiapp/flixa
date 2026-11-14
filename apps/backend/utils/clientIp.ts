@@ -55,7 +55,9 @@ export function getClientIp(headers: Headers, peerAddress = "unknown"): string {
 }
 
 export function getRequestClientIp(c: Context): string {
-  const server = c.env?.server as { requestIP(req: Request): { address: string } | null } | undefined;
+  const server = c.env?.server as
+    | { requestIP(req: Request): { address: string } | null }
+    | undefined;
   const peer = server?.requestIP(c.req.raw)?.address;
   return getClientIp(c.req.raw.headers, peer);
 }

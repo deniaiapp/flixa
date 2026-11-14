@@ -51,8 +51,7 @@ export function ensureRetainedReasoningInclude(
   provider: ResponsesProviderKind,
 ): string[] {
   const next = new Set(include ?? []);
-  const needsEncrypted =
-    provider === "openrouter" || store === false || store === undefined;
+  const needsEncrypted = provider === "openrouter" || store === false || store === undefined;
 
   if (needsEncrypted) {
     next.add("reasoning.encrypted_content");
@@ -64,9 +63,7 @@ export function ensureRetainedReasoningInclude(
 /**
  * Ensure reasoning config retains prior reasoning across multi-turn agent work.
  */
-export function ensureRetainedReasoningConfig(
-  reasoning: unknown,
-): Record<string, unknown> {
+export function ensureRetainedReasoningConfig(reasoning: unknown): Record<string, unknown> {
   const base = isRecord(reasoning) ? { ...reasoning } : {};
 
   // GPT-5.6+ defaults to all_turns; earlier models default to current_turn.
@@ -95,8 +92,7 @@ export function resolveContextManagement(
 
   return clientValue
     .filter(
-      (entry): entry is ContextManagementEntry =>
-        isRecord(entry) && typeof entry.type === "string",
+      (entry): entry is ContextManagementEntry => isRecord(entry) && typeof entry.type === "string",
     )
     .map((entry) => ({
       type: entry.type,
@@ -128,8 +124,7 @@ export function applyResponsesBestPractices(
     next.store = false;
   }
 
-  const store =
-    typeof next.store === "boolean" ? next.store : (undefined as boolean | undefined);
+  const store = typeof next.store === "boolean" ? next.store : (undefined as boolean | undefined);
 
   next.include = ensureRetainedReasoningInclude(
     Array.isArray(next.include)

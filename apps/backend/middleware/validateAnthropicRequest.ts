@@ -41,8 +41,7 @@ function toolSelectsModel(tool: unknown): boolean {
   }
 
   return (
-    tool.model !== undefined ||
-    (isObject(tool.parameters) && tool.parameters.model !== undefined)
+    tool.model !== undefined || (isObject(tool.parameters) && tool.parameters.model !== undefined)
   );
 }
 

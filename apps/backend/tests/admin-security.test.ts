@@ -36,7 +36,10 @@ describe("assessAdminPassword", () => {
   test("flags short and common passwords", () => {
     assert.equal(assessAdminPassword(undefined).ok, false);
     assert.ok(assessAdminPassword("short").warnings.length > 0);
-    assert.equal(assessAdminPassword("password").warnings.some((w) => w.includes("weak")), true);
+    assert.equal(
+      assessAdminPassword("password").warnings.some((w) => w.includes("weak")),
+      true,
+    );
     assert.equal(
       assessAdminPassword("xK9$mQ2pL7vN4wR8tY1z").ok ||
         assessAdminPassword("xK9$mQ2pL7vN4wR8tY1z").warnings.length === 0,

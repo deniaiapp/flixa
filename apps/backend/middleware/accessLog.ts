@@ -36,7 +36,5 @@ export async function accessLog(c: Context, next: Next): Promise<void> {
   }
 
   const extra = extras.length > 0 ? ` ${extras.join(" ")}` : "";
-  console.log(
-    `--> ${method} ${path} ${c.res.status} ${Date.now() - startedAt}ms${extra}`,
-  );
+  console.log(`--> ${method} ${path} ${c.res.status} ${Date.now() - startedAt}ms${extra}`);
 }

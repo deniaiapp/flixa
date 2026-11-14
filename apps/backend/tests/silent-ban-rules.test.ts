@@ -61,12 +61,7 @@ describe("matchSilentBanCondition", () => {
   test("equals is case-insensitive by default", () => {
     const h = headers({ "x-app": "CLI" });
     assert.equal(
-      matchSilentBanCondition(
-        { target: "x-app", op: "equals", value: "cli" },
-        h,
-        path,
-        method,
-      ),
+      matchSilentBanCondition({ target: "x-app", op: "equals", value: "cli" }, h, path, method),
       true,
     );
     assert.equal(
@@ -114,30 +109,15 @@ describe("matchSilentBanCondition", () => {
   test("exists / not_exists", () => {
     const h = headers({ "x-client": "yes" });
     assert.equal(
-      matchSilentBanCondition(
-        { target: "x-client", op: "exists" },
-        h,
-        path,
-        method,
-      ),
+      matchSilentBanCondition({ target: "x-client", op: "exists" }, h, path, method),
       true,
     );
     assert.equal(
-      matchSilentBanCondition(
-        { target: "x-missing", op: "exists" },
-        h,
-        path,
-        method,
-      ),
+      matchSilentBanCondition({ target: "x-missing", op: "exists" }, h, path, method),
       false,
     );
     assert.equal(
-      matchSilentBanCondition(
-        { target: "x-missing", op: "not_exists" },
-        h,
-        path,
-        method,
-      ),
+      matchSilentBanCondition({ target: "x-missing", op: "not_exists" }, h, path, method),
       true,
     );
   });
@@ -176,12 +156,7 @@ describe("matchSilentBanCondition", () => {
       true,
     );
     assert.equal(
-      matchSilentBanCondition(
-        { target: "method", op: "equals", value: "post" },
-        h,
-        path,
-        method,
-      ),
+      matchSilentBanCondition({ target: "method", op: "equals", value: "post" }, h, path, method),
       true,
     );
   });
@@ -204,10 +179,7 @@ describe("matchSilentBanRule", () => {
       matchSilentBanRule(
         {
           enabled: true,
-          conditions: [
-            ...conditions,
-            { target: "user-agent", op: "contains", value: "python" },
-          ],
+          conditions: [...conditions, { target: "user-agent", op: "contains", value: "python" }],
         },
         h,
         "/v1/a",
@@ -237,9 +209,7 @@ describe("validateSilentBanConditions", () => {
       { ok: false },
     );
     assert.partialDeepStrictEqual(
-      validateSilentBanConditions([
-        { target: "user-agent", op: "contains", value: "curl" },
-      ]),
+      validateSilentBanConditions([{ target: "user-agent", op: "contains", value: "curl" }]),
       { ok: true },
     );
     assert.partialDeepStrictEqual(
@@ -250,9 +220,7 @@ describe("validateSilentBanConditions", () => {
 
   test("rejects invalid regex", () => {
     assert.partialDeepStrictEqual(
-      validateSilentBanConditions([
-        { target: "user-agent", op: "regex", value: "(" },
-      ]),
+      validateSilentBanConditions([{ target: "user-agent", op: "regex", value: "(" }]),
       { ok: false },
     );
   });

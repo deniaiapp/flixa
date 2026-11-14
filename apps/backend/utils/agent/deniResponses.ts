@@ -24,9 +24,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * tool_choice unchanged. Reshape a normalized Responses request to match, so
  * reasoning / include / store are not sent.
  */
-export function toDeniResponsesRequest(
-  request: Record<string, unknown>,
-): Record<string, unknown> {
+export function toDeniResponsesRequest(request: Record<string, unknown>): Record<string, unknown> {
   const next: Record<string, unknown> = {};
   for (const field of DENI_RESPONSES_FIELDS) {
     if (request[field] !== undefined) {
@@ -37,9 +35,7 @@ export function toDeniResponsesRequest(
   next.input = convertResponsesInputContentToChat(next.input);
 
   // Deni AI API caps output at 1024 tokens when this is missing.
-  next.max_output_tokens ??= getModelDefinition(
-    String(request.model),
-  )?.maxOutputTokens;
+  next.max_output_tokens ??= getModelDefinition(String(request.model))?.maxOutputTokens;
 
   if (next.tools === undefined) {
     delete next.tool_choice;

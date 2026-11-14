@@ -45,12 +45,9 @@ mock.module("../utils/deni/usage", {
 });
 
 const { BANNED_ERROR_MESSAGE, CLIENT_UPDATE_REQUIRED_MESSAGE, MISSING_CLIENT_SIGNAL_MESSAGE } = ban;
-const { clearClientSignalLogs, queryClientSignalLogs } = await import(
-  "../utils/deni/clientSignalLog"
-);
-const { validateAgentApiKey, validateAgentAuth } = await import(
-  "../middleware/validateAgentAuth"
-);
+const { clearClientSignalLogs, queryClientSignalLogs } =
+  await import("../utils/deni/clientSignalLog");
+const { validateAgentApiKey, validateAgentAuth } = await import("../middleware/validateAgentAuth");
 
 const UNKNOWN_UA = "my-external-app/2.0";
 const AI_SDK_UA = "ai-sdk/openai-compatible/1.0.0";
@@ -72,10 +69,13 @@ function modelsApp(): Hono {
 }
 
 const setBody: MiddlewareHandler = async (c, next) => {
-  c.set("validatedBody" as never, {
-    model: "openai/gpt-6-luna",
-    messages: [{ role: "user", content: "hi" }],
-  } as never);
+  c.set(
+    "validatedBody" as never,
+    {
+      model: "openai/gpt-6-luna",
+      messages: [{ role: "user", content: "hi" }],
+    } as never,
+  );
   await next();
 };
 

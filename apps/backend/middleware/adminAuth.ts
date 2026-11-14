@@ -70,10 +70,7 @@ let cachedSessionKey: {
   key: Promise<CryptoKey>;
 } | null = null;
 
-async function deriveSessionKey(
-  password: string,
-  secret: string,
-): Promise<CryptoKey> {
+async function deriveSessionKey(password: string, secret: string): Promise<CryptoKey> {
   const enc = new TextEncoder();
   let bits: ArrayBuffer;
   if (secret) {
@@ -108,13 +105,7 @@ async function deriveSessionKey(
       256,
     );
   }
-  return crypto.subtle.importKey(
-    "raw",
-    bits,
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
+  return crypto.subtle.importKey("raw", bits, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
 }
 
 /**
@@ -149,42 +140,25 @@ function isBasicAuthAllowed(): boolean {
 
 function requestIsHttps(c: Context): boolean {
   if (c.req.url.startsWith("https://")) return true;
-  const proto = (
-    c.req.header("x-forwarded-proto") ||
-    c.req.header("x-forwarded-protocol") ||
-    ""
-  )
+  const proto = (c.req.header("x-forwarded-proto") || c.req.header("x-forwarded-protocol") || "")
     .split(",")[0]
     ?.trim()
     .toLowerCase();
   if (proto === "https") return true;
   if (process.env.ADMIN_COOKIE_SECURE === "true") return true;
-  if (
-    process.env.NODE_ENV === "production" &&
-    process.env.ADMIN_COOKIE_SECURE !== "false"
-  ) {
+  if (process.env.NODE_ENV === "production" && process.env.ADMIN_COOKIE_SECURE !== "false") {
     // Prefer Secure in production unless explicitly disabled for local-prod tests.
     return true;
   }
   return false;
 }
 
-async function hmacSha256Base64Url(
-  message: string,
-  key: CryptoKey,
-): Promise<string> {
-  const sig = await crypto.subtle.sign(
-    "HMAC",
-    key,
-    new TextEncoder().encode(message),
-  );
+async function hmacSha256Base64Url(message: string, key: CryptoKey): Promise<string> {
+  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(message));
   const bytes = new Uint8Array(sig);
   let binary = "";
   for (const b of bytes) binary += String.fromCharCode(b);
-  return btoa(binary)
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/g, "");
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
 function timingSafeEqualString(a: string, b: string): boolean {
@@ -204,9 +178,7 @@ export async function createAdminSessionToken(): Promise<string> {
   return `${payload}.${sig}`;
 }
 
-export async function verifyAdminSessionToken(
-  token: string | undefined | null,
-): Promise<boolean> {
+export async function verifyAdminSessionToken(token: string | undefined | null): Promise<boolean> {
   if (!token) return false;
   const parts = token.split(".");
   // v2: version.exp.nonce.sig  OR legacy v1: version.exp.sig
@@ -216,10 +188,7 @@ export async function verifyAdminSessionToken(
     const exp = Number.parseInt(expRaw, 10);
     if (!Number.isFinite(exp) || exp <= Date.now()) return false;
     const payload = `${version}.${expRaw}.${nonce}`;
-    const expected = await hmacSha256Base64Url(
-      payload,
-      await sessionSigningKey(),
-    );
+    const expected = await hmacSha256Base64Url(payload, await sessionSigningKey());
     return timingSafeEqualString(sig, expected);
   }
 
@@ -229,10 +198,7 @@ export async function verifyAdminSessionToken(
     const exp = Number.parseInt(expRaw, 10);
     if (!Number.isFinite(exp) || exp <= Date.now()) return false;
     const payload = `${version}.${expRaw}`;
-    const expected = await hmacSha256Base64Url(
-      payload,
-      await sessionSigningKey(),
-    );
+    const expected = await hmacSha256Base64Url(payload, await sessionSigningKey());
     return timingSafeEqualString(sig, expected);
   }
 
@@ -256,19 +222,11 @@ export function clearAdminSessionCookie(c: Context): void {
   deleteCookie(c, ADMIN_SESSION_COOKIE, { path: COOKIE_PATH });
 }
 
-export async function verifyAdminCredentials(
-  username: string,
-  password: string,
-): Promise<boolean> {
+export async function verifyAdminCredentials(username: string, password: string): Promise<boolean> {
   const expectedUser = adminUsername();
   const expectedPass = adminPassword();
   if (!expectedPass) return false;
-  return verifyAdminCredentialsSecure(
-    username,
-    password,
-    expectedUser,
-    expectedPass,
-  );
+  return verifyAdminCredentialsSecure(username, password, expectedUser, expectedPass);
 }
 
 function parseBasicAuthHeader(
@@ -314,13 +272,8 @@ function loginRedirect(c: Context): Response {
     // keep path only
   }
   const safeNext =
-    next.startsWith("/admin") && !next.startsWith("/admin/login")
-      ? next
-      : "/admin/lookup";
-  return c.redirect(
-    `/admin/login?next=${encodeURIComponent(safeNext)}`,
-    302,
-  );
+    next.startsWith("/admin") && !next.startsWith("/admin/login") ? next : "/admin/lookup";
+  return c.redirect(`/admin/login?next=${encodeURIComponent(safeNext)}`, 302);
 }
 
 function applyAdminSecurityHeaders(c: Context): void {
@@ -365,10 +318,7 @@ export const adminAuth: MiddlewareHandler = async (c: Context, next: Next) => {
 
   const password = adminPassword();
   if (!password) {
-    return c.text(
-      "Admin is not configured. Set ADMIN_PASSWORD (and optionally ADMIN_USER).",
-      503,
-    );
+    return c.text("Admin is not configured. Set ADMIN_PASSWORD (and optionally ADMIN_USER).", 503);
   }
 
   const ip = getRequestClientIp(c);
@@ -421,8 +371,7 @@ export const adminAuth: MiddlewareHandler = async (c: Context, next: Next) => {
   return c.json(
     {
       error: {
-        message:
-          "Admin authentication required. Open /admin/login or send Basic credentials.",
+        message: "Admin authentication required. Open /admin/login or send Basic credentials.",
         type: "authentication_error",
         param: null,
         code: "admin_unauthorized",

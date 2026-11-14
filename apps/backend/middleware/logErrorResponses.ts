@@ -1,8 +1,5 @@
 import { Context, Next } from "hono";
-import {
-  redactApiKeyFromRequestHeaders,
-  summarizeRequestAuth,
-} from "../utils/deni/auth";
+import { redactApiKeyFromRequestHeaders, summarizeRequestAuth } from "../utils/deni/auth";
 import { detectClientSignal } from "../utils/deni/clientSignal";
 
 const MAX_LOGGED_BODY_LENGTH = 2_000;
@@ -20,8 +17,7 @@ async function getResponseBodyPreview(c: Context): Promise<string | null> {
 
   if (
     contentType.includes("text/event-stream") ||
-    (!contentType.includes("application/json") &&
-      !contentType.startsWith("text/"))
+    (!contentType.includes("application/json") && !contentType.startsWith("text/"))
   ) {
     return null;
   }
@@ -46,17 +42,13 @@ export async function logErrorResponses(c: Context, next: Next): Promise<void> {
   // Browser Basic Auth: first hit without Authorization is expected 401 with
   // WWW-Authenticate. Logging it as an error looks like a bug and confuses
   // debugging when the admin UI is still prompting for credentials.
-  if (
-    c.res.status === 401 &&
-    c.res.headers.has("www-authenticate")
-  ) {
+  if (c.res.status === 401 && c.res.headers.has("www-authenticate")) {
     return;
   }
 
   const responseBody = await getResponseBodyPreview(c);
   const auth = c.get("agentAuth") as { userId?: string } | undefined;
-  const userId =
-    (c.get("agentUserId") as string | undefined) || auth?.userId || null;
+  const userId = (c.get("agentUserId") as string | undefined) || auth?.userId || null;
   const headers = c.req.raw.headers;
   const signal = detectClientSignal(headers);
 

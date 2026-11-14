@@ -1,9 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, test } from "node:test";
-import {
-  createAdminSessionToken,
-  verifyAdminSessionToken,
-} from "../middleware/adminAuth";
+import { createAdminSessionToken, verifyAdminSessionToken } from "../middleware/adminAuth";
 
 const PASSWORD = "test-password-not-a-secret";
 const SECRET = "test-session-secret-0123456789abcdef-not-real";
@@ -29,13 +26,9 @@ async function hmac(
   key: Uint8Array<ArrayBuffer>,
   message: string,
 ): Promise<Uint8Array<ArrayBuffer>> {
-  const k = await crypto.subtle.importKey(
-    "raw",
-    key,
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
+  const k = await crypto.subtle.importKey("raw", key, { name: "HMAC", hash: "SHA-256" }, false, [
+    "sign",
+  ]);
   return new Uint8Array(await crypto.subtle.sign("HMAC", k, enc.encode(message)));
 }
 
@@ -55,13 +48,9 @@ function rawPasswordKey(password: string): Uint8Array<ArrayBuffer> {
 }
 
 async function pbkdf2Key(password: string): Promise<Uint8Array<ArrayBuffer>> {
-  const base = await crypto.subtle.importKey(
-    "raw",
-    enc.encode(password),
-    "PBKDF2",
-    false,
-    ["deriveBits"],
-  );
+  const base = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, [
+    "deriveBits",
+  ]);
   return new Uint8Array(
     await crypto.subtle.deriveBits(
       {
@@ -76,10 +65,7 @@ async function pbkdf2Key(password: string): Promise<Uint8Array<ArrayBuffer>> {
   );
 }
 
-async function secretKey(
-  secret: string,
-  password: string,
-): Promise<Uint8Array<ArrayBuffer>> {
+async function secretKey(secret: string, password: string): Promise<Uint8Array<ArrayBuffer>> {
   return hmac(enc.encode(secret), `flixa-admin-session-v1:${password}`);
 }
 
@@ -155,10 +141,7 @@ describe("admin session signing key with ADMIN_SESSION_SECRET", () => {
 
   test("tokens signed with the raw password key are rejected", async () => {
     process.env.ADMIN_SESSION_SECRET = SECRET;
-    const token = await signWith(
-      rawPasswordKey(PASSWORD),
-      `v2.${futureExp()}.0123456789abcdef`,
-    );
+    const token = await signWith(rawPasswordKey(PASSWORD), `v2.${futureExp()}.0123456789abcdef`);
     assert.equal(await verifyAdminSessionToken(token), false);
   });
 });

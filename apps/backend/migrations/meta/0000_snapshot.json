@@ -56,12 +56,8 @@
           "name": "ban_user_id_user_id_fk",
           "tableFrom": "ban",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -132,12 +128,8 @@
           "name": "silent_ban_hit_user_id_user_id_fk",
           "tableFrom": "silent_ban_hit",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -146,12 +138,8 @@
           "tableFrom": "silent_ban_hit",
           "tableTo": "silent_ban_rule",
           "schemaTo": "flixa",
-          "columnsFrom": [
-            "rule_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["rule_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -159,10 +147,7 @@
       "compositePrimaryKeys": {
         "silent_ban_hit_user_id_rule_id_pk": {
           "name": "silent_ban_hit_user_id_rule_id_pk",
-          "columns": [
-            "user_id",
-            "rule_id"
-          ]
+          "columns": ["user_id", "rule_id"]
         }
       },
       "uniqueConstraints": {},
@@ -308,12 +293,8 @@
           "name": "usage_reservation_user_id_user_id_fk",
           "tableFrom": "usage_reservation",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }

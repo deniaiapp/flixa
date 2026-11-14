@@ -9,10 +9,7 @@ import {
   ADMIN_SESSION_COOKIE,
 } from "../../middleware/adminAuth";
 import { getCookie } from "hono/cookie";
-import {
-  failedLoginDelay,
-  logAdminAudit,
-} from "../../utils/adminSecurity";
+import { failedLoginDelay, logAdminAudit } from "../../utils/adminSecurity";
 import { isAuthDisabledMode } from "../../utils/authMode";
 
 export const adminAuthRouter = new Hono();
@@ -43,10 +40,7 @@ adminAuthRouter.get("/login", async (c) => {
 
   const password = process.env.ADMIN_PASSWORD;
   if (!password) {
-    return c.text(
-      "Admin is not configured. Set ADMIN_PASSWORD (and optionally ADMIN_USER).",
-      503,
-    );
+    return c.text("Admin is not configured. Set ADMIN_PASSWORD (and optionally ADMIN_USER).", 503);
   }
 
   // Already signed in → bounce to destination.
@@ -71,10 +65,7 @@ adminAuthRouter.post("/login", async (c) => {
 
   const password = process.env.ADMIN_PASSWORD;
   if (!password) {
-    return c.text(
-      "Admin is not configured. Set ADMIN_PASSWORD (and optionally ADMIN_USER).",
-      503,
-    );
+    return c.text("Admin is not configured. Set ADMIN_PASSWORD (and optionally ADMIN_USER).", 503);
   }
 
   const ip = getRequestClientIp(c);
@@ -113,10 +104,7 @@ adminAuthRouter.post("/login", async (c) => {
     if (contentType.includes("application/json")) {
       return c.json({ error: "invalid_credentials" }, 401);
     }
-    return c.redirect(
-      `/admin/login?next=${encodeURIComponent(next)}&error=1`,
-      302,
-    );
+    return c.redirect(`/admin/login?next=${encodeURIComponent(next)}&error=1`, 302);
   }
 
   // Rotate session on every successful login.
@@ -149,10 +137,7 @@ adminAuthRouter.post("/logout", (c) => {
 });
 
 function renderLoginPage(next: string, showError: boolean): string {
-  const nextAttr = next
-    .replace(/&/g, "&amp;")
-    .replace(/"/g, "&quot;")
-    .replace(/</g, "&lt;");
+  const nextAttr = next.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 
   return `<!DOCTYPE html>
 <html lang="en">

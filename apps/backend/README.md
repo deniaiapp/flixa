@@ -44,6 +44,7 @@ docker build -f apps/backend/Dockerfile -t flixa-backend .
 OpenAI-style agent endpoint (OpenRouter or OpenAI-compatible upstream).
 
 **Request Body:**
+
 ```json
 {
   "model": "openai/gpt-4",
@@ -66,17 +67,17 @@ OpenAI-style agent endpoint (OpenRouter or OpenAI-compatible upstream).
 Anthropic-compatible Messages API endpoint for Claude Code. Requires a direct Anthropic API key and supports `x-api-key` authentication.
 
 **Request Body (Anthropic format):**
+
 ```json
 {
   "model": "claude-3-5-sonnet-20240620",
   "max_tokens": 1024,
-  "messages": [
-    { "role": "user", "content": "Hello from Claude Code" }
-  ]
+  "messages": [{ "role": "user", "content": "Hello from Claude Code" }]
 }
 ```
 
 **Response (Non-streaming):**
+
 ```json
 {
   "id": "chatcmpl-123",

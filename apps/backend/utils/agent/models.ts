@@ -1,9 +1,5 @@
 import type { ReasoningEffort } from "./types";
-import {
-  getUsageTierMultiplier,
-  isPremiumUsageTier,
-  type UsageTier,
-} from "./usage-tiers";
+import { getUsageTierMultiplier, isPremiumUsageTier, type UsageTier } from "./usage-tiers";
 
 export interface ModelDefinition {
   id: string;
@@ -48,55 +44,15 @@ const OPENAI_1M_CONTEXT = {
   maxOutputTokens: 128_000,
 } as const;
 
-const OPENAI_GPT_6_EFFORTS: ReasoningEffort[] = [
-  "low",
-  "medium",
-  "high",
-  "xhigh",
-  "max",
-];
-const OPENAI_GPT_5_6_EFFORTS: ReasoningEffort[] = [
-  "none",
-  "low",
-  "medium",
-  "high",
-  "xhigh",
-  "max",
-];
+const OPENAI_GPT_6_EFFORTS: ReasoningEffort[] = ["low", "medium", "high", "xhigh", "max"];
+const OPENAI_GPT_5_6_EFFORTS: ReasoningEffort[] = ["none", "low", "medium", "high", "xhigh", "max"];
 
-const ANTHROPIC_FABLE_OPUS_EFFORTS: ReasoningEffort[] = [
-  "low",
-  "medium",
-  "high",
-  "xhigh",
-  "max",
-];
-const ANTHROPIC_SONNET_5_5_EFFORTS: ReasoningEffort[] = [
-  "low",
-  "medium",
-  "high",
-  "xhigh",
-  "max",
-];
-const ANTHROPIC_HAIKU_5_5_EFFORTS: ReasoningEffort[] = [
-  "low",
-  "medium",
-  "high",
-  "xhigh",
-  "max",
-];
+const ANTHROPIC_FABLE_OPUS_EFFORTS: ReasoningEffort[] = ["low", "medium", "high", "xhigh", "max"];
+const ANTHROPIC_SONNET_5_5_EFFORTS: ReasoningEffort[] = ["low", "medium", "high", "xhigh", "max"];
+const ANTHROPIC_HAIKU_5_5_EFFORTS: ReasoningEffort[] = ["low", "medium", "high", "xhigh", "max"];
 
-const GOOGLE_GEMINI_3_8_FLASH_EFFORTS: ReasoningEffort[] = [
-  "low",
-  "medium",
-  "high",
-];
-const GOOGLE_GEMINI_FLASH_EFFORTS: ReasoningEffort[] = [
-  "minimal",
-  "low",
-  "medium",
-  "high",
-];
+const GOOGLE_GEMINI_3_8_FLASH_EFFORTS: ReasoningEffort[] = ["low", "medium", "high"];
+const GOOGLE_GEMINI_FLASH_EFFORTS: ReasoningEffort[] = ["minimal", "low", "medium", "high"];
 
 interface AnthropicCapabilityFlag {
   supported: boolean;
@@ -167,7 +123,8 @@ export const MODEL_DEFINITIONS: ModelDefinition[] = [
     id: "openai/gpt-6-sol",
     usageTier: 4,
     label: "GPT-6 Sol",
-    description: "High-end GPT-6 model below Astra: strong reasoning, coding, and agentic work at lower cost.",
+    description:
+      "High-end GPT-6 model below Astra: strong reasoning, coding, and agentic work at lower cost.",
     tags: ["general", "reasoning", "coding", "agentic", "codex", "long-context"],
     efforts: OPENAI_GPT_5_6_EFFORTS,
     ...OPENAI_1M_CONTEXT,
@@ -205,7 +162,8 @@ export const MODEL_DEFINITIONS: ModelDefinition[] = [
     id: "anthropic/claude-haiku-5.5",
     usageTier: 3,
     label: "Claude Haiku 5.5",
-    description: "Anthropic's fastest model for high-volume, latency-sensitive tasks such as classification, extraction, and routing.",
+    description:
+      "Anthropic's fastest model for high-volume, latency-sensitive tasks such as classification, extraction, and routing.",
     tags: ["fast", "lightweight", "long-context"],
     efforts: ANTHROPIC_HAIKU_5_5_EFFORTS,
     contextWindow: 1_000_000,
@@ -233,7 +191,8 @@ export const MODEL_DEFINITIONS: ModelDefinition[] = [
     id: "anthropic/claude-fable-5.2",
     usageTier: 9,
     label: "Claude Fable 5.2",
-    description: "Anthropic's most capable model for demanding reasoning and long-horizon agentic work.",
+    description:
+      "Anthropic's most capable model for demanding reasoning and long-horizon agentic work.",
     tags: ["powerful", "coding", "agentic", "long-context"],
     efforts: ANTHROPIC_FABLE_OPUS_EFFORTS,
     contextWindow: 1_000_000,
@@ -244,7 +203,8 @@ export const MODEL_DEFINITIONS: ModelDefinition[] = [
     id: "anthropic/claude-fable-5.1",
     usageTier: 10,
     label: "Claude Fable 5.1",
-    description: "Improves on Fable 5, mainly in agentic coding, long-running workflows, and knowledge work.",
+    description:
+      "Improves on Fable 5, mainly in agentic coding, long-running workflows, and knowledge work.",
     tags: ["coding", "agentic", "long-context"],
     efforts: ANTHROPIC_FABLE_OPUS_EFFORTS,
     contextWindow: 1_000_000,
@@ -255,7 +215,8 @@ export const MODEL_DEFINITIONS: ModelDefinition[] = [
     id: "anthropic/claude-opus-5.5",
     usageTier: 8,
     label: "Claude Opus 5.5",
-    description: "Anthropic flagship for demanding reasoning, coding, and long-horizon agentic work.",
+    description:
+      "Anthropic flagship for demanding reasoning, coding, and long-horizon agentic work.",
     tags: ["powerful", "agentic"],
     efforts: ANTHROPIC_FABLE_OPUS_EFFORTS,
     contextWindow: 1_000_000,
@@ -266,7 +227,8 @@ export const MODEL_DEFINITIONS: ModelDefinition[] = [
     id: "google/gemini-3.8-flash",
     usageTier: 3,
     label: "Gemini 3.8 Flash",
-    description: "Google's most intelligent Flash model, strong in software engineering and agentic tasks.",
+    description:
+      "Google's most intelligent Flash model, strong in software engineering and agentic tasks.",
     tags: ["fast", "coding", "agentic"],
     efforts: GOOGLE_GEMINI_3_8_FLASH_EFFORTS,
     contextWindow: 1_048_576,
@@ -505,9 +467,7 @@ export const ANTHROPIC_MODEL_DEFINITIONS: AnthropicModelDefinition[] = [
   },
 ];
 
-export function getModelDefinition(
-  modelId: string,
-): ModelDefinition | undefined {
+export function getModelDefinition(modelId: string): ModelDefinition | undefined {
   const resolvedModelId = resolveAvailableModelId(modelId);
   return MODEL_DEFINITIONS.find((m) => m.id === resolvedModelId);
 }
@@ -516,10 +476,7 @@ export function getModelContextWindow(modelId: string): number | undefined {
   return getModelDefinition(modelId)?.contextWindow;
 }
 
-function numField(
-  record: Record<string, unknown>,
-  ...keys: string[]
-): number | null {
+function numField(record: Record<string, unknown>, ...keys: string[]): number | null {
   for (const key of keys) {
     const value = record[key];
     if (typeof value === "number" && Number.isFinite(value)) {
@@ -540,16 +497,8 @@ function getPromptTokenCount(usage: unknown): number | null {
   }
 
   const record = usage as Record<string, unknown>;
-  const cacheRead = numField(
-    record,
-    "cache_read_input_tokens",
-    "cacheReadInputTokens",
-  );
-  const cacheWrite = numField(
-    record,
-    "cache_creation_input_tokens",
-    "cacheCreationInputTokens",
-  );
+  const cacheRead = numField(record, "cache_read_input_tokens", "cacheReadInputTokens");
+  const cacheWrite = numField(record, "cache_creation_input_tokens", "cacheCreationInputTokens");
 
   // Prefer OpenAI prompt_tokens when present (includes cached subset).
   const openaiPrompt = numField(record, "prompt_tokens", "promptTokens");
@@ -569,10 +518,7 @@ function getPromptTokenCount(usage: unknown): number | null {
 /**
  * Base per-model usage multiplier (ignores long-context surcharge).
  */
-export function getModelTokenUsageMultiplier(
-  modelId: string,
-  tier?: PlanTier,
-): number {
+export function getModelTokenUsageMultiplier(modelId: string, tier?: PlanTier): number {
   const definition = getModelDefinition(modelId);
   const usageTier =
     (tier === "free" ? definition?.freeTierUsageTier : undefined) ??
@@ -587,10 +533,7 @@ export function getModelTokenUsageMultiplier(
  * Returns 1 when the prompt is within the short-context band or the model
  * has no long-context pricing.
  */
-export function getLongContextUsageMultiplier(
-  modelId: string,
-  usage: unknown,
-): number {
+export function getLongContextUsageMultiplier(modelId: string, usage: unknown): number {
   const def = getModelDefinition(modelId);
   const threshold = def?.longContextThreshold;
   const longMultiplier = def?.longContextUsageMultiplier;

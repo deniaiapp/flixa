@@ -27,38 +27,41 @@ const oldAsync = process.env.FLIXA_USAGE_FINALIZE_ASYNC;
 const oldProviderKey = process.env.OPENROUTER_API_KEY;
 const oldDeniKey = process.env.DENI_AI_API_KEY;
 
-before(async () => {
-  await db.exec(`CREATE TABLE usage_quota (
+before(
+  async () => {
+    await db.exec(`CREATE TABLE usage_quota (
     user_id TEXT NOT NULL, category TEXT NOT NULL, plan_tier TEXT NOT NULL,
     limit_amount BIGINT, unit TEXT NOT NULL, used BIGINT NOT NULL,
     period_start TIMESTAMPTZ NOT NULL, period_end TIMESTAMPTZ,
     PRIMARY KEY (user_id, category)
   )`);
-  // Mirrors deni-ai/src/db/schema/product-usage.ts.
-  await db.exec(`CREATE TABLE product_usage (
+    // Mirrors deni-ai/src/db/schema/product-usage.ts.
+    await db.exec(`CREATE TABLE product_usage (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     user_id TEXT NOT NULL, product TEXT NOT NULL, metric TEXT NOT NULL, unit TEXT NOT NULL,
     period_start TIMESTAMPTZ NOT NULL, used BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
-  await db.exec(
-    "CREATE UNIQUE INDEX product_usage_user_period_idx ON product_usage (user_id, product, metric, unit, period_start)",
-  );
-  await db.exec("CREATE TABLE signup_risk (user_id TEXT PRIMARY KEY)");
-  await db.exec(`INSERT INTO "user" (id) VALUES ('bootstrap'), ('test-user')`);
-  const pool = {
-    query: (sql: string, values: unknown[]) => db.query(sql, values),
-  } as unknown as Pool;
-  getDeniPool.mock.mockImplementation(() => pool);
-  await reserveUsageQuota("bootstrap", "premium", "free", false, 1);
-  validateAgentAuth.mock.mockImplementation(async (c, next) => {
-    activeAuth = await authContext();
-    c.set("agentAuth", activeAuth);
-    await next();
-  });
-  const { agentRouter } = await import("../routes/v1/agent");
-  app = new Hono().route("/v1", agentRouter);
-}, { timeout: 30_000 });
+    await db.exec(
+      "CREATE UNIQUE INDEX product_usage_user_period_idx ON product_usage (user_id, product, metric, unit, period_start)",
+    );
+    await db.exec("CREATE TABLE signup_risk (user_id TEXT PRIMARY KEY)");
+    await db.exec(`INSERT INTO "user" (id) VALUES ('bootstrap'), ('test-user')`);
+    const pool = {
+      query: (sql: string, values: unknown[]) => db.query(sql, values),
+    } as unknown as Pool;
+    getDeniPool.mock.mockImplementation(() => pool);
+    await reserveUsageQuota("bootstrap", "premium", "free", false, 1);
+    validateAgentAuth.mock.mockImplementation(async (c, next) => {
+      activeAuth = await authContext();
+      c.set("agentAuth", activeAuth);
+      await next();
+    });
+    const { agentRouter } = await import("../routes/v1/agent");
+    app = new Hono().route("/v1", agentRouter);
+  },
+  { timeout: 30_000 },
+);
 
 beforeEach(async () => {
   process.env.FLIXA_USAGE_FINALIZE_ASYNC = "false";
@@ -163,9 +166,10 @@ describe("atomic usage reservations", () => {
     const ledger = await db.query<{ product: string; metric: string; unit: string; used: number }>(
       "SELECT product, metric, unit, used FROM product_usage WHERE user_id = 'test-user'",
     );
-    assert.deepEqual(ledger.rows.map((row) => ({ ...row, used: Number(row.used) })), [
-      { product: "flixa", metric: "premium", unit: "units", used: 230 },
-    ]);
+    assert.deepEqual(
+      ledger.rows.map((row) => ({ ...row, used: Number(row.used) })),
+      [{ product: "flixa", metric: "premium", unit: "units", used: 230 }],
+    );
   });
 
   test("pre-response errors refund reservations", async () => {
@@ -231,10 +235,12 @@ describe("stream accounting", () => {
       new UsageEstimate({ max_tokens: 1000 }, model).reservationAmount,
     );
     assert.ok(
-      new UsageEstimate(body, model, "responses").reservationAmount < new UsageEstimate(body, model, "chat").reservationAmount,
+      new UsageEstimate(body, model, "responses").reservationAmount <
+        new UsageEstimate(body, model, "chat").reservationAmount,
     );
     assert.ok(
-      new UsageEstimate(body, model, "compact").reservationAmount > new UsageEstimate(body, model, "chat").reservationAmount,
+      new UsageEstimate(body, model, "compact").reservationAmount >
+        new UsageEstimate(body, model, "chat").reservationAmount,
     );
   });
 
@@ -354,7 +360,8 @@ describe("Responses route streaming", () => {
       controller!.error(new Error("local simulated upstream disconnect"));
       await assert.rejects(
         reader.read(),
-        (error: unknown) => error instanceof Error && error.message.includes("local simulated upstream disconnect"),
+        (error: unknown) =>
+          error instanceof Error && error.message.includes("local simulated upstream disconnect"),
       );
       assert.equal(await used(), activeAuth.usageEstimate!.inputTokens + 10);
     } finally {

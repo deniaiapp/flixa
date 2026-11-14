@@ -75,10 +75,7 @@ export function isSafeCollaborationProxyName(name: string): boolean {
 }
 
 function isCollaborationNamespaceValue(value: string): boolean {
-  return (
-    value === RESERVED_COLLABORATION_NAMESPACE ||
-    value === SAFE_COLLABORATION_NAMESPACE
-  );
+  return value === RESERVED_COLLABORATION_NAMESPACE || value === SAFE_COLLABORATION_NAMESPACE;
 }
 
 /** Convert a client-visible collaboration name into a valid private name. */
@@ -187,9 +184,7 @@ function toSafeFunctionTool(
       : undefined);
   const parameters =
     (isRecord(source.parameters) ? source.parameters : undefined) ??
-    (functionRecord && isRecord(functionRecord.parameters)
-      ? functionRecord.parameters
-      : undefined);
+    (functionRecord && isRecord(functionRecord.parameters) ? functionRecord.parameters : undefined);
   const strict =
     (typeof source.strict === "boolean" ? source.strict : undefined) ??
     (functionRecord && typeof functionRecord.strict === "boolean"
@@ -266,10 +261,7 @@ function collaborationFunctionName(name: string): string {
   return `${RESERVED_COLLABORATION_PREFIX}${name}`;
 }
 
-function flattenCollaborationNamespaceTool(
-  tool: unknown,
-  chatStyle: boolean,
-): unknown[] | null {
+function flattenCollaborationNamespaceTool(tool: unknown, chatStyle: boolean): unknown[] | null {
   if (!isRecord(tool) || tool.type !== "namespace") {
     return null;
   }
@@ -297,7 +289,10 @@ function flattenCollaborationNamespaceTool(
   });
 }
 
-function rewriteSingleReservedTool(tool: unknown, chatStyle: boolean): {
+function rewriteSingleReservedTool(
+  tool: unknown,
+  chatStyle: boolean,
+): {
   tools: unknown[];
   rewritten: number;
 } {
@@ -548,8 +543,7 @@ export function sanitizeReservedCollaborationInResponsesRequest(
     inputNamesRewritten: 0,
   };
 
-  const chatStyle =
-    Array.isArray(request.messages) && request.input === undefined;
+  const chatStyle = Array.isArray(request.messages) && request.input === undefined;
 
   if (Array.isArray(request.tools)) {
     const rewrittenTools = rewriteReservedCollaborationTools(request.tools, {
@@ -659,10 +653,7 @@ function toolContainsReservedCollaborationName(tool: unknown): boolean {
     return true;
   }
 
-  if (
-    Array.isArray(tool.functions) &&
-    tool.functions.some(toolContainsReservedCollaborationName)
-  ) {
+  if (Array.isArray(tool.functions) && tool.functions.some(toolContainsReservedCollaborationName)) {
     return true;
   }
 

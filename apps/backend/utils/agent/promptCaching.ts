@@ -163,9 +163,9 @@ function addCacheControlToAnthropicBlocks(blocks: unknown[]): unknown[] {
  * Breakpoints are added to the system prompt and the last user message. If the
  * client already provided any breakpoint, the body is left untouched.
  */
-export function applyAnthropicNativePromptCaching<
-  T extends Record<string, unknown>,
->(requestBody: T): T {
+export function applyAnthropicNativePromptCaching<T extends Record<string, unknown>>(
+  requestBody: T,
+): T {
   if (!isPromptCachingEnabled() || hasPromptCacheBreakpoint(requestBody)) {
     return requestBody;
   }
@@ -178,9 +178,7 @@ export function applyAnthropicNativePromptCaching<
   const result: Record<string, unknown> = { ...requestBody };
 
   if (typeof result.system === "string" && result.system) {
-    result.system = [
-      { type: "text", text: result.system, cache_control: cacheControl },
-    ];
+    result.system = [{ type: "text", text: result.system, cache_control: cacheControl }];
   } else if (Array.isArray(result.system)) {
     result.system = addCacheControlToAnthropicBlocks(result.system);
   }
@@ -215,9 +213,7 @@ export function applyAnthropicNativePromptCaching<
   return result as T;
 }
 
-function applyExplicitPromptCaching<T extends Record<string, unknown>>(
-  requestBody: T,
-): T {
+function applyExplicitPromptCaching<T extends Record<string, unknown>>(requestBody: T): T {
   if (hasPromptCacheBreakpoint(requestBody)) {
     return requestBody;
   }
@@ -231,10 +227,7 @@ function applyExplicitPromptCaching<T extends Record<string, unknown>>(
     return requestBody;
   }
 
-  const targetMessage = requestBody.messages[targetIndex] as Record<
-    string,
-    unknown
-  >;
+  const targetMessage = requestBody.messages[targetIndex] as Record<string, unknown>;
   const updatedContent = addCacheBreakpointToContent(targetMessage.content);
   if (updatedContent === targetMessage.content) {
     return requestBody;

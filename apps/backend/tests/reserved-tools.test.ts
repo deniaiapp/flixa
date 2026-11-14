@@ -30,11 +30,7 @@ describe("reserved collaboration tools", () => {
   });
 
   test("rewrites reserved tools for Terra, Luna, and GPT-5.5", () => {
-    for (const model of [
-      "openai/gpt-5.6-terra",
-      "openai/gpt-5.6-luna",
-      "openai/gpt-5.5",
-    ]) {
+    for (const model of ["openai/gpt-5.6-terra", "openai/gpt-5.6-luna", "openai/gpt-5.5"]) {
       const request: Record<string, unknown> = {
         model,
         tools: [

@@ -57,9 +57,7 @@ async function main(): Promise<void> {
 }
 
 const timeout = setTimeout(() => {
-  console.error(
-    `Timed out after ${SCRIPT_TIMEOUT_MS}ms while unbanning Flixa user.`,
-  );
+  console.error(`Timed out after ${SCRIPT_TIMEOUT_MS}ms while unbanning Flixa user.`);
   process.exit(1);
 }, SCRIPT_TIMEOUT_MS);
 

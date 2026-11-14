@@ -47,16 +47,12 @@ function isObject(value: unknown): value is Record<string, unknown> {
 /** True for an `openrouter:*` type that is not in ALLOWED_OPENROUTER_TOOL_TYPES. */
 export function isDisallowedOpenRouterToolType(type: string): boolean {
   const normalized = type.toLowerCase();
-  return (
-    normalized.startsWith("openrouter:") &&
-    !ALLOWED_OPENROUTER_TOOL_TYPES.has(normalized)
-  );
+  return normalized.startsWith("openrouter:") && !ALLOWED_OPENROUTER_TOOL_TYPES.has(normalized);
 }
 
 function hasModelSelection(tool: Record<string, unknown>): boolean {
   return (
-    tool.model !== undefined ||
-    (isObject(tool.parameters) && tool.parameters.model !== undefined)
+    tool.model !== undefined || (isObject(tool.parameters) && tool.parameters.model !== undefined)
   );
 }
 
@@ -70,9 +66,7 @@ function findToolViolation(
   route: ToolPolicyRoute,
   allowedTypes: ReadonlySet<string>,
 ): ToolPolicyViolation | null {
-  const stack: Array<{ tool: unknown; param: string }> = [
-    { tool: root, param: rootParam },
-  ];
+  const stack: Array<{ tool: unknown; param: string }> = [{ tool: root, param: rootParam }];
 
   while (stack.length > 0) {
     const { tool, param } = stack.pop()!;
@@ -150,11 +144,7 @@ function findInputToolViolation(
       continue;
     }
 
-    const violation = findToolListViolation(
-      item.tools,
-      `${param}[${i}].tools`,
-      route,
-    );
+    const violation = findToolListViolation(item.tools, `${param}[${i}].tools`, route);
     if (violation) {
       return violation;
     }

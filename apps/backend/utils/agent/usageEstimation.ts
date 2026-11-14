@@ -1,8 +1,4 @@
-import {
-  getModelDefinition,
-  getEffectiveTokenUsageMultiplier,
-  type PlanTier,
-} from "./models";
+import { getModelDefinition, getEffectiveTokenUsageMultiplier, type PlanTier } from "./models";
 import { computeMeteredTokens } from "./usageMetering";
 
 const encoder = new TextEncoder();
@@ -50,7 +46,8 @@ export class UsageEstimate {
     this.reservationAmount = Math.max(
       1,
       Math.ceil(
-        (computeMeteredTokens(estimate) ?? 0) * getEffectiveTokenUsageMultiplier(model, estimate, tier),
+        (computeMeteredTokens(estimate) ?? 0) *
+          getEffectiveTokenUsageMultiplier(model, estimate, tier),
       ),
     );
   }

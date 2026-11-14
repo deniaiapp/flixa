@@ -42,10 +42,7 @@ function num(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
-function pick(
-  record: Record<string, unknown>,
-  ...keys: string[]
-): number | null {
+function pick(record: Record<string, unknown>, ...keys: string[]): number | null {
   for (const key of keys) {
     const value = num(record[key]);
     if (value !== null) return value;
@@ -62,11 +59,7 @@ function nestedCachedTokens(record: Record<string, unknown>): number | null {
   ]) {
     const details = record[detailsKey];
     if (details && typeof details === "object" && !Array.isArray(details)) {
-      const cached = pick(
-        details as Record<string, unknown>,
-        "cached_tokens",
-        "cachedTokens",
-      );
+      const cached = pick(details as Record<string, unknown>, "cached_tokens", "cachedTokens");
       if (cached !== null) return cached;
     }
   }
@@ -94,13 +87,7 @@ export function computeMeteredTokens(usage: unknown): number | null {
   const record = usage as Record<string, unknown>;
   const weights = USAGE_WEIGHTS;
 
-  const promptTokens = pick(
-    record,
-    "prompt_tokens",
-    "promptTokens",
-    "input_tokens",
-    "inputTokens",
-  );
+  const promptTokens = pick(record, "prompt_tokens", "promptTokens", "input_tokens", "inputTokens");
   const completionTokens = pick(
     record,
     "completion_tokens",
@@ -114,16 +101,8 @@ export function computeMeteredTokens(usage: unknown): number | null {
     return pick(record, "total_tokens", "totalTokens");
   }
 
-  const cacheRead = pick(
-    record,
-    "cache_read_input_tokens",
-    "cacheReadInputTokens",
-  );
-  const cacheWrite = pick(
-    record,
-    "cache_creation_input_tokens",
-    "cacheCreationInputTokens",
-  );
+  const cacheRead = pick(record, "cache_read_input_tokens", "cacheReadInputTokens");
+  const cacheWrite = pick(record, "cache_creation_input_tokens", "cacheCreationInputTokens");
 
   let weighted = (completionTokens ?? 0) * weights.output;
 
@@ -136,14 +115,11 @@ export function computeMeteredTokens(usage: unknown): number | null {
   } else {
     // OpenAI-style: cached tokens are a subset of prompt tokens.
     const cachedSubset = Math.min(
-      pick(record, "cached_tokens", "cachedTokens") ??
-        nestedCachedTokens(record) ??
-        0,
+      pick(record, "cached_tokens", "cachedTokens") ?? nestedCachedTokens(record) ?? 0,
       promptTokens ?? 0,
     );
     weighted +=
-      ((promptTokens ?? 0) - cachedSubset) * weights.input +
-      cachedSubset * weights.cacheRead;
+      ((promptTokens ?? 0) - cachedSubset) * weights.input + cachedSubset * weights.cacheRead;
   }
 
   const metered = Math.ceil(weighted);

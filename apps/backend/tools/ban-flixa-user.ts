@@ -1,8 +1,4 @@
-import {
-  banUserFromFlixa,
-  banUserFromFlixaByEmail,
-  closeDeniPool,
-} from "../utils/deni";
+import { banUserFromFlixa, banUserFromFlixaByEmail, closeDeniPool } from "../utils/deni";
 
 const SCRIPT_TIMEOUT_MS = 30_000;
 const DEFAULT_REASON = "manual";
@@ -104,11 +100,7 @@ async function main(): Promise<void> {
   };
 
   if (parsed.mode === "email") {
-    const result = await banUserFromFlixaByEmail(
-      parsed.email,
-      parsed.reason,
-      auditHeaders,
-    );
+    const result = await banUserFromFlixaByEmail(parsed.email, parsed.reason, auditHeaders);
     if (!result.banned) {
       console.error(`Failed to ban: ${result.error}`);
       process.exitCode = 1;
@@ -129,11 +121,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  const result = await banUserFromFlixa(
-    parsed.userId,
-    parsed.reason,
-    auditHeaders,
-  );
+  const result = await banUserFromFlixa(parsed.userId, parsed.reason, auditHeaders);
   if (!result.banned) {
     console.error(`Failed to ban: ${result.error}`);
     process.exitCode = 1;
@@ -142,21 +130,17 @@ async function main(): Promise<void> {
 
   if (result.alreadyBanned) {
     console.log(
-      `Already banned userId=${parsed.userId} reason=${parsed.reason} ` +
-        `(API keys re-revoked).`,
+      `Already banned userId=${parsed.userId} reason=${parsed.reason} ` + `(API keys re-revoked).`,
     );
   } else {
     console.log(
-      `Banned userId=${parsed.userId} reason=${parsed.reason}. ` +
-        `All API keys revoked.`,
+      `Banned userId=${parsed.userId} reason=${parsed.reason}. ` + `All API keys revoked.`,
     );
   }
 }
 
 const timeout = setTimeout(() => {
-  console.error(
-    `Timed out after ${SCRIPT_TIMEOUT_MS}ms while banning Flixa user.`,
-  );
+  console.error(`Timed out after ${SCRIPT_TIMEOUT_MS}ms while banning Flixa user.`);
   process.exit(1);
 }, SCRIPT_TIMEOUT_MS);
 

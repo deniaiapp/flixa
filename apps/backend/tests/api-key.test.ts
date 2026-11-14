@@ -31,9 +31,7 @@ describe("extractApiKeyFromHeaders", () => {
       "deni_from_api_key",
     );
     assert.equal(
-      extractApiKeyFromHeaders(
-        new Headers({ "x-openai-api-key": "deni_from_openai" }),
-      ),
+      extractApiKeyFromHeaders(new Headers({ "x-openai-api-key": "deni_from_openai" })),
       "deni_from_openai",
     );
   });
@@ -42,9 +40,7 @@ describe("extractApiKeyFromHeaders", () => {
 describe("summarizeRequestAuth", () => {
   test("reports header presence without exposing the secret", () => {
     const raw = "deni_abcdefghijklmnopqrstuvwxyz012345";
-    const summary = summarizeRequestAuth(
-      new Headers({ Authorization: `Bearer ${raw}` }),
-    );
+    const summary = summarizeRequestAuth(new Headers({ Authorization: `Bearer ${raw}` }));
     assert.deepEqual(summary, {
       hasAuthorization: true,
       authorizationScheme: "Bearer",

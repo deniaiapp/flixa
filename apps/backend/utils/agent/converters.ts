@@ -1,20 +1,32 @@
-import type { ChatCompletionMessageParam, ChatCompletionTool } from 'openai/resources/chat/completions';
-import type Anthropic from '@anthropic-ai/sdk';
-import type { MessageParam, Tool, ToolResultBlockParam } from '@anthropic-ai/sdk/resources/messages/messages';
+import type {
+  ChatCompletionMessageParam,
+  ChatCompletionTool,
+} from "openai/resources/chat/completions";
+import type Anthropic from "@anthropic-ai/sdk";
+import type {
+  MessageParam,
+  Tool,
+  ToolResultBlockParam,
+} from "@anthropic-ai/sdk/resources/messages/messages";
 
 type OpenRouterTool = Record<string, unknown>;
 
-function safeParseJson(value: string, fallback: Record<string, unknown> = {}): Record<string, unknown> {
+function safeParseJson(
+  value: string,
+  fallback: Record<string, unknown> = {},
+): Record<string, unknown> {
   try {
     const parsed = JSON.parse(value);
-    return typeof parsed === 'object' && parsed !== null ? parsed as Record<string, unknown> : fallback;
+    return typeof parsed === "object" && parsed !== null
+      ? (parsed as Record<string, unknown>)
+      : fallback;
   } catch {
     return fallback;
   }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /**
@@ -128,18 +140,18 @@ function responsesContentPartToChat(part: unknown): unknown {
   }
 
   if (
-    (part.type === 'input_text' || part.type === 'output_text') &&
-    typeof part.text === 'string'
+    (part.type === "input_text" || part.type === "output_text") &&
+    typeof part.text === "string"
   ) {
-    return { type: 'text', text: part.text };
+    return { type: "text", text: part.text };
   }
 
-  if (part.type === 'input_image' && typeof part.image_url === 'string') {
+  if (part.type === "input_image" && typeof part.image_url === "string") {
     return {
-      type: 'image_url',
+      type: "image_url",
       image_url: {
         url: part.image_url,
-        ...(typeof part.detail === 'string' ? { detail: part.detail } : {}),
+        ...(typeof part.detail === "string" ? { detail: part.detail } : {}),
       },
     };
   }
@@ -168,12 +180,12 @@ export function convertResponsesInputContentToChat(input: unknown): unknown {
 }
 
 function chatContentToResponsesInputContent(content: unknown): unknown {
-  if (typeof content === 'string') {
+  if (typeof content === "string") {
     return content;
   }
 
   if (!Array.isArray(content)) {
-    return '';
+    return "";
   }
 
   return content
@@ -182,21 +194,21 @@ function chatContentToResponsesInputContent(content: unknown): unknown {
         return null;
       }
 
-      if (part.type === 'text' && typeof part.text === 'string') {
-        return { type: 'input_text', text: part.text };
+      if (part.type === "text" && typeof part.text === "string") {
+        return { type: "input_text", text: part.text };
       }
 
       const imageUrl = part.image_url;
-      if (part.type === 'image_url' && imageUrl) {
-        if (typeof imageUrl === 'string') {
-          return { type: 'input_image', image_url: imageUrl, detail: 'auto' };
+      if (part.type === "image_url" && imageUrl) {
+        if (typeof imageUrl === "string") {
+          return { type: "input_image", image_url: imageUrl, detail: "auto" };
         }
 
-        if (isRecord(imageUrl) && typeof imageUrl.url === 'string') {
+        if (isRecord(imageUrl) && typeof imageUrl.url === "string") {
           return {
-            type: 'input_image',
+            type: "input_image",
             image_url: imageUrl.url,
-            detail: typeof imageUrl.detail === 'string' ? imageUrl.detail : 'auto',
+            detail: typeof imageUrl.detail === "string" ? imageUrl.detail : "auto",
           };
         }
       }
@@ -207,8 +219,8 @@ function chatContentToResponsesInputContent(content: unknown): unknown {
 }
 
 function chatContentToResponsesOutputContent(content: unknown): unknown[] {
-  if (typeof content === 'string') {
-    return content ? [{ type: 'output_text', text: content }] : [];
+  if (typeof content === "string") {
+    return content ? [{ type: "output_text", text: content }] : [];
   }
 
   if (!Array.isArray(content)) {
@@ -217,8 +229,8 @@ function chatContentToResponsesOutputContent(content: unknown): unknown[] {
 
   return content
     .map((part) => {
-      if (isRecord(part) && part.type === 'text' && typeof part.text === 'string') {
-        return { type: 'output_text', text: part.text };
+      if (isRecord(part) && part.type === "text" && typeof part.text === "string") {
+        return { type: "output_text", text: part.text };
       }
 
       return null;
@@ -227,33 +239,33 @@ function chatContentToResponsesOutputContent(content: unknown): unknown[] {
 }
 
 function chatContentToResponsesToolOutput(content: unknown): string {
-  if (typeof content === 'string') {
+  if (typeof content === "string") {
     return content;
   }
 
   if (Array.isArray(content)) {
     const text = content
       .map((part) => {
-        if (isRecord(part) && part.type === 'text' && typeof part.text === 'string') {
+        if (isRecord(part) && part.type === "text" && typeof part.text === "string") {
           return part.text;
         }
 
         return null;
       })
       .filter((part): part is string => part !== null)
-      .join('\n');
+      .join("\n");
 
     return text || JSON.stringify(content);
   }
 
-  return content === undefined ? '' : JSON.stringify(content);
+  return content === undefined ? "" : JSON.stringify(content);
 }
 
 export function convertMessagesToResponsesInput(messages: ChatCompletionMessageParam[]): unknown[] {
   const input: unknown[] = [];
 
   for (const msg of messages) {
-    if (msg.role === 'system' || msg.role === 'developer' || msg.role === 'user') {
+    if (msg.role === "system" || msg.role === "developer" || msg.role === "user") {
       input.push({
         role: msg.role,
         content: chatContentToResponsesInputContent(msg.content),
@@ -261,36 +273,36 @@ export function convertMessagesToResponsesInput(messages: ChatCompletionMessageP
       continue;
     }
 
-    if (msg.role === 'assistant') {
+    if (msg.role === "assistant") {
       const outputContent = chatContentToResponsesOutputContent(msg.content);
       if (outputContent.length > 0) {
         input.push({
-          type: 'message',
-          role: 'assistant',
-          status: 'completed',
+          type: "message",
+          role: "assistant",
+          status: "completed",
           content: outputContent,
         });
       }
 
       for (const toolCall of msg.tool_calls ?? []) {
-        if (toolCall.type !== 'function') {
+        if (toolCall.type !== "function") {
           continue;
         }
 
         input.push({
-          type: 'function_call',
+          type: "function_call",
           call_id: toolCall.id,
           name: toolCall.function.name,
           arguments: toolCall.function.arguments,
-          status: 'completed',
+          status: "completed",
         });
       }
       continue;
     }
 
-    if (msg.role === 'tool') {
+    if (msg.role === "tool") {
       input.push({
-        type: 'function_call_output',
+        type: "function_call_output",
         call_id: msg.tool_call_id,
         output: chatContentToResponsesToolOutput(msg.content),
       });
@@ -303,35 +315,33 @@ export function convertMessagesToResponsesInput(messages: ChatCompletionMessageP
 /**
  * Map Responses usage object to Chat Completions usage shape.
  */
-export function convertResponsesUsageToChatUsage(
-  usage: unknown,
-): {
-  prompt_tokens: number;
-  completion_tokens: number;
-  total_tokens: number;
-  prompt_tokens_details?: { cached_tokens?: number };
-  completion_tokens_details?: { reasoning_tokens?: number };
-} | undefined {
+export function convertResponsesUsageToChatUsage(usage: unknown):
+  | {
+      prompt_tokens: number;
+      completion_tokens: number;
+      total_tokens: number;
+      prompt_tokens_details?: { cached_tokens?: number };
+      completion_tokens_details?: { reasoning_tokens?: number };
+    }
+  | undefined {
   if (!isRecord(usage)) {
     return undefined;
   }
 
   const promptTokens =
-    typeof usage.input_tokens === 'number'
+    typeof usage.input_tokens === "number"
       ? usage.input_tokens
-      : typeof usage.prompt_tokens === 'number'
+      : typeof usage.prompt_tokens === "number"
         ? usage.prompt_tokens
         : 0;
   const completionTokens =
-    typeof usage.output_tokens === 'number'
+    typeof usage.output_tokens === "number"
       ? usage.output_tokens
-      : typeof usage.completion_tokens === 'number'
+      : typeof usage.completion_tokens === "number"
         ? usage.completion_tokens
         : 0;
   const totalTokens =
-    typeof usage.total_tokens === 'number'
-      ? usage.total_tokens
-      : promptTokens + completionTokens;
+    typeof usage.total_tokens === "number" ? usage.total_tokens : promptTokens + completionTokens;
 
   const inputDetails = isRecord(usage.input_tokens_details)
     ? usage.input_tokens_details
@@ -358,9 +368,7 @@ export function convertResponsesUsageToChatUsage(
 
   if (inputDetails) {
     const cached =
-      typeof inputDetails.cached_tokens === 'number'
-        ? inputDetails.cached_tokens
-        : undefined;
+      typeof inputDetails.cached_tokens === "number" ? inputDetails.cached_tokens : undefined;
     if (cached !== undefined) {
       result.prompt_tokens_details = { cached_tokens: cached };
     }
@@ -368,7 +376,7 @@ export function convertResponsesUsageToChatUsage(
 
   if (outputDetails) {
     const reasoning =
-      typeof outputDetails.reasoning_tokens === 'number'
+      typeof outputDetails.reasoning_tokens === "number"
         ? outputDetails.reasoning_tokens
         : undefined;
     if (reasoning !== undefined) {
@@ -383,7 +391,7 @@ function extractResponsesOutputText(output: unknown[]): string {
   const parts: string[] = [];
 
   for (const item of output) {
-    if (!isRecord(item) || item.type !== 'message') {
+    if (!isRecord(item) || item.type !== "message") {
       continue;
     }
 
@@ -392,48 +400,48 @@ function extractResponsesOutputText(output: unknown[]): string {
     }
 
     for (const block of item.content) {
-      if (isRecord(block) && block.type === 'output_text' && typeof block.text === 'string') {
+      if (isRecord(block) && block.type === "output_text" && typeof block.text === "string") {
         parts.push(block.text);
       }
     }
   }
 
-  return parts.join('');
+  return parts.join("");
 }
 
 function extractResponsesToolCalls(output: unknown[]): Array<{
   id: string;
-  type: 'function';
+  type: "function";
   function: { name: string; arguments: string };
 }> {
   const toolCalls: Array<{
     id: string;
-    type: 'function';
+    type: "function";
     function: { name: string; arguments: string };
   }> = [];
 
   for (const item of output) {
-    if (!isRecord(item) || item.type !== 'function_call') {
+    if (!isRecord(item) || item.type !== "function_call") {
       continue;
     }
 
     const callId =
-      typeof item.call_id === 'string'
+      typeof item.call_id === "string"
         ? item.call_id
-        : typeof item.id === 'string'
+        : typeof item.id === "string"
           ? item.id
           : `call_${toolCalls.length}`;
-    const name = typeof item.name === 'string' ? item.name : '';
+    const name = typeof item.name === "string" ? item.name : "";
     const args =
-      typeof item.arguments === 'string'
+      typeof item.arguments === "string"
         ? item.arguments
         : item.arguments !== undefined
           ? JSON.stringify(item.arguments)
-          : '{}';
+          : "{}";
 
     toolCalls.push({
       id: callId,
-      type: 'function',
+      type: "function",
       function: { name, arguments: args },
     });
   }
@@ -441,25 +449,20 @@ function extractResponsesToolCalls(output: unknown[]): Array<{
   return toolCalls;
 }
 
-function responsesFinishReason(
-  response: Record<string, unknown>,
-  toolCalls: unknown[],
-): string {
-  if (response.status === 'incomplete') {
-    const details = isRecord(response.incomplete_details)
-      ? response.incomplete_details
-      : null;
-    if (details?.reason === 'max_output_tokens') {
-      return 'length';
+function responsesFinishReason(response: Record<string, unknown>, toolCalls: unknown[]): string {
+  if (response.status === "incomplete") {
+    const details = isRecord(response.incomplete_details) ? response.incomplete_details : null;
+    if (details?.reason === "max_output_tokens") {
+      return "length";
     }
-    return 'stop';
+    return "stop";
   }
 
   if (toolCalls.length > 0) {
-    return 'tool_calls';
+    return "tool_calls";
   }
 
-  return 'stop';
+  return "stop";
 }
 
 /**
@@ -476,8 +479,8 @@ export function convertResponsesToChatCompletion(
   const usage = convertResponsesUsageToChatUsage(record.usage);
 
   const message: Record<string, unknown> = {
-    role: 'assistant',
-    content: content || (toolCalls.length > 0 ? null : ''),
+    role: "assistant",
+    content: content || (toolCalls.length > 0 ? null : ""),
   };
   if (toolCalls.length > 0) {
     message.tool_calls = toolCalls;
@@ -485,15 +488,13 @@ export function convertResponsesToChatCompletion(
 
   return {
     id:
-      typeof record.id === 'string'
-        ? record.id.replace(/^resp_/, 'chatcmpl-')
+      typeof record.id === "string"
+        ? record.id.replace(/^resp_/, "chatcmpl-")
         : `chatcmpl-${crypto.randomUUID()}`,
-    object: 'chat.completion',
+    object: "chat.completion",
     created:
-      typeof record.created_at === 'number'
-        ? record.created_at
-        : Math.floor(Date.now() / 1000),
-    model: typeof record.model === 'string' ? record.model : fallbackModel,
+      typeof record.created_at === "number" ? record.created_at : Math.floor(Date.now() / 1000),
+    model: typeof record.model === "string" ? record.model : fallbackModel,
     choices: [
       {
         index: 0,
@@ -521,9 +522,7 @@ export type ResponsesToChatStreamState = {
   usage: ReturnType<typeof convertResponsesUsageToChatUsage>;
 };
 
-export function createResponsesToChatStreamState(
-  model: string,
-): ResponsesToChatStreamState {
+export function createResponsesToChatStreamState(model: string): ResponsesToChatStreamState {
   return {
     id: `chatcmpl-${crypto.randomUUID()}`,
     model,
@@ -543,7 +542,7 @@ function chatStreamChunk(
 ): Record<string, unknown> {
   return {
     id: state.id,
-    object: 'chat.completion.chunk',
+    object: "chat.completion.chunk",
     created: state.created,
     model: state.model,
     choices: [
@@ -568,36 +567,36 @@ export function convertResponsesStreamEventToChatChunks(
     return [];
   }
 
-  const type = typeof event.type === 'string' ? event.type : '';
+  const type = typeof event.type === "string" ? event.type : "";
   const chunks: Record<string, unknown>[] = [];
 
   if (
-    (type === 'response.created' || type === 'response.in_progress') &&
+    (type === "response.created" || type === "response.in_progress") &&
     isRecord(event.response)
   ) {
-    if (typeof event.response.id === 'string') {
-      state.id = event.response.id.replace(/^resp_/, 'chatcmpl-');
+    if (typeof event.response.id === "string") {
+      state.id = event.response.id.replace(/^resp_/, "chatcmpl-");
     }
-    if (typeof event.response.model === 'string') {
+    if (typeof event.response.model === "string") {
       state.model = event.response.model;
     }
-    if (typeof event.response.created_at === 'number') {
+    if (typeof event.response.created_at === "number") {
       state.created = event.response.created_at;
     }
   }
 
-  if (type === 'response.output_item.added' && isRecord(event.item)) {
+  if (type === "response.output_item.added" && isRecord(event.item)) {
     const item = event.item;
-    if (item.type === 'function_call') {
+    if (item.type === "function_call") {
       const callId =
-        typeof item.call_id === 'string'
+        typeof item.call_id === "string"
           ? item.call_id
-          : typeof item.id === 'string'
+          : typeof item.id === "string"
             ? item.id
             : `call_${state.nextToolIndex}`;
       const index = state.nextToolIndex++;
       state.toolCallIndexes.set(callId, index);
-      if (typeof item.id === 'string' && item.id !== callId) {
+      if (typeof item.id === "string" && item.id !== callId) {
         state.toolCallIndexes.set(item.id, index);
       }
 
@@ -606,33 +605,33 @@ export function convertResponsesStreamEventToChatChunks(
           {
             index,
             id: callId,
-            type: 'function',
+            type: "function",
             function: {
-              name: typeof item.name === 'string' ? item.name : '',
-              arguments: '',
+              name: typeof item.name === "string" ? item.name : "",
+              arguments: "",
             },
           },
         ],
       };
 
       if (!state.roleSent) {
-        delta.role = 'assistant';
+        delta.role = "assistant";
         state.roleSent = true;
       }
 
       chunks.push(chatStreamChunk(state, delta));
-      state.finishReason = 'tool_calls';
+      state.finishReason = "tool_calls";
     }
   }
 
-  if (type === 'response.function_call_arguments.delta') {
+  if (type === "response.function_call_arguments.delta") {
     const itemId =
-      typeof event.item_id === 'string'
+      typeof event.item_id === "string"
         ? event.item_id
-        : typeof event.call_id === 'string'
+        : typeof event.call_id === "string"
           ? event.call_id
           : null;
-    const argsDelta = typeof event.delta === 'string' ? event.delta : '';
+    const argsDelta = typeof event.delta === "string" ? event.delta : "";
     if (itemId && argsDelta) {
       let index = state.toolCallIndexes.get(itemId);
       if (index === undefined) {
@@ -649,42 +648,39 @@ export function convertResponsesStreamEventToChatChunks(
         ],
       };
       if (!state.roleSent) {
-        delta.role = 'assistant';
+        delta.role = "assistant";
         state.roleSent = true;
       }
       chunks.push(chatStreamChunk(state, delta));
-      state.finishReason = 'tool_calls';
+      state.finishReason = "tool_calls";
     }
   }
 
-  if (
-    type === 'response.output_text.delta' ||
-    type === 'response.content_part.delta'
-  ) {
+  if (type === "response.output_text.delta" || type === "response.content_part.delta") {
     const text =
-      typeof event.delta === 'string'
+      typeof event.delta === "string"
         ? event.delta
-        : isRecord(event.delta) && typeof event.delta.text === 'string'
+        : isRecord(event.delta) && typeof event.delta.text === "string"
           ? event.delta.text
-          : '';
+          : "";
     if (text) {
       const delta: Record<string, unknown> = { content: text };
       if (!state.roleSent) {
-        delta.role = 'assistant';
+        delta.role = "assistant";
         state.roleSent = true;
       }
       chunks.push(chatStreamChunk(state, delta));
       if (!state.finishReason) {
-        state.finishReason = 'stop';
+        state.finishReason = "stop";
       }
     }
   }
 
-  if (type === 'response.completed' && isRecord(event.response)) {
-    if (typeof event.response.id === 'string') {
-      state.id = event.response.id.replace(/^resp_/, 'chatcmpl-');
+  if (type === "response.completed" && isRecord(event.response)) {
+    if (typeof event.response.id === "string") {
+      state.id = event.response.id.replace(/^resp_/, "chatcmpl-");
     }
-    if (typeof event.response.model === 'string') {
+    if (typeof event.response.model === "string") {
       state.model = event.response.model;
     }
     state.usage = convertResponsesUsageToChatUsage(event.response.usage);
@@ -693,15 +689,15 @@ export function convertResponsesStreamEventToChatChunks(
       Array.isArray(event.response.output) &&
       extractResponsesToolCalls(event.response.output).length > 0
     ) {
-      state.finishReason = 'tool_calls';
+      state.finishReason = "tool_calls";
     } else if (!state.finishReason) {
       state.finishReason = responsesFinishReason(event.response, []);
     }
 
     const finalChunk = chatStreamChunk(
       state,
-      state.roleSent ? {} : { role: 'assistant' },
-      state.finishReason ?? 'stop',
+      state.roleSent ? {} : { role: "assistant" },
+      state.finishReason ?? "stop",
     );
     if (state.usage) {
       finalChunk.usage = state.usage;
@@ -709,12 +705,12 @@ export function convertResponsesStreamEventToChatChunks(
     chunks.push(finalChunk);
   }
 
-  if (type === 'response.incomplete' && isRecord(event.response)) {
+  if (type === "response.incomplete" && isRecord(event.response)) {
     state.usage = convertResponsesUsageToChatUsage(event.response.usage);
     state.finishReason = responsesFinishReason(event.response, []);
     const finalChunk = chatStreamChunk(
       state,
-      state.roleSent ? {} : { role: 'assistant' },
+      state.roleSent ? {} : { role: "assistant" },
       state.finishReason,
     );
     if (state.usage) {
@@ -727,13 +723,15 @@ export function convertResponsesStreamEventToChatChunks(
 }
 
 // Convert OpenAI-style tools to OpenRouter format
-export function convertToolsToOpenRouter(tools?: ChatCompletionTool[]): OpenRouterTool[] | undefined {
+export function convertToolsToOpenRouter(
+  tools?: ChatCompletionTool[],
+): OpenRouterTool[] | undefined {
   if (!tools || tools.length === 0) return undefined;
 
-  return tools.map(tool => {
-    if (tool.type === 'function') {
+  return tools.map((tool) => {
+    if (tool.type === "function") {
       return {
-        type: 'function' as const,
+        type: "function" as const,
         function: {
           name: tool.function.name,
           description: tool.function.description,
@@ -751,22 +749,24 @@ export function convertToolsToOpenRouter(tools?: ChatCompletionTool[]): OpenRout
  * Extract the system prompt from OpenAI-style messages.
  * Anthropic uses a separate `system` parameter instead of a system role message.
  */
-export function extractAnthropicSystemPrompt(messages: ChatCompletionMessageParam[]): string | undefined {
-  const systemMessages = messages.filter(m => m.role === 'system');
+export function extractAnthropicSystemPrompt(
+  messages: ChatCompletionMessageParam[],
+): string | undefined {
+  const systemMessages = messages.filter((m) => m.role === "system");
   if (systemMessages.length === 0) return undefined;
 
   return systemMessages
-    .map(m => {
-      if (typeof m.content === 'string') return m.content;
+    .map((m) => {
+      if (typeof m.content === "string") return m.content;
       if (Array.isArray(m.content)) {
         return m.content
-          .filter((block): block is { type: 'text'; text: string } => block.type === 'text')
-          .map(block => block.text)
-          .join('\n');
+          .filter((block): block is { type: "text"; text: string } => block.type === "text")
+          .map((block) => block.text)
+          .join("\n");
       }
-      return '';
+      return "";
     })
-    .join('\n');
+    .join("\n");
 }
 
 /**
@@ -777,36 +777,36 @@ export function convertMessagesToAnthropic(messages: ChatCompletionMessageParam[
   const result: MessageParam[] = [];
 
   for (const msg of messages) {
-    if (msg.role === 'system') continue;
+    if (msg.role === "system") continue;
 
-    if (msg.role === 'user') {
-      if (typeof msg.content === 'string') {
-        result.push({ role: 'user', content: msg.content });
+    if (msg.role === "user") {
+      if (typeof msg.content === "string") {
+        result.push({ role: "user", content: msg.content });
       } else if (Array.isArray(msg.content)) {
         const contentBlocks: Anthropic.Messages.ContentBlockParam[] = [];
         for (const block of msg.content) {
-          if (block.type === 'text') {
-            contentBlocks.push({ type: 'text', text: block.text });
-          } else if (block.type === 'image_url') {
+          if (block.type === "text") {
+            contentBlocks.push({ type: "text", text: block.text });
+          } else if (block.type === "image_url") {
             // Convert OpenAI image_url to Anthropic image block
-            const url = typeof block.image_url === 'string' ? block.image_url : block.image_url.url;
-            if (url.startsWith('data:')) {
+            const url = typeof block.image_url === "string" ? block.image_url : block.image_url.url;
+            if (url.startsWith("data:")) {
               const match = url.match(/^data:(image\/\w+);base64,(.+)$/);
               if (match) {
                 contentBlocks.push({
-                  type: 'image',
+                  type: "image",
                   source: {
-                    type: 'base64',
-                    media_type: match[1] as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
+                    type: "base64",
+                    media_type: match[1] as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
                     data: match[2],
                   },
                 });
               }
             } else {
               contentBlocks.push({
-                type: 'image',
+                type: "image",
                 source: {
-                  type: 'url',
+                  type: "url",
                   url,
                 },
               });
@@ -814,22 +814,22 @@ export function convertMessagesToAnthropic(messages: ChatCompletionMessageParam[
           }
         }
         if (contentBlocks.length > 0) {
-          result.push({ role: 'user', content: contentBlocks });
+          result.push({ role: "user", content: contentBlocks });
         }
       }
       continue;
     }
 
-    if (msg.role === 'assistant') {
+    if (msg.role === "assistant") {
       const contentBlocks: Anthropic.Messages.ContentBlockParam[] = [];
 
       if (msg.content) {
-        if (typeof msg.content === 'string') {
-          contentBlocks.push({ type: 'text', text: msg.content });
+        if (typeof msg.content === "string") {
+          contentBlocks.push({ type: "text", text: msg.content });
         } else if (Array.isArray(msg.content)) {
           for (const block of msg.content) {
-            if (block.type === 'text') {
-              contentBlocks.push({ type: 'text', text: block.text });
+            if (block.type === "text") {
+              contentBlocks.push({ type: "text", text: block.text });
             }
           }
         }
@@ -837,42 +837,42 @@ export function convertMessagesToAnthropic(messages: ChatCompletionMessageParam[
 
       if (msg.tool_calls) {
         for (const tc of msg.tool_calls) {
-          if (tc.type === 'function') {
+          if (tc.type === "function") {
             contentBlocks.push({
-              type: 'tool_use',
+              type: "tool_use",
               id: tc.id,
               name: tc.function.name,
-              input: safeParseJson(tc.function.arguments || '{}'),
+              input: safeParseJson(tc.function.arguments || "{}"),
             });
           }
         }
       }
 
       if (contentBlocks.length > 0) {
-        result.push({ role: 'assistant', content: contentBlocks });
+        result.push({ role: "assistant", content: contentBlocks });
       }
       continue;
     }
 
-    if (msg.role === 'tool') {
+    if (msg.role === "tool") {
       // Anthropic tool results must be inside a user message
       const toolResult: ToolResultBlockParam = {
-        type: 'tool_result',
+        type: "tool_result",
         tool_use_id: msg.tool_call_id,
-        content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
+        content: typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content),
       };
 
       // Merge consecutive tool results into a single user message
       const lastMsg = result[result.length - 1];
-      if (lastMsg && lastMsg.role === 'user' && Array.isArray(lastMsg.content)) {
-        const hasToolResult = (lastMsg.content as any[]).some((b: any) => b.type === 'tool_result');
+      if (lastMsg && lastMsg.role === "user" && Array.isArray(lastMsg.content)) {
+        const hasToolResult = (lastMsg.content as any[]).some((b: any) => b.type === "tool_result");
         if (hasToolResult) {
           (lastMsg.content as any[]).push(toolResult);
           continue;
         }
       }
 
-      result.push({ role: 'user', content: [toolResult] });
+      result.push({ role: "user", content: [toolResult] });
       continue;
     }
   }
@@ -887,28 +887,34 @@ export function convertToolsToAnthropic(tools?: ChatCompletionTool[]): Tool[] | 
   if (!tools || tools.length === 0) return undefined;
 
   return tools
-    .filter(tool => tool.type === 'function')
-    .map(tool => ({
+    .filter((tool) => tool.type === "function")
+    .map((tool) => ({
       name: tool.function.name,
-      description: tool.function.description || '',
-      input_schema: (tool.function.parameters as Tool['input_schema']) || { type: 'object' as const, properties: {} },
+      description: tool.function.description || "",
+      input_schema: (tool.function.parameters as Tool["input_schema"]) || {
+        type: "object" as const,
+        properties: {},
+      },
     }));
 }
 
 /**
  * Convert Anthropic Message response to OpenAI-compatible chat completion format.
  */
-export function convertAnthropicResponseToOpenAI(response: Anthropic.Messages.Message, model: string): any {
+export function convertAnthropicResponseToOpenAI(
+  response: Anthropic.Messages.Message,
+  model: string,
+): any {
   const toolCalls: any[] = [];
-  let textContent = '';
+  let textContent = "";
 
   for (const block of response.content) {
-    if (block.type === 'text') {
+    if (block.type === "text") {
       textContent += block.text;
-    } else if (block.type === 'tool_use') {
+    } else if (block.type === "tool_use") {
       toolCalls.push({
         id: block.id,
-        type: 'function',
+        type: "function",
         function: {
           name: block.name,
           arguments: JSON.stringify(block.input),
@@ -919,15 +925,15 @@ export function convertAnthropicResponseToOpenAI(response: Anthropic.Messages.Me
 
   // Map Anthropic stop_reason to OpenAI finish_reason
   const finishReasonMap: Record<string, string> = {
-    end_turn: 'stop',
-    max_tokens: 'length',
-    stop_sequence: 'stop',
-    tool_use: 'tool_calls',
+    end_turn: "stop",
+    max_tokens: "length",
+    stop_sequence: "stop",
+    tool_use: "tool_calls",
   };
 
   return {
     id: response.id,
-    object: 'chat.completion',
+    object: "chat.completion",
     created: Math.floor(Date.now() / 1000),
     model: response.model || model,
     system_fingerprint: null,
@@ -935,13 +941,13 @@ export function convertAnthropicResponseToOpenAI(response: Anthropic.Messages.Me
       {
         index: 0,
         message: {
-          role: 'assistant',
+          role: "assistant",
           content: textContent || null,
           tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
           refusal: null,
         },
         logprobs: null,
-        finish_reason: finishReasonMap[response.stop_reason || ''] || 'stop',
+        finish_reason: finishReasonMap[response.stop_reason || ""] || "stop",
       },
     ],
     usage: response.usage
@@ -964,14 +970,14 @@ export function convertAnthropicStreamEventToOpenAI(
 ): any | null {
   const base = {
     id: messageId,
-    object: 'chat.completion.chunk',
+    object: "chat.completion.chunk",
     created: Math.floor(Date.now() / 1000),
     model,
     system_fingerprint: null,
   };
 
   switch (event.type) {
-    case 'message_start': {
+    case "message_start": {
       // Send initial chunk with role
       return {
         ...base,
@@ -980,7 +986,7 @@ export function convertAnthropicStreamEventToOpenAI(
         choices: [
           {
             index: 0,
-            delta: { role: 'assistant', content: '' },
+            delta: { role: "assistant", content: "" },
             logprobs: null,
             finish_reason: null,
           },
@@ -988,8 +994,8 @@ export function convertAnthropicStreamEventToOpenAI(
       };
     }
 
-    case 'content_block_start': {
-      if (event.content_block.type === 'tool_use') {
+    case "content_block_start": {
+      if (event.content_block.type === "tool_use") {
         return {
           ...base,
           choices: [
@@ -1000,10 +1006,10 @@ export function convertAnthropicStreamEventToOpenAI(
                   {
                     index: event.index,
                     id: event.content_block.id,
-                    type: 'function',
+                    type: "function",
                     function: {
                       name: event.content_block.name,
-                      arguments: '',
+                      arguments: "",
                     },
                   },
                 ],
@@ -1018,8 +1024,8 @@ export function convertAnthropicStreamEventToOpenAI(
       return null;
     }
 
-    case 'content_block_delta': {
-      if (event.delta.type === 'text_delta') {
+    case "content_block_delta": {
+      if (event.delta.type === "text_delta") {
         return {
           ...base,
           choices: [
@@ -1032,7 +1038,7 @@ export function convertAnthropicStreamEventToOpenAI(
           ],
         };
       }
-      if (event.delta.type === 'input_json_delta') {
+      if (event.delta.type === "input_json_delta") {
         return {
           ...base,
           choices: [
@@ -1057,12 +1063,12 @@ export function convertAnthropicStreamEventToOpenAI(
       return null;
     }
 
-    case 'message_delta': {
+    case "message_delta": {
       const finishReasonMap: Record<string, string> = {
-        end_turn: 'stop',
-        max_tokens: 'length',
-        stop_sequence: 'stop',
-        tool_use: 'tool_calls',
+        end_turn: "stop",
+        max_tokens: "length",
+        stop_sequence: "stop",
+        tool_use: "tool_calls",
       };
       return {
         ...base,
@@ -1071,14 +1077,15 @@ export function convertAnthropicStreamEventToOpenAI(
             index: 0,
             delta: {},
             logprobs: null,
-            finish_reason: finishReasonMap[event.delta.stop_reason || ''] || 'stop',
+            finish_reason: finishReasonMap[event.delta.stop_reason || ""] || "stop",
           },
         ],
         usage: event.usage
           ? {
               prompt_tokens: (event.usage as any).input_tokens ?? 0,
               completion_tokens: event.usage.output_tokens ?? 0,
-              total_tokens: ((event.usage as any).input_tokens ?? 0) + (event.usage.output_tokens ?? 0),
+              total_tokens:
+                ((event.usage as any).input_tokens ?? 0) + (event.usage.output_tokens ?? 0),
             }
           : undefined,
       };

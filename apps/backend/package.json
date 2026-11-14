@@ -3,6 +3,16 @@
   "version": "1.0.0",
   "private": true,
   "description": "OpenAI API style backend with /v1/agent router",
+  "keywords": [
+    "agent",
+    "api",
+    "hono",
+    "node",
+    "openai",
+    "router"
+  ],
+  "license": "MIT",
+  "author": "",
   "type": "module",
   "main": "server.ts",
   "scripts": {
@@ -22,16 +32,6 @@
     "tools:ban-flixa-user": "tsx --env-file-if-exists=.env tools/ban-flixa-user.ts",
     "tools:unban-flixa-user": "tsx --env-file-if-exists=.env tools/unban-flixa-user.ts"
   },
-  "keywords": [
-    "openai",
-    "api",
-    "agent",
-    "router",
-    "hono",
-    "node"
-  ],
-  "author": "",
-  "license": "MIT",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.137.0",
     "@hono/node-server": "^2.1.5",
@@ -39,9 +39,6 @@
     "hono": "^4.13.14",
     "openai": "^7.43.0",
     "pg": "^8.23.1"
-  },
-  "engines": {
-    "node": ">=26"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.11",
@@ -51,5 +48,8 @@
     "esbuild": "^0.28.2",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
+  },
+  "engines": {
+    "node": ">=26"
   }
 }

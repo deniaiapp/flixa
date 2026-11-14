@@ -11,9 +11,7 @@ mock.module("../utils/deni/db", { exports: { ...database, getDeniPool, getDeniDb
 const { hashApiKey } = await import("../utils/deni/auth");
 const { BANNED_ERROR_MESSAGE, invalidateBanCache } = await import("../utils/deni/ban");
 const { invalidateSilentBanRulesCache } = await import("../utils/deni/silentBanRules");
-const { validateAgentApiKey, validateAgentAuth } = await import(
-  "../middleware/validateAgentAuth"
-);
+const { validateAgentApiKey, validateAgentAuth } = await import("../middleware/validateAgentAuth");
 const { createFlixaTestDb } = await import("./helpers/flixa-db");
 
 // Flixa's tables run in isolated PostgreSQL/WASM; API key lookups use an
@@ -218,7 +216,9 @@ describe("flixa ban check", () => {
 
   test("bans on the threshold hit and revokes the user's keys", async () => {
     await addMatchingRule();
-    await pglite.exec("CREATE TABLE IF NOT EXISTS api_key (id TEXT PRIMARY KEY, user_id TEXT NOT NULL)");
+    await pglite.exec(
+      "CREATE TABLE IF NOT EXISTS api_key (id TEXT PRIMARY KEY, user_id TEXT NOT NULL)",
+    );
     const app = modelsApp();
     const { key, userId } = await newKey();
     await pglite.query("INSERT INTO api_key (id, user_id) VALUES ('key-1', $1)", [userId]);

@@ -76,10 +76,7 @@ export function isAdminIpAllowed(ip: string): boolean {
   if (!normalized || normalized === "unknown") return false;
 
   // Strip IPv4-mapped IPv6 (:ffff:1.2.3.4)
-  const v4 =
-    normalized.startsWith("::ffff:")
-      ? normalized.slice("::ffff:".length)
-      : normalized;
+  const v4 = normalized.startsWith("::ffff:") ? normalized.slice("::ffff:".length) : normalized;
 
   for (const entry of list) {
     const e = entry.toLowerCase();
@@ -128,9 +125,7 @@ export function warnAdminConfigAtStartup(): void {
 
   const password = process.env.ADMIN_PASSWORD;
   if (!password) {
-    console.warn(
-      "[AdminSecurity] ADMIN_PASSWORD unset — /admin is disabled (503).",
-    );
+    console.warn("[AdminSecurity] ADMIN_PASSWORD unset — /admin is disabled (503).");
     return;
   }
 
@@ -157,10 +152,7 @@ export function warnAdminConfigAtStartup(): void {
     );
   }
 
-  if (
-    process.env.ADMIN_COOKIE_SECURE !== "true" &&
-    process.env.NODE_ENV === "production"
-  ) {
+  if (process.env.ADMIN_COOKIE_SECURE !== "true" && process.env.NODE_ENV === "production") {
     console.warn(
       "[AdminSecurity] Set ADMIN_COOKIE_SECURE=true (or terminate TLS so requests are https) so admin session cookies are Secure.",
     );
@@ -204,12 +196,8 @@ export function logAdminAudit(
   const parts = [
     `[AdminAuth] ${event}`,
     details.ip ? `ip=${escapeAuditValue(details.ip)}` : null,
-    details.path
-      ? `path=${escapeAuditValue(details.path.slice(0, AUDIT_PATH_MAX))}`
-      : null,
-    details.username
-      ? `user=${escapeAuditValue(String(details.username.slice(0, 64)))}`
-      : null,
+    details.path ? `path=${escapeAuditValue(details.path.slice(0, AUDIT_PATH_MAX))}` : null,
+    details.username ? `user=${escapeAuditValue(String(details.username.slice(0, 64)))}` : null,
     details.reason ? `reason=${escapeAuditValue(details.reason)}` : null,
   ].filter(Boolean);
   if (event === "login_failed" || event === "ip_denied") {
@@ -248,18 +236,10 @@ export async function verifyAdminCredentialsSecure(
   );
 
   const left = new Uint8Array(
-    await crypto.subtle.sign(
-      "HMAC",
-      key,
-      enc.encode(`${username}\0${password}`),
-    ),
+    await crypto.subtle.sign("HMAC", key, enc.encode(`${username}\0${password}`)),
   );
   const right = new Uint8Array(
-    await crypto.subtle.sign(
-      "HMAC",
-      key,
-      enc.encode(`${expectedUsername}\0${expectedPassword}`),
-    ),
+    await crypto.subtle.sign("HMAC", key, enc.encode(`${expectedUsername}\0${expectedPassword}`)),
   );
 
   if (left.length !== right.length) return false;

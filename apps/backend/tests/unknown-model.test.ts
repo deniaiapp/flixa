@@ -27,7 +27,12 @@ function appFor(model: string) {
 }
 
 describe("unlisted models", () => {
-  for (const model of ["openai/gpt-5.5", "anthropic/claude-opus-4.8", "google/gemini-3-pro-preview", "made-up"]) {
+  for (const model of [
+    "openai/gpt-5.5",
+    "anthropic/claude-opus-4.8",
+    "google/gemini-3-pro-preview",
+    "made-up",
+  ]) {
     test(format("%s is rejected with 404 model_not_found", model), async () => {
       const response = await appFor(model).request("/", { method: "POST" });
       const body = (await response.json()) as { error: { code: string } };

@@ -15,15 +15,7 @@ const OUTCOMES: ClientSignalLogOutcome[] = [
   "silent_rule_banned",
 ];
 
-const CLIENTS = [
-  "codex",
-  "claude_code",
-  "opencode",
-  "zed",
-  "flixa",
-  "flixa_cli",
-  "none",
-] as const;
+const CLIENTS = ["codex", "claude_code", "opencode", "zed", "flixa", "flixa_cli", "none"] as const;
 
 export const adminLookupRouter = new Hono();
 
@@ -65,12 +57,8 @@ adminLookupRouter.get("/lookup", (c) => {
 });
 
 function renderLookupPage(): string {
-  const outcomeOptions = OUTCOMES.map(
-    (o) => `<option value="${o}">${o}</option>`,
-  ).join("");
-  const clientOptions = CLIENTS.map(
-    (cl) => `<option value="${cl}">${cl}</option>`,
-  ).join("");
+  const outcomeOptions = OUTCOMES.map((o) => `<option value="${o}">${o}</option>`).join("");
+  const clientOptions = CLIENTS.map((cl) => `<option value="${cl}">${cl}</option>`).join("");
 
   return `<!DOCTYPE html>
 <html lang="en">

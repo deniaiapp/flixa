@@ -89,10 +89,7 @@ export function getAdminLoginRateLimitConfig(): {
 } {
   return {
     max: parsePositiveInt(process.env.RATE_LIMIT_ADMIN_LOGIN_MAX, 20),
-    windowMs: parsePositiveInt(
-      process.env.RATE_LIMIT_ADMIN_LOGIN_WINDOW_MS,
-      15 * 60_000,
-    ),
+    windowMs: parsePositiveInt(process.env.RATE_LIMIT_ADMIN_LOGIN_WINDOW_MS, 15 * 60_000),
   };
 }
 
@@ -108,10 +105,7 @@ function swapBucketExpiry(leftIndex: number, rightIndex: number): void {
 function bubbleBucketExpiryUp(index: number): void {
   while (index > 0) {
     const parentIndex = Math.floor((index - 1) / 2);
-    if (
-      bucketExpiryHeap[parentIndex]!.expiresAt <=
-      bucketExpiryHeap[index]!.expiresAt
-    ) {
+    if (bucketExpiryHeap[parentIndex]!.expiresAt <= bucketExpiryHeap[index]!.expiresAt) {
       break;
     }
     swapBucketExpiry(parentIndex, index);
@@ -130,16 +124,12 @@ function bubbleBucketExpiryDown(index: number): void {
     let childIndex = leftIndex;
     if (
       rightIndex < bucketExpiryHeap.length &&
-      bucketExpiryHeap[rightIndex]!.expiresAt <
-        bucketExpiryHeap[leftIndex]!.expiresAt
+      bucketExpiryHeap[rightIndex]!.expiresAt < bucketExpiryHeap[leftIndex]!.expiresAt
     ) {
       childIndex = rightIndex;
     }
 
-    if (
-      bucketExpiryHeap[index]!.expiresAt <=
-      bucketExpiryHeap[childIndex]!.expiresAt
-    ) {
+    if (bucketExpiryHeap[index]!.expiresAt <= bucketExpiryHeap[childIndex]!.expiresAt) {
       break;
     }
 
@@ -194,10 +184,7 @@ function dequeueBucketExpiry(): BucketExpiry | undefined {
 function cleanupExpiredBuckets(now: number): void {
   // The old implementation used the same strict `>` idle check. Do not
   // expire a bucket exactly at the TTL boundary.
-  while (
-    bucketExpiryHeap.length > 0 &&
-    bucketExpiryHeap[0]!.expiresAt < now
-  ) {
+  while (bucketExpiryHeap.length > 0 && bucketExpiryHeap[0]!.expiresAt < now) {
     const expiry = dequeueBucketExpiry()!;
     const bucket = buckets.get(expiry.mapKey);
 
@@ -238,11 +225,7 @@ function maybeCleanup(now: number): void {
   }
 }
 
-function allowAllResult(
-  max: number,
-  windowMs: number,
-  now: number,
-): RateLimitResult {
+function allowAllResult(max: number, windowMs: number, now: number): RateLimitResult {
   return {
     allowed: true,
     limit: max,
@@ -343,8 +326,7 @@ export function clearRateLimitBuckets(): void {
  */
 export function isAgentInferencePath(path: string): boolean {
   // Strip trailing slash except root.
-  const p =
-    path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path;
+  const p = path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path;
 
   return (
     p === "/v1/agent/chat/completions" ||

@@ -5,9 +5,7 @@ import { validateAgentApiKey } from "../middleware/validateAgentAuth";
 
 function app(): Hono {
   const hono = new Hono();
-  hono.post("/v1/agent/responses", validateAgentApiKey, (c) =>
-    c.json({ ok: true }),
-  );
+  hono.post("/v1/agent/responses", validateAgentApiKey, (c) => c.json({ ok: true }));
   return hono;
 }
 
@@ -38,8 +36,7 @@ describe("missing_api_key", () => {
     const res = await app().request("/v1/agent/responses", {
       method: "POST",
       headers: {
-        "user-agent":
-          "codex-tui/0.149.1 (Windows 10.0.29639; x86_64) unknown (codex-tui; 0.149.1)",
+        "user-agent": "codex-tui/0.149.1 (Windows 10.0.29639; x86_64) unknown (codex-tui; 0.149.1)",
         originator: "codex-tui",
       },
     });

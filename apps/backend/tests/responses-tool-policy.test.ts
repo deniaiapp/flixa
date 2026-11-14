@@ -106,7 +106,9 @@ describe("responses server tool policy", () => {
 
   test("checks tools nested in a namespace", async () => {
     const { status, body } = await responses(OPENROUTER_MODEL, {
-      tools: [{ type: "namespace", name: "x", tools: [functionTool, { type: "openrouter:advisor" }] }],
+      tools: [
+        { type: "namespace", name: "x", tools: [functionTool, { type: "openrouter:advisor" }] },
+      ],
     });
 
     assert.equal(status, 400);
@@ -134,7 +136,11 @@ describe("responses server tool policy", () => {
 
     const ok = await responses(OPENROUTER_MODEL, {
       tools: [functionTool],
-      tool_choice: { type: "allowed_tools", mode: "auto", tools: [{ type: "function", name: "read_file" }] },
+      tool_choice: {
+        type: "allowed_tools",
+        mode: "auto",
+        tools: [{ type: "function", name: "read_file" }],
+      },
     });
     assert.equal(ok.status, 200);
   });

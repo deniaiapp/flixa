@@ -1,7 +1,12 @@
 import { UsageEstimate } from "../utils/agent/usageEstimation";
-import { USAGE_UNIT, type UsageReservation, type UsageTier, type UsageUnit } from "../utils/deni/usage";
-import { Context, Next } from 'hono';
-import type { ContentfulStatusCode } from 'hono/utils/http-status';
+import {
+  USAGE_UNIT,
+  type UsageReservation,
+  type UsageTier,
+  type UsageUnit,
+} from "../utils/deni/usage";
+import { Context, Next } from "hono";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import {
   GUEST_ACCOUNT_ERROR_MESSAGE,
   extractApiKeyFromHeaders,
@@ -23,20 +28,17 @@ import {
   isLegacyAiSdkUserAgent,
   summarizeClientHeaders,
   evaluateSilentBanRules,
-} from '../utils/deni';
-import { recordClientSignalLog } from '../utils/deni/clientSignalLog';
-import { getModelDefinition, getModelTokenUsageMultiplier } from '../utils/agent/models';
-import { checkUserRateLimit } from './rateLimit';
-import {
-  getAuthDisabledUserId,
-  isAuthDisabledMode,
-} from '../utils/authMode';
+} from "../utils/deni";
+import { recordClientSignalLog } from "../utils/deni/clientSignalLog";
+import { getModelDefinition, getModelTokenUsageMultiplier } from "../utils/agent/models";
+import { checkUserRateLimit } from "./rateLimit";
+import { getAuthDisabledUserId, isAuthDisabledMode } from "../utils/authMode";
 
 export interface AgentAuthContext {
   userId: string;
   modelId: string;
-  tier: 'free' | 'go' | 'plus' | 'pro';
-  modelCategory: 'basic' | 'premium';
+  tier: "free" | "go" | "plus" | "pro";
+  modelCategory: "basic" | "premium";
   usageUnit: UsageUnit;
   usageReserved: boolean;
   usageReservation?: UsageReservation;
@@ -50,47 +52,47 @@ export interface AgentAuthContext {
 
 function missingApiKeyMessage(c: Context): string {
   const signal = detectClientSignal(c.req.raw.headers);
-  if (signal.client === 'codex') {
+  if (signal.client === "codex") {
     return (
-      'Authentication required. Codex did not send an API key. In %USERPROFILE%\\.codex\\config.toml ' +
+      "Authentication required. Codex did not send an API key. In %USERPROFILE%\\.codex\\config.toml " +
       '(or ~/.codex/config.toml) set requires_openai_auth = false and either env_key = "FLIXA_API_KEY" ' +
-      'with that variable defined for the Codex process, or pin the key with ' +
+      "with that variable defined for the Codex process, or pin the key with " +
       '[model_providers.<id>.http_headers] Authorization = "Bearer deni_...". ' +
-      'Windows Codex TUI launched from the Start menu / a shortcut often cannot see a PowerShell $env: ' +
-      'set in another window. Restart Codex after saving. Codex omits Authorization when env_key is ' +
-      'unset or the env var is empty.'
+      "Windows Codex TUI launched from the Start menu / a shortcut often cannot see a PowerShell $env: " +
+      "set in another window. Restart Codex after saving. Codex omits Authorization when env_key is " +
+      "unset or the env var is empty."
     );
   }
 
-  if (signal.client === 'flixa' || signal.client === 'flixa_cli') {
-    return 'Authentication required. Please update the Flixa extension to the latest version.';
+  if (signal.client === "flixa" || signal.client === "flixa_cli") {
+    return "Authentication required. Please update the Flixa extension to the latest version.";
   }
 
   return (
-    'Authentication required. Provide an API key in the Authorization: Bearer header ' +
-    'or x-api-key.'
+    "Authentication required. Provide an API key in the Authorization: Bearer header " +
+    "or x-api-key."
   );
 }
 
 function authErrorMessage(code: string | null, fallback: string): string {
-  if (code === 'guest_account') {
+  if (code === "guest_account") {
     return GUEST_ACCOUNT_ERROR_MESSAGE;
   }
 
-  if (code === 'service_unavailable' || code === 'banned') {
+  if (code === "service_unavailable" || code === "banned") {
     return BANNED_ERROR_MESSAGE;
   }
 
-  if (code === 'client_update_required') {
+  if (code === "client_update_required") {
     return CLIENT_UPDATE_REQUIRED_MESSAGE;
   }
 
-  if (code === 'invalid_key') {
-    return 'Invalid API key. Please login again to Deni AI. If the issue persists, try updating the extension to the latest version.';
+  if (code === "invalid_key") {
+    return "Invalid API key. Please login again to Deni AI. If the issue persists, try updating the extension to the latest version.";
   }
 
-  if (code === 'expired_key') {
-    return 'Your API key has expired. Please login again to Deni AI to generate a new key.';
+  if (code === "expired_key") {
+    return "Your API key has expired. Please login again to Deni AI to generate a new key.";
   }
 
   return fallback;
@@ -98,36 +100,36 @@ function authErrorMessage(code: string | null, fallback: string): string {
 
 function getAuthErrorResponseConfig(code: string | null): {
   status: ContentfulStatusCode;
-  type: 'authentication_error' | 'server_error';
+  type: "authentication_error" | "server_error";
 } {
   if (
-    code === 'guest_account' ||
-    code === 'service_unavailable' ||
-    code === 'banned' ||
-    code === 'client_update_required'
+    code === "guest_account" ||
+    code === "service_unavailable" ||
+    code === "banned" ||
+    code === "client_update_required"
   ) {
     return {
       status: 403,
-      type: 'authentication_error',
+      type: "authentication_error",
     };
   }
 
-  if (code === 'db_error') {
+  if (code === "db_error") {
     return {
       status: 503,
-      type: 'server_error',
+      type: "server_error",
     };
   }
 
   return {
     status: 401,
-    type: 'authentication_error',
+    type: "authentication_error",
   };
 }
 
 function forbiddenAuthResponse(
   c: Context,
-  code: 'service_unavailable' | 'client_update_required',
+  code: "service_unavailable" | "client_update_required",
   message: string,
 ) {
   const errorResponse = getAuthErrorResponseConfig(code);
@@ -149,14 +151,14 @@ function forbiddenAuthResponse(
  * not exposed.
  */
 function dbErrorAuthResponse(c: Context): Response {
-  const errorResponse = getAuthErrorResponseConfig('db_error');
+  const errorResponse = getAuthErrorResponseConfig("db_error");
   return c.json(
     {
       error: {
-        message: authErrorMessage('db_error', 'Database error during validation'),
+        message: authErrorMessage("db_error", "Database error during validation"),
         type: errorResponse.type,
         param: null,
-        code: 'db_error',
+        code: "db_error",
       },
     },
     { status: errorResponse.status },
@@ -164,7 +166,7 @@ function dbErrorAuthResponse(c: Context): Response {
 }
 
 /** Lowest plan that may call Flixa from any client (Plus, Pro, Pro for Teams). */
-const EXTERNAL_CLIENT_MIN_TIER = 'plus';
+const EXTERNAL_CLIENT_MIN_TIER = "plus";
 
 /**
  * After a key is valid, reject banned users and reject (without banning)
@@ -206,38 +208,33 @@ async function enforceFlixaAccessPolicy(
     recordClientSignalLog({
       ...logBase,
       allowed: signal.allowed,
-      outcome: 'already_banned',
+      outcome: "already_banned",
     });
     // Do not expose "banned" in the API response.
-    return forbiddenAuthResponse(c, 'service_unavailable', BANNED_ERROR_MESSAGE);
+    return forbiddenAuthResponse(c, "service_unavailable", BANNED_ERROR_MESSAGE);
   }
 
   // Configurable silent-ban rules (UA / header / path). First N-1 matches
   // still go through; on the Nth match the account is banned silently.
-  const silentBan = await evaluateSilentBanRules(
-    userId,
-    headers,
-    c.req.path,
-    c.req.method,
-  );
-  if (silentBan.action === 'error') {
+  const silentBan = await evaluateSilentBanRules(userId, headers, c.req.path, c.req.method);
+  if (silentBan.action === "error") {
     // Rules could not be evaluated (DB error): fail closed.
     return dbErrorAuthResponse(c);
   }
-  if (silentBan.action === 'banned') {
+  if (silentBan.action === "banned") {
     recordClientSignalLog({
       ...logBase,
       allowed: signal.allowed,
-      outcome: 'silent_rule_banned',
+      outcome: "silent_rule_banned",
     });
-    return forbiddenAuthResponse(c, 'service_unavailable', BANNED_ERROR_MESSAGE);
+    return forbiddenAuthResponse(c, "service_unavailable", BANNED_ERROR_MESSAGE);
   }
 
   if (!isClientSignalEnforcementEnabled()) {
     recordClientSignalLog({
       ...logBase,
       allowed: true,
-      outcome: 'enforcement_disabled',
+      outcome: "enforcement_disabled",
     });
     return null;
   }
@@ -246,7 +243,7 @@ async function enforceFlixaAccessPolicy(
     recordClientSignalLog({
       ...logBase,
       allowed: true,
-      outcome: 'allowed',
+      outcome: "allowed",
     });
     return null;
   }
@@ -263,7 +260,7 @@ async function enforceFlixaAccessPolicy(
     recordClientSignalLog({
       ...logBase,
       allowed: true,
-      outcome: 'plan_allowed',
+      outcome: "plan_allowed",
     });
     return null;
   }
@@ -273,19 +270,15 @@ async function enforceFlixaAccessPolicy(
     recordClientSignalLog({
       ...logBase,
       allowed: false,
-      outcome: 'legacy_update_required',
+      outcome: "legacy_update_required",
     });
-    return forbiddenAuthResponse(
-      c,
-      'client_update_required',
-      CLIENT_UPDATE_REQUIRED_MESSAGE,
-    );
+    return forbiddenAuthResponse(c, "client_update_required", CLIENT_UPDATE_REQUIRED_MESSAGE);
   }
 
   recordClientSignalLog({
     ...logBase,
     allowed: false,
-    outcome: 'missing_rejected',
+    outcome: "missing_rejected",
   });
 
   // Free/Go on an unlisted client: explain the plan limit, do not ban.
@@ -293,9 +286,9 @@ async function enforceFlixaAccessPolicy(
     {
       error: {
         message: MISSING_CLIENT_SIGNAL_MESSAGE,
-        type: 'insufficient_plan',
+        type: "insufficient_plan",
         param: null,
-        code: 'missing_client_signal',
+        code: "missing_client_signal",
         tier,
         upgradeUrl: getUpgradeUrl(),
       },
@@ -317,12 +310,12 @@ async function validateApiKeyFromRequest(c: Context): Promise<{ userId: string }
       {
         error: {
           message: missingApiKeyMessage(c),
-          type: 'authentication_error',
+          type: "authentication_error",
           param: null,
-          code: 'missing_api_key',
+          code: "missing_api_key",
         },
       },
-      401
+      401,
     );
   }
 
@@ -339,15 +332,11 @@ async function validateApiKeyFromRequest(c: Context): Promise<{ userId: string }
           code: keyResult.code,
         },
       },
-      { status: errorResponse.status }
+      { status: errorResponse.status },
     );
   }
 
-  const policyBlock = await enforceFlixaAccessPolicy(
-    c,
-    keyResult.userId,
-    apiKeyRedacted,
-  );
+  const policyBlock = await enforceFlixaAccessPolicy(c, keyResult.userId, apiKeyRedacted);
   if (policyBlock) {
     return policyBlock;
   }
@@ -371,7 +360,7 @@ export async function validateAgentApiKey(c: Context, next: Next) {
     return keyValidation;
   }
 
-  c.set('agentUserId', keyValidation.userId);
+  c.set("agentUserId", keyValidation.userId);
   await next();
 }
 
@@ -386,20 +375,20 @@ export async function validateAgentAuth(c: Context, next: Next) {
   }
 
   // Get model from validated body
-  const body = c.get('validatedBody') as { model?: string } | undefined;
+  const body = c.get("validatedBody") as { model?: string } | undefined;
   const model = body?.model;
 
   if (!model) {
     return c.json(
       {
         error: {
-          message: 'model is required',
-          type: 'invalid_request_error',
-          param: 'model',
-          code: 'missing_model',
+          message: "model is required",
+          type: "invalid_request_error",
+          param: "model",
+          code: "missing_model",
         },
       },
-      400
+      400,
     );
   }
 
@@ -408,21 +397,21 @@ export async function validateAgentAuth(c: Context, next: Next) {
       {
         error: {
           message: `The model "${model}" does not exist or is not available.`,
-          type: 'invalid_request_error',
-          param: 'model',
-          code: 'model_not_found',
+          type: "invalid_request_error",
+          param: "model",
+          code: "model_not_found",
         },
       },
-      404
+      404,
     );
   }
 
   const modelCategory = getModelCategory(model);
   if (isAuthDisabledMode()) {
-    c.set('agentAuth', {
+    c.set("agentAuth", {
       userId: keyValidation.userId,
       modelId: model,
-      tier: 'pro',
+      tier: "pro",
       modelCategory,
       usageUnit: USAGE_UNIT,
       usageReserved: false,
@@ -448,24 +437,35 @@ export async function validateAgentAuth(c: Context, next: Next) {
       {
         error: {
           message: `The model "${model}" requires a ${requiredTier} plan or higher. Your current plan: ${tier}. Please upgrade your plan to access this model.`,
-          type: 'insufficient_plan',
-          param: 'model',
-          code: 'tier_restricted',
+          type: "insufficient_plan",
+          param: "model",
+          code: "tier_restricted",
         },
       },
-      403
+      403,
     );
   }
 
-  const protocol = c.req.path.endsWith('/responses/compact') ? 'compact'
-    : c.req.path.endsWith('/responses') ? 'responses'
-    : c.req.path.endsWith('/messages') ? 'messages' : 'chat';
+  const protocol = c.req.path.endsWith("/responses/compact")
+    ? "compact"
+    : c.req.path.endsWith("/responses")
+      ? "responses"
+      : c.req.path.endsWith("/messages")
+        ? "messages"
+        : "chat";
   const usageEstimate = new UsageEstimate(body as Record<string, unknown>, model, protocol, tier);
   if (!Number.isSafeInteger(usageEstimate.reservationAmount)) {
-    return c.json({ error: {
-      message: 'Requested token budget is too large.',
-      type: 'invalid_request_error', param: null, code: 'invalid_parameter',
-    } }, 400);
+    return c.json(
+      {
+        error: {
+          message: "Requested token budget is too large.",
+          type: "invalid_request_error",
+          param: null,
+          code: "invalid_parameter",
+        },
+      },
+      400,
+    );
   }
   const quotaReservation = await reserveUsageQuota(
     keyValidation.userId,
@@ -479,23 +479,23 @@ export async function validateAgentAuth(c: Context, next: Next) {
       {
         error: {
           message: `Insufficient monthly usage left to reserve this request (${usageEstimate.reservationAmount} estimated usage units). Please upgrade your plan or wait for the usage reset.`,
-          type: 'quota_exceeded',
+          type: "quota_exceeded",
           param: null,
-          code: 'USAGE_LIMIT_EXCEEDED',
+          code: "USAGE_LIMIT_EXCEEDED",
           category: modelCategory,
           tier,
-          canVerifyForBoost: tier === 'free' && !billingProfile.hasVerifiedPaymentMethod,
-          canUpgrade: tier !== 'pro',
+          canVerifyForBoost: tier === "free" && !billingProfile.hasVerifiedPaymentMethod,
+          canUpgrade: tier !== "pro",
           verifyUrl: getVerifyUrl(),
           upgradeUrl: getUpgradeUrl(),
         },
       },
-      429
+      429,
     );
   }
 
   // Store auth context for downstream handlers
-  c.set('agentAuth', {
+  c.set("agentAuth", {
     userId: keyValidation.userId,
     modelId: model,
     tier,

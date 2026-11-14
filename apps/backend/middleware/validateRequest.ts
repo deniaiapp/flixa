@@ -67,12 +67,7 @@ const VALID_REASONING_CONTEXT = ["auto", "current_turn", "all_turns"] as const;
 const VALID_REASONING_MODE = ["standard", "pro"] as const;
 const VALID_TOOL_CHOICE = ["none", "auto", "required"] as const;
 const VALID_RESPONSES_TRUNCATION = ["auto", "disabled"] as const;
-const VALID_RESPONSES_SERVICE_TIERS = [
-  "auto",
-  "default",
-  "flex",
-  "priority",
-] as const;
+const VALID_RESPONSES_SERVICE_TIERS = ["auto", "default", "flex", "priority"] as const;
 const VALID_PROMPT_CACHE_RETENTION = ["in-memory", "24h"] as const;
 
 function isFiniteNumber(value: unknown): value is number {
@@ -88,9 +83,7 @@ function isBoolean(value: unknown): value is boolean {
 }
 
 function isStringArray(value: unknown): value is string[] {
-  return (
-    Array.isArray(value) && value.every((item) => typeof item === "string")
-  );
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
 }
 
 function invalidRequest(
@@ -179,11 +172,7 @@ function validateChatMessages(c: Context, messages: unknown) {
       );
     }
 
-    if (
-      !VALID_CHAT_ROLES.includes(
-        message.role as (typeof VALID_CHAT_ROLES)[number],
-      )
-    ) {
+    if (!VALID_CHAT_ROLES.includes(message.role as (typeof VALID_CHAT_ROLES)[number])) {
       return invalidRequest(
         c,
         `Message role must be one of: ${VALID_CHAT_ROLES.join(", ")}`,
@@ -227,12 +216,7 @@ function validateTools(
   }
 
   if (!Array.isArray(tools)) {
-    return invalidRequest(
-      c,
-      "tools must be an array",
-      "tools",
-      "invalid_parameter",
-    );
+    return invalidRequest(c, "tools must be an array", "tools", "invalid_parameter");
   }
 
   for (let i = 0; i < tools.length; i++) {
@@ -247,8 +231,7 @@ function validateTools(
       );
     }
 
-    const allowChatStyleFunctionWrapper =
-      options?.allowChatStyleFunctionWrapper ?? false;
+    const allowChatStyleFunctionWrapper = options?.allowChatStyleFunctionWrapper ?? false;
     const allowNonFunctionTypes = options?.allowNonFunctionTypes ?? false;
 
     if (tool.type !== "function") {
@@ -268,9 +251,7 @@ function validateTools(
       const directName = typeof tool.name === "string" ? tool.name : null;
       const wrappedFunction = isObject(tool.function) ? tool.function : null;
       const wrappedName =
-        wrappedFunction && typeof wrappedFunction.name === "string"
-          ? wrappedFunction.name
-          : null;
+        wrappedFunction && typeof wrappedFunction.name === "string" ? wrappedFunction.name : null;
 
       if (!directName && !wrappedName) {
         return invalidRequest(
@@ -304,9 +285,7 @@ function validateReasoningEffort(c: Context, value: unknown, param: string) {
 
   if (
     typeof value !== "string" ||
-    !VALID_REASONING_EFFORTS.includes(
-      value as (typeof VALID_REASONING_EFFORTS)[number],
-    )
+    !VALID_REASONING_EFFORTS.includes(value as (typeof VALID_REASONING_EFFORTS)[number])
   ) {
     return invalidRequest(
       c,
@@ -357,10 +336,7 @@ function validateResponsesToolChoice(c: Context, toolChoice: unknown) {
     return null;
   }
 
-  if (
-    isObject(toolChoice.function) &&
-    typeof toolChoice.function.name === "string"
-  ) {
+  if (isObject(toolChoice.function) && typeof toolChoice.function.name === "string") {
     return null;
   }
 
@@ -378,19 +354,10 @@ function validateResponsesReasoning(c: Context, reasoning: unknown) {
   }
 
   if (!isObject(reasoning)) {
-    return invalidRequest(
-      c,
-      "reasoning must be an object",
-      "reasoning",
-      "invalid_parameter",
-    );
+    return invalidRequest(c, "reasoning must be an object", "reasoning", "invalid_parameter");
   }
 
-  const effortError = validateReasoningEffort(
-    c,
-    reasoning.effort,
-    "reasoning.effort",
-  );
+  const effortError = validateReasoningEffort(c, reasoning.effort, "reasoning.effort");
   if (effortError) {
     return effortError;
   }
@@ -428,9 +395,7 @@ function validateResponsesReasoning(c: Context, reasoning: unknown) {
   if (
     reasoning.mode !== undefined &&
     (typeof reasoning.mode !== "string" ||
-      !VALID_REASONING_MODE.includes(
-        reasoning.mode as (typeof VALID_REASONING_MODE)[number],
-      ))
+      !VALID_REASONING_MODE.includes(reasoning.mode as (typeof VALID_REASONING_MODE)[number]))
   ) {
     return invalidRequest(
       c,
@@ -492,20 +457,13 @@ function validateResponsesTextConfig(c: Context, text: unknown) {
   }
 
   if (!isObject(text)) {
-    return invalidRequest(
-      c,
-      "text must be an object",
-      "text",
-      "invalid_parameter",
-    );
+    return invalidRequest(c, "text must be an object", "text", "invalid_parameter");
   }
 
   if (
     text.verbosity !== undefined &&
     (typeof text.verbosity !== "string" ||
-      !VALID_TEXT_VERBOSITY.includes(
-        text.verbosity as (typeof VALID_TEXT_VERBOSITY)[number],
-      ))
+      !VALID_TEXT_VERBOSITY.includes(text.verbosity as (typeof VALID_TEXT_VERBOSITY)[number]))
   ) {
     return invalidRequest(
       c,
@@ -520,19 +478,12 @@ function validateResponsesTextConfig(c: Context, text: unknown) {
   }
 
   if (!isObject(text.format)) {
-    return invalidRequest(
-      c,
-      "text.format must be an object",
-      "text.format",
-      "invalid_parameter",
-    );
+    return invalidRequest(c, "text.format must be an object", "text.format", "invalid_parameter");
   }
 
   if (
     typeof text.format.type !== "string" ||
-    !VALID_TEXT_FORMAT_TYPES.includes(
-      text.format.type as (typeof VALID_TEXT_FORMAT_TYPES)[number],
-    )
+    !VALID_TEXT_FORMAT_TYPES.includes(text.format.type as (typeof VALID_TEXT_FORMAT_TYPES)[number])
   ) {
     return invalidRequest(
       c,
@@ -593,12 +544,7 @@ export async function validateAgentRequest(c: Context, next: Next) {
     } = body;
 
     if (!model || typeof model !== "string") {
-      return invalidRequest(
-        c,
-        "model is required and must be a string",
-        "model",
-        "missing_model",
-      );
+      return invalidRequest(c, "model is required and must be a string", "model", "missing_model");
     }
 
     const messagesError = validateChatMessages(c, messages);
@@ -654,12 +600,7 @@ export async function validateAgentRequest(c: Context, next: Next) {
     });
     await next();
   } catch {
-    return invalidRequest(
-      c,
-      "Invalid JSON in request body",
-      "body",
-      "invalid_json",
-    );
+    return invalidRequest(c, "Invalid JSON in request body", "body", "invalid_json");
   }
 }
 
@@ -699,24 +640,11 @@ export async function validateResponsesRequest(c: Context, next: Next) {
     } = body;
 
     if (!model || typeof model !== "string") {
-      return invalidRequest(
-        c,
-        "model is required and must be a string",
-        "model",
-        "missing_model",
-      );
+      return invalidRequest(c, "model is required and must be a string", "model", "missing_model");
     }
 
-    if (
-      input === undefined &&
-      (!Array.isArray(messages) || messages.length === 0)
-    ) {
-      return invalidRequest(
-        c,
-        "input is required for Responses API",
-        "input",
-        "missing_input",
-      );
+    if (input === undefined && (!Array.isArray(messages) || messages.length === 0)) {
+      return invalidRequest(c, "input is required for Responses API", "input", "missing_input");
     }
 
     if (instructions !== undefined && typeof instructions !== "string") {
@@ -728,10 +656,7 @@ export async function validateResponsesRequest(c: Context, next: Next) {
       );
     }
 
-    if (
-      previous_response_id !== undefined &&
-      typeof previous_response_id !== "string"
-    ) {
+    if (previous_response_id !== undefined && typeof previous_response_id !== "string") {
       return invalidRequest(
         c,
         "previous_response_id must be a string",
@@ -741,12 +666,7 @@ export async function validateResponsesRequest(c: Context, next: Next) {
     }
 
     if (stream !== undefined && !isBoolean(stream)) {
-      return invalidRequest(
-        c,
-        "stream must be a boolean",
-        "stream",
-        "invalid_parameter",
-      );
+      return invalidRequest(c, "stream must be a boolean", "stream", "invalid_parameter");
     }
 
     if (
@@ -807,12 +727,7 @@ export async function validateResponsesRequest(c: Context, next: Next) {
     }
 
     if (store !== undefined && !isBoolean(store)) {
-      return invalidRequest(
-        c,
-        "store must be a boolean",
-        "store",
-        "invalid_parameter",
-      );
+      return invalidRequest(c, "store must be a boolean", "store", "invalid_parameter");
     }
 
     if (parallel_tool_calls !== undefined && !isBoolean(parallel_tool_calls)) {
@@ -873,11 +788,7 @@ export async function validateResponsesRequest(c: Context, next: Next) {
       return reasoningError;
     }
 
-    const reasoningEffortError = validateReasoningEffort(
-      c,
-      reasoning_effort,
-      "reasoning_effort",
-    );
+    const reasoningEffortError = validateReasoningEffort(c, reasoning_effort, "reasoning_effort");
     if (reasoningEffortError) {
       return reasoningEffortError;
     }
@@ -887,10 +798,7 @@ export async function validateResponsesRequest(c: Context, next: Next) {
       return textError;
     }
 
-    const contextManagementError = validateContextManagement(
-      c,
-      context_management,
-    );
+    const contextManagementError = validateContextManagement(c, context_management);
     if (contextManagementError) {
       return contextManagementError;
     }
@@ -905,12 +813,7 @@ export async function validateResponsesRequest(c: Context, next: Next) {
     }
 
     if (metadata !== undefined && !isObject(metadata)) {
-      return invalidRequest(
-        c,
-        "metadata must be an object",
-        "metadata",
-        "invalid_parameter",
-      );
+      return invalidRequest(c, "metadata must be an object", "metadata", "invalid_parameter");
     }
 
     const resolvedModel = resolveAvailableModelId(model);
@@ -925,12 +828,7 @@ export async function validateResponsesRequest(c: Context, next: Next) {
     });
     await next();
   } catch {
-    return invalidRequest(
-      c,
-      "Invalid JSON in request body",
-      "body",
-      "invalid_json",
-    );
+    return invalidRequest(c, "Invalid JSON in request body", "body", "invalid_json");
   }
 }
 
@@ -941,21 +839,10 @@ export async function validateResponsesRequest(c: Context, next: Next) {
 export async function validateResponsesCompactRequest(c: Context, next: Next) {
   try {
     const body = await c.req.json<ResponsesCompactRequestBody>();
-    const {
-      input,
-      instructions,
-      model,
-      previous_response_id,
-      messages,
-    } = body;
+    const { input, instructions, model, previous_response_id, messages } = body;
 
     if (!model || typeof model !== "string") {
-      return invalidRequest(
-        c,
-        "model is required and must be a string",
-        "model",
-        "missing_model",
-      );
+      return invalidRequest(c, "model is required and must be a string", "model", "missing_model");
     }
 
     if (
@@ -980,10 +867,7 @@ export async function validateResponsesCompactRequest(c: Context, next: Next) {
       );
     }
 
-    if (
-      previous_response_id !== undefined &&
-      typeof previous_response_id !== "string"
-    ) {
+    if (previous_response_id !== undefined && typeof previous_response_id !== "string") {
       return invalidRequest(
         c,
         "previous_response_id must be a string",
@@ -1004,11 +888,6 @@ export async function validateResponsesCompactRequest(c: Context, next: Next) {
     });
     await next();
   } catch {
-    return invalidRequest(
-      c,
-      "Invalid JSON in request body",
-      "body",
-      "invalid_json",
-    );
+    return invalidRequest(c, "Invalid JSON in request body", "body", "invalid_json");
   }
 }

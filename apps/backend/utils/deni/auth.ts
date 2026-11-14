@@ -1,12 +1,16 @@
-import crypto from 'crypto';
-import { getDeniPool } from './db';
+import crypto from "crypto";
+import { getDeniPool } from "./db";
 
 export type ApiKeyValidationResult =
   | { valid: true; userId: string }
-  | { valid: false; error: string; code: 'invalid_key' | 'expired_key' | 'guest_account' | 'db_error' };
+  | {
+      valid: false;
+      error: string;
+      code: "invalid_key" | "expired_key" | "guest_account" | "db_error";
+    };
 
 export const GUEST_ACCOUNT_ERROR_MESSAGE =
-  'Guest accounts are not supported. Please sign in with a permanent account.';
+  "Guest accounts are not supported. Please sign in with a permanent account.";
 
 function getNonNegativeIntEnv(envKey: string, fallback: number): number {
   const raw = process.env[envKey];
@@ -15,11 +19,8 @@ function getNonNegativeIntEnv(envKey: string, fallback: number): number {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
 }
 
-const AUTH_CACHE_TTL_MS = getNonNegativeIntEnv('FLIXA_AUTH_CACHE_TTL_MS', 60_000);
-const AUTH_NEGATIVE_CACHE_TTL_MS = getNonNegativeIntEnv(
-  'FLIXA_AUTH_NEGATIVE_CACHE_TTL_MS',
-  30_000,
-);
+const AUTH_CACHE_TTL_MS = getNonNegativeIntEnv("FLIXA_AUTH_CACHE_TTL_MS", 60_000);
+const AUTH_NEGATIVE_CACHE_TTL_MS = getNonNegativeIntEnv("FLIXA_AUTH_NEGATIVE_CACHE_TTL_MS", 30_000);
 const AUTH_CACHE_MAX_ENTRIES = 10_000;
 const LAST_USED_UPDATE_INTERVAL_MS = 5 * 60_000;
 // Keys are short opaque tokens; anything longer is never hashed or queried.
@@ -41,9 +42,9 @@ const lastUsedWriteAt = new Map<string, number>();
 // and other queries. Extra lookups wait in a bounded queue, then get db_error.
 const MAX_CONCURRENT_KEY_LOOKUPS = Math.max(
   1,
-  getNonNegativeIntEnv('FLIXA_AUTH_MAX_CONCURRENT_LOOKUPS', 8),
+  getNonNegativeIntEnv("FLIXA_AUTH_MAX_CONCURRENT_LOOKUPS", 8),
 );
-const MAX_QUEUED_KEY_LOOKUPS = getNonNegativeIntEnv('FLIXA_AUTH_MAX_QUEUED_LOOKUPS', 64);
+const MAX_QUEUED_KEY_LOOKUPS = getNonNegativeIntEnv("FLIXA_AUTH_MAX_QUEUED_LOOKUPS", 64);
 let activeKeyLookups = 0;
 const queuedKeyLookups: Array<() => void> = [];
 
@@ -160,7 +161,7 @@ function touchLastUsedAt(keyHash: string): void {
 
   getDeniPool()
     .query(`UPDATE api_key SET last_used_at = NOW() WHERE key_hash = $1`, [keyHash])
-    .catch(err => console.error('Failed to update last_used_at:', err));
+    .catch((err) => console.error("Failed to update last_used_at:", err));
 }
 
 function firstNonEmpty(...values: Array<string | null | undefined>): string | null {
@@ -193,11 +194,11 @@ export function extractApiKey(
   if (/^basic\s+/i.test(trimmed)) return null;
 
   if (/^bearer\s+/i.test(trimmed)) {
-    const key = trimmed.replace(/^bearer\s+/i, '').trim();
+    const key = trimmed.replace(/^bearer\s+/i, "").trim();
     return key.length > 0 ? key : null;
   }
 
-  if (trimmed.startsWith('deni_')) {
+  if (trimmed.startsWith("deni_")) {
     return trimmed;
   }
 
@@ -210,11 +211,11 @@ export function extractApiKey(
  */
 export function extractApiKeyFromHeaders(headers: Headers): string | null {
   return extractApiKey(
-    headers.get('authorization') ?? undefined,
+    headers.get("authorization") ?? undefined,
     firstNonEmpty(
-      headers.get('x-api-key'),
-      headers.get('api-key'),
-      headers.get('x-openai-api-key'),
+      headers.get("x-api-key"),
+      headers.get("api-key"),
+      headers.get("x-openai-api-key"),
     ) ?? undefined,
   );
 }
@@ -231,21 +232,19 @@ export type RequestAuthSummary = {
  * Presence-only auth header summary for logs. Never includes secret values.
  */
 export function summarizeRequestAuth(headers: Headers): RequestAuthSummary {
-  const authorization = (headers.get('authorization') || '').trim();
+  const authorization = (headers.get("authorization") || "").trim();
   let authorizationScheme: string | null = null;
   if (authorization) {
     const scheme = authorization.split(/\s+/, 1)[0] || authorization;
-    authorizationScheme = scheme.toLowerCase().startsWith('deni_')
-      ? 'deni_'
-      : scheme;
+    authorizationScheme = scheme.toLowerCase().startsWith("deni_") ? "deni_" : scheme;
   }
 
   return {
     hasAuthorization: authorization.length > 0,
     authorizationScheme,
-    hasXApiKey: Boolean(headers.get('x-api-key')?.trim()),
-    hasApiKey: Boolean(headers.get('api-key')?.trim()),
-    hasOpenaiApiKey: Boolean(headers.get('x-openai-api-key')?.trim()),
+    hasXApiKey: Boolean(headers.get("x-api-key")?.trim()),
+    hasApiKey: Boolean(headers.get("api-key")?.trim()),
+    hasOpenaiApiKey: Boolean(headers.get("x-openai-api-key")?.trim()),
   };
 }
 
@@ -278,15 +277,15 @@ export function redactApiKeyFromRequestHeaders(headers: Headers): string | null 
  * Hash an API key using SHA-256
  */
 export function hashApiKey(rawKey: string): string {
-  return crypto.createHash('sha256').update(rawKey).digest('hex');
+  return crypto.createHash("sha256").update(rawKey).digest("hex");
 }
 
 /**
  * Validate a Deni API key and return the associated user ID
  */
 export async function validateDeniApiKey(rawKey: string): Promise<ApiKeyValidationResult> {
-  if (!rawKey.startsWith('deni_') || rawKey.length > MAX_API_KEY_LENGTH) {
-    return { valid: false, error: 'Invalid API key format', code: 'invalid_key' };
+  if (!rawKey.startsWith("deni_") || rawKey.length > MAX_API_KEY_LENGTH) {
+    return { valid: false, error: "Invalid API key format", code: "invalid_key" };
   }
 
   const keyHash = hashApiKey(rawKey);
@@ -307,8 +306,8 @@ export async function validateDeniApiKey(rawKey: string): Promise<ApiKeyValidati
 
   const validation = (async (): Promise<ApiKeyValidationResult> => {
     if (!(await acquireKeyLookupSlot())) {
-      console.error('API key validation error: too many concurrent lookups');
-      return { valid: false, error: 'Database error during validation', code: 'db_error' };
+      console.error("API key validation error: too many concurrent lookups");
+      return { valid: false, error: "Database error during validation", code: "db_error" };
     }
 
     try {
@@ -322,14 +321,14 @@ export async function validateDeniApiKey(rawKey: string): Promise<ApiKeyValidati
          FROM api_key k
          JOIN "user" u ON u.id = k.user_id
          WHERE k.key_hash = $1`,
-        [keyHash]
+        [keyHash],
       );
 
       if (result.rows.length === 0) {
         const notFound: CachedInvalidResult = {
           valid: false,
-          error: 'API key not found',
-          code: 'invalid_key',
+          error: "API key not found",
+          code: "invalid_key",
         };
         cacheInvalidKey(keyHash, notFound);
         return notFound;
@@ -338,15 +337,15 @@ export async function validateDeniApiKey(rawKey: string): Promise<ApiKeyValidati
       const { user_id, expires_at, is_anonymous } = result.rows[0];
 
       if (is_anonymous) {
-        return { valid: false, error: GUEST_ACCOUNT_ERROR_MESSAGE, code: 'guest_account' };
+        return { valid: false, error: GUEST_ACCOUNT_ERROR_MESSAGE, code: "guest_account" };
       }
 
       // Check expiration
       if (expires_at && new Date(expires_at) < new Date()) {
         const expired: CachedInvalidResult = {
           valid: false,
-          error: 'API key has expired',
-          code: 'expired_key',
+          error: "API key has expired",
+          code: "expired_key",
         };
         cacheInvalidKey(keyHash, expired);
         return expired;
@@ -354,10 +353,7 @@ export async function validateDeniApiKey(rawKey: string): Promise<ApiKeyValidati
 
       // Cache only until shortly before expiration so an expiring key is not
       // served from cache past its expiry.
-      if (
-        !expires_at ||
-        new Date(expires_at).getTime() - Date.now() > AUTH_CACHE_TTL_MS
-      ) {
+      if (!expires_at || new Date(expires_at).getTime() - Date.now() > AUTH_CACHE_TTL_MS) {
         cacheValidKey(keyHash, user_id);
       }
 
@@ -365,8 +361,8 @@ export async function validateDeniApiKey(rawKey: string): Promise<ApiKeyValidati
 
       return { valid: true, userId: user_id };
     } catch (error) {
-      console.error('API key validation error:', error);
-      return { valid: false, error: 'Database error during validation', code: 'db_error' };
+      console.error("API key validation error:", error);
+      return { valid: false, error: "Database error during validation", code: "db_error" };
     } finally {
       releaseKeyLookupSlot();
     }

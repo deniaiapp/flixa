@@ -52,17 +52,13 @@ let crashCount = 0;
 
 while (!stopping) {
   const startedAt = Date.now();
-  console.log(
-    `[Supervisor] starting server: ${["server.ts", ...serverArgs].join(" ")}`,
-  );
+  console.log(`[Supervisor] starting server: ${["server.ts", ...serverArgs].join(" ")}`);
 
   // Run the TypeScript entrypoint through tsx's loader on the same Node binary.
   // Env vars (including any loaded via --env-file) are inherited.
-  currentProcess = spawn(
-    process.execPath,
-    ["--import", "tsx", "server.ts", ...serverArgs],
-    { stdio: "inherit" },
-  );
+  currentProcess = spawn(process.execPath, ["--import", "tsx", "server.ts", ...serverArgs], {
+    stdio: "inherit",
+  });
 
   const [code, signal] = (await once(currentProcess, "exit")) as [
     number | null,

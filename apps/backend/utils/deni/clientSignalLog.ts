@@ -112,9 +112,7 @@ export function recordClientSignalLog(
 
   if (shouldConsoleLog(entry)) {
     const keyPart =
-      entry.apiKey && process.env.NODE_ENV !== "production"
-        ? ` key=${entry.apiKey}`
-        : "";
+      entry.apiKey && process.env.NODE_ENV !== "production" ? ` key=${entry.apiKey}` : "";
     console.log(
       `[ClientSignal] ${entry.outcome} client=${entry.client ?? "none"} user=${entry.userId}${keyPart} ${entry.method} ${entry.path}`,
       entry.headers,
@@ -129,9 +127,7 @@ export function recordClientSignalLog(
  * matches except `allowed` / exact `outcome` / exact `client` when provided.
  * `apiKey` matches the redacted fingerprint, not the raw secret.
  */
-export function queryClientSignalLogs(
-  query: ClientSignalLogQuery = {},
-): ClientSignalLogEntry[] {
+export function queryClientSignalLogs(query: ClientSignalLogQuery = {}): ClientSignalLogEntry[] {
   const limit = clampLimit(query.limit);
   const userId = query.userId?.trim().toLowerCase();
   const apiKey = query.apiKey?.trim().toLowerCase();

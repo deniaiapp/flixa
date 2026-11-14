@@ -10,10 +10,7 @@ import { adminAuth } from "./middleware/adminAuth";
 import { accessLog } from "./middleware/accessLog";
 import { errorHandler } from "./middleware/errorHandler";
 import { logErrorResponses } from "./middleware/logErrorResponses";
-import {
-  adminLoginRateLimitMiddleware,
-  ipRateLimitMiddleware,
-} from "./middleware/rateLimit";
+import { adminLoginRateLimitMiddleware, ipRateLimitMiddleware } from "./middleware/rateLimit";
 import { warnAdminConfigAtStartup } from "./utils/adminSecurity";
 
 warnAdminConfigAtStartup();

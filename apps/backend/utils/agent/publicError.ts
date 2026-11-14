@@ -38,9 +38,7 @@ function defaultErrorType(status: number): string {
 }
 
 function safeIdentifier(value: unknown): string | null {
-  return typeof value === "string" && IDENTIFIER_PATTERN.test(value)
-    ? value
-    : null;
+  return typeof value === "string" && IDENTIFIER_PATTERN.test(value) ? value : null;
 }
 
 export function publicErrorBody(
@@ -78,12 +76,6 @@ function parseUpstreamErrorIdentifiers(rawBody: string): {
 }
 
 /** Replaces an upstream non-2xx body with a sanitized JSON error. */
-export function publicUpstreamErrorResponse(
-  status: number,
-  rawBody: string,
-): Response {
-  return Response.json(
-    publicErrorBody(status, parseUpstreamErrorIdentifiers(rawBody)),
-    { status },
-  );
+export function publicUpstreamErrorResponse(status: number, rawBody: string): Response {
+  return Response.json(publicErrorBody(status, parseUpstreamErrorIdentifiers(rawBody)), { status });
 }

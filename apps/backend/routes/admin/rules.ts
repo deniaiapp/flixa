@@ -36,8 +36,7 @@ adminRulesRouter.get("/rules/api", async (c) => {
     console.error("[AdminRules] list failed:", error);
     return c.json(
       {
-        error:
-          error instanceof Error ? error.message : "Failed to list rules",
+        error: error instanceof Error ? error.message : "Failed to list rules",
       },
       500,
     );

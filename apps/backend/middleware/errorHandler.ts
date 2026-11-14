@@ -30,8 +30,7 @@ export function errorHandler(err: ErrorWithStatus, c: Context) {
   }
 
   // Some libraries attach getResponse without being instanceof HTTPException.
-  const maybeGetResponse = (err as unknown as { getResponse?: () => Response })
-    .getResponse;
+  const maybeGetResponse = (err as unknown as { getResponse?: () => Response }).getResponse;
   if (typeof maybeGetResponse === "function") {
     const res = maybeGetResponse.call(err);
     return c.newResponse(res.body, res);
@@ -40,13 +39,8 @@ export function errorHandler(err: ErrorWithStatus, c: Context) {
   console.error("Error:", err);
 
   // OpenAI-style error response for unexpected failures
-  const statusCode = (err.statusCode ||
-    err.status ||
-    500) as ContentfulStatusCode;
+  const statusCode = (err.statusCode || err.status || 500) as ContentfulStatusCode;
 
   // Never echo exception messages to clients; details stay in server logs.
-  return c.json(
-    publicErrorBody(statusCode, { type: err.type, code: err.code }),
-    statusCode,
-  );
+  return c.json(publicErrorBody(statusCode, { type: err.type, code: err.code }), statusCode);
 }

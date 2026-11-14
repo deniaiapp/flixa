@@ -96,7 +96,11 @@ describe("getClientIp", () => {
   });
 
   test("ignores spoofed headers on direct connections", () => {
-    const headers = new Headers({ "cf-connecting-ip": "10.0.0.1", "x-real-ip": "10.0.0.2", "x-forwarded-for": "10.0.0.3" });
+    const headers = new Headers({
+      "cf-connecting-ip": "10.0.0.1",
+      "x-real-ip": "10.0.0.2",
+      "x-forwarded-for": "10.0.0.3",
+    });
     assert.equal(getClientIp(headers, "203.0.113.5"), "203.0.113.5");
     assert.equal(getClientIp(headers), "unknown");
   });
@@ -138,7 +142,10 @@ describe("getClientIp", () => {
       "198.51.100.7",
     );
     assert.equal(
-      getClientIp(new Headers({ "x-forwarded-for": "not-an-ip, 198.51.100.7, 10.0.0.2" }), "10.0.0.1"),
+      getClientIp(
+        new Headers({ "x-forwarded-for": "not-an-ip, 198.51.100.7, 10.0.0.2" }),
+        "10.0.0.1",
+      ),
       "198.51.100.7",
     );
     // A malformed hop where the client address belongs yields no identity.
@@ -147,7 +154,10 @@ describe("getClientIp", () => {
       "unknown",
     );
     assert.equal(
-      getClientIp(new Headers({ "x-forwarded-for": "198.51.100.7, not-an-ip, 10.0.0.2" }), "10.0.0.1"),
+      getClientIp(
+        new Headers({ "x-forwarded-for": "198.51.100.7, not-an-ip, 10.0.0.2" }),
+        "10.0.0.1",
+      ),
       "unknown",
     );
   });

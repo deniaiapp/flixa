@@ -153,11 +153,7 @@ describe("Codex long-context model support", () => {
   });
 
   test("no longer registers the removed GPT-5.6 models", () => {
-    for (const model of [
-      "openai/gpt-5.6-sol",
-      "openai/gpt-5.6-terra",
-      "openai/gpt-5.6-luna",
-    ]) {
+    for (const model of ["openai/gpt-5.6-sol", "openai/gpt-5.6-terra", "openai/gpt-5.6-luna"]) {
       assert.equal(getModelDefinition(model), undefined);
     }
   });
@@ -197,7 +193,10 @@ describe("Codex long-context model support", () => {
       "google/gemini-3.8-flash",
       "openai/gpt-6-luna",
     ]);
-    assert.deepEqual(defaults.map((model) => model.id), [DEFAULT_MODEL]);
+    assert.deepEqual(
+      defaults.map((model) => model.id),
+      [DEFAULT_MODEL],
+    );
     assert.equal(DEFAULT_MODEL, "openai/gpt-6-luna");
   });
 
@@ -223,9 +222,7 @@ describe("Codex long-context model support", () => {
 
   test("assigns cost tiers explicitly to every registered model", () => {
     assert.equal(
-      MODEL_DEFINITIONS.every(
-        (model) => typeof model.usageTier === "number",
-      ),
+      MODEL_DEFINITIONS.every((model) => typeof model.usageTier === "number"),
       true,
     );
     assert.equal(getModelTokenUsageMultiplier("openai/gpt-6-sol"), 3);
@@ -235,7 +232,10 @@ describe("Codex long-context model support", () => {
   });
 
   test("exposes provider-supported efforts and excludes Voids models", () => {
-    assert.equal(MODEL_DEFINITIONS.every((model) => Array.isArray(model.efforts)), true);
+    assert.equal(
+      MODEL_DEFINITIONS.every((model) => Array.isArray(model.efforts)),
+      true,
+    );
     assert.deepEqual(getModelDefinition("openai/gpt-6-astra")?.efforts, [
       "low",
       "medium",
@@ -250,10 +250,11 @@ describe("Codex long-context model support", () => {
       "xhigh",
       "max",
     ]);
-    assert.deepEqual(
-      getModelDefinition("google/gemini-3.8-flash")?.efforts,
-      ["low", "medium", "high"],
-    );
+    assert.deepEqual(getModelDefinition("google/gemini-3.8-flash")?.efforts, [
+      "low",
+      "medium",
+      "high",
+    ]);
     assert.equal(getModelDefinition("glm-4.6"), undefined);
     assert.equal(getModelDefinition("grok-code-fast-1"), undefined);
   });
@@ -275,7 +276,11 @@ describe("usage tiers", () => {
 
   test("clients still receive the multiplier and premium flag", () => {
     const astra = listModelDefinitions().find((model) => model.id === "openai/gpt-6-astra");
-    assert.partialDeepStrictEqual(astra, { usageTier: 10, tokenUsageMultiplier: 12, premium: true });
+    assert.partialDeepStrictEqual(astra, {
+      usageTier: 10,
+      tokenUsageMultiplier: 12,
+      premium: true,
+    });
     const luna = listModelDefinitions().find((model) => model.id === "openai/gpt-6-luna");
     assert.partialDeepStrictEqual(luna, { usageTier: 3, tokenUsageMultiplier: 2, premium: false });
   });

@@ -20,11 +20,7 @@ function applyRateLimitHeaders(c: Context, result: RateLimitResult): void {
   }
 }
 
-function rateLimitExceededResponse(
-  c: Context,
-  result: RateLimitResult,
-  message: string,
-) {
+function rateLimitExceededResponse(c: Context, result: RateLimitResult, message: string) {
   applyRateLimitHeaders(c, result);
   return c.json(
     {
@@ -42,9 +38,7 @@ function rateLimitExceededResponse(
 /**
  * Pre-auth IP rate limit for public API surfaces (`/v1/*`).
  */
-export function ipRateLimitMiddleware(
-  scope = "ip:v1",
-): MiddlewareHandler {
+export function ipRateLimitMiddleware(scope = "ip:v1"): MiddlewareHandler {
   return async (c: Context, next: Next) => {
     if (!isRateLimitEnabled()) {
       await next();
@@ -81,10 +75,7 @@ export function ipRateLimitMiddleware(
  * Check per-user rate limit after auth. Returns a Response when blocked.
  * Skips agent inference endpoints (chat completions / responses / messages).
  */
-export async function checkUserRateLimit(
-  c: Context,
-  userId: string,
-): Promise<Response | null> {
+export async function checkUserRateLimit(c: Context, userId: string): Promise<Response | null> {
   if (!isRateLimitEnabled()) {
     return null;
   }
@@ -114,9 +105,7 @@ export async function checkUserRateLimit(
 /**
  * Stricter rate limit for admin login attempts (by IP).
  */
-export async function checkAdminLoginRateLimit(
-  c: Context,
-): Promise<Response | null> {
+export async function checkAdminLoginRateLimit(c: Context): Promise<Response | null> {
   if (!isRateLimitEnabled()) return null;
   const { max, windowMs } = getAdminLoginRateLimitConfig();
   const ip = getRequestClientIp(c);

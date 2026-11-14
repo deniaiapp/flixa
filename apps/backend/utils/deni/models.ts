@@ -1,4 +1,4 @@
-import { getModelDefinition } from '../agent/models';
+import { getModelDefinition } from "../agent/models";
 
 export type ModelCategory = "basic" | "premium";
 
@@ -30,7 +30,7 @@ export function getModelCategory(_model: string): ModelCategory {
  */
 export function getRequiredTierForModel(model: string): "plus" | "pro" | null {
   const definition = getModelDefinition(model);
-  if (definition && definition.tier !== 'free') {
+  if (definition && definition.tier !== "free") {
     return definition.tier;
   }
 

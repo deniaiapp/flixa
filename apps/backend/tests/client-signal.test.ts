@@ -25,8 +25,7 @@ describe("detectClientSignal", () => {
     assert.deepEqual(
       detectClientSignal(
         headers({
-          "user-agent":
-            "codex_vscode/0.94.0-alpha.7 (Mac OS 26.2.0; arm64) vscode/2.4.22",
+          "user-agent": "codex_vscode/0.94.0-alpha.7 (Mac OS 26.2.0; arm64) vscode/2.4.22",
         }),
       ),
       { allowed: true, client: "codex" },
@@ -241,9 +240,7 @@ describe("isLegacyAiSdkUserAgent", () => {
   test("matches UA starting with ai/ or ai-sdk", () => {
     assert.equal(isLegacyAiSdkUserAgent(headers({ "user-agent": "ai/4.0.0" })), true);
     assert.equal(
-      isLegacyAiSdkUserAgent(
-        headers({ "user-agent": "ai-sdk/provider-utils/4.0.23" }),
-      ),
+      isLegacyAiSdkUserAgent(headers({ "user-agent": "ai-sdk/provider-utils/4.0.23" })),
       true,
     );
     assert.equal(isLegacyAiSdkUserAgent(headers({ "user-agent": "AI-SDK/1.0" })), true);

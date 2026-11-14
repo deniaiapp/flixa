@@ -1,10 +1,10 @@
-import OpenAI from 'openai';
-import type { ClientResult } from './types';
+import OpenAI from "openai";
+import type { ClientResult } from "./types";
 
 // Voids.top (OpenAI compatible) client
 export const voidsClient = new OpenAI({
-  baseURL: process.env.OPENAI_COMPAT_BASE_URL || 'https://capi.voids.top/v2',
-  apiKey: process.env.OPENAI_COMPAT_API_KEY || 'a',
+  baseURL: process.env.OPENAI_COMPAT_BASE_URL || "https://capi.voids.top/v2",
+  apiKey: process.env.OPENAI_COMPAT_API_KEY || "a",
 });
 
 // Deni AI API (OpenAI compatible) client for OpenAI models. Created on first
@@ -13,7 +13,7 @@ let deniClient: OpenAI | undefined;
 
 function getDeniClient(apiKey: string): OpenAI {
   deniClient ??= new OpenAI({
-    baseURL: process.env.DENI_AI_API_BASE_URL || 'https://api.deniai.app/v1',
+    baseURL: process.env.DENI_AI_API_BASE_URL || "https://api.deniai.app/v1",
     apiKey,
     // Deni AI API already retries its upstream on 429/5xx.
     maxRetries: 0,
@@ -23,16 +23,16 @@ function getDeniClient(apiKey: string): OpenAI {
 
 export function isAnthropicModel(model: string): boolean {
   const normalizedModel = model.toLowerCase();
-  return normalizedModel.startsWith('anthropic/') || normalizedModel.includes('claude');
+  return normalizedModel.startsWith("anthropic/") || normalizedModel.includes("claude");
 }
 
 export function isOpenAIModel(model: string): boolean {
-  return model.toLowerCase().startsWith('openai/');
+  return model.toLowerCase().startsWith("openai/");
 }
 
 /** True when getClient routes the model to OpenRouter (shared OPENROUTER_API_KEY). */
 export function isOpenRouterRoutedModel(model: string): boolean {
-  return !isOpenAIModel(model) && model.includes('/');
+  return !isOpenAIModel(model) && model.includes("/");
 }
 
 export function getClient(model: string): ClientResult {
@@ -40,19 +40,19 @@ export function getClient(model: string): ClientResult {
   if (isOpenAIModel(model)) {
     const apiKey = process.env.DENI_AI_API_KEY;
     if (!apiKey) {
-      return { error: 'DENI_AI_API_KEY is required for OpenAI models' };
+      return { error: "DENI_AI_API_KEY is required for OpenAI models" };
     }
-    return { type: 'deni', client: getDeniClient(apiKey), providerName: 'deni-ai' };
+    return { type: "deni", client: getDeniClient(apiKey), providerName: "deni-ai" };
   }
 
   // Other models with a slash (e.g. "anthropic/claude-3.5-sonnet") go through OpenRouter
   if (isOpenRouterRoutedModel(model)) {
     if (!process.env.OPENROUTER_API_KEY) {
-      return { error: 'OPENROUTER_API_KEY is required for OpenRouter models' };
+      return { error: "OPENROUTER_API_KEY is required for OpenRouter models" };
     }
     // OpenRouter is called with fetch directly, so no SDK client is needed.
-    return { type: 'openrouter', providerName: 'openrouter' };
+    return { type: "openrouter", providerName: "openrouter" };
   }
 
-  return { type: 'openai', client: voidsClient, providerName: 'voids.top' };
+  return { type: "openai", client: voidsClient, providerName: "voids.top" };
 }

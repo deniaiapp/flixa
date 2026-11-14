@@ -7,13 +7,7 @@
  * and trigger a Flixa ban.
  */
 
-export type KnownClient =
-  | "codex"
-  | "claude_code"
-  | "opencode"
-  | "zed"
-  | "flixa"
-  | "flixa_cli";
+export type KnownClient = "codex" | "claude_code" | "opencode" | "zed" | "flixa" | "flixa_cli";
 
 export type ClientSignalResult =
   | { allowed: true; client: KnownClient }
@@ -76,14 +70,10 @@ export function detectClientSignal(headers: Headers): ClientSignalResult {
   const userAgent = lower(headerValue(headers, "user-agent"));
   const originator = lower(headerValue(headers, "originator"));
   const xApp = lower(headerValue(headers, "x-app"));
-  const xClient = lower(
-    headerValue(headers, "x-client") || headerValue(headers, "x-flixa-client"),
-  );
+  const xClient = lower(headerValue(headers, "x-client") || headerValue(headers, "x-flixa-client"));
   const anthropicBeta = lower(headerValue(headers, "anthropic-beta"));
   const anthropicVersion = headerValue(headers, "anthropic-version");
-  const referer = lower(
-    headerValue(headers, "referer") || headerValue(headers, "http-referer"),
-  );
+  const referer = lower(headerValue(headers, "referer") || headerValue(headers, "http-referer"));
 
   const xFlixaClient = lower(headerValue(headers, "x-flixa-client"));
 

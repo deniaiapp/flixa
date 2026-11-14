@@ -77,9 +77,7 @@ describe("logErrorResponses", () => {
 
     const app = new Hono();
     app.use("*", logErrorResponses);
-    app.get("/v1/fail", (c) =>
-      c.json({ error: { message: "nope", code: "invalid_key" } }, 401),
-    );
+    app.get("/v1/fail", (c) => c.json({ error: { message: "nope", code: "invalid_key" } }, 401));
 
     try {
       const res = await app.request("/v1/fail", {
@@ -91,8 +89,7 @@ describe("logErrorResponses", () => {
     }
 
     const payload = payloads.find(
-      (item): item is Record<string, unknown> =>
-        Boolean(item) && typeof item === "object",
+      (item): item is Record<string, unknown> => Boolean(item) && typeof item === "object",
     );
     assert.equal(payload?.apiKey, "deni_abc…2345");
     assert.partialDeepStrictEqual(payload?.auth, {

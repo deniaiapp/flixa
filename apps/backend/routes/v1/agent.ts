@@ -8,14 +8,8 @@ import {
   validateResponsesCompactRequest,
 } from "../../middleware/validateRequest";
 import { validateAnthropicRequest } from "../../middleware/validateAnthropicRequest";
-import {
-  validateAgentAuth,
-  type AgentAuthContext,
-} from "../../middleware/validateAgentAuth";
-import {
-  finalizeUsage,
-  releaseReservedUsage,
-} from "../../utils/agent/usageAccounting";
+import { validateAgentAuth, type AgentAuthContext } from "../../middleware/validateAgentAuth";
+import { finalizeUsage, releaseReservedUsage } from "../../utils/agent/usageAccounting";
 import {
   type AgentRequest,
   type ResponsesRequest,
@@ -47,14 +41,8 @@ import {
   toDeniResponsesRequest,
   type ResponsesProviderKind,
 } from "../../utils/agent";
-import {
-  createUpstreamTimeout,
-  type UpstreamTimeout,
-} from "../../utils/agent/upstream";
-import {
-  publicErrorMessage,
-  publicUpstreamErrorResponse,
-} from "../../utils/agent/publicError";
+import { createUpstreamTimeout, type UpstreamTimeout } from "../../utils/agent/upstream";
+import { publicErrorMessage, publicUpstreamErrorResponse } from "../../utils/agent/publicError";
 
 const router = new Hono<{
   Variables: {
@@ -148,8 +136,7 @@ function mergeUsageSnapshot(
     ) {
       const details = value as Record<string, unknown>;
       const cachedTokens =
-        getNumericValue(details.cached_tokens) ??
-        getNumericValue(details.cachedTokens);
+        getNumericValue(details.cached_tokens) ?? getNumericValue(details.cachedTokens);
       if (cachedTokens !== null) {
         next.cached_tokens = cachedTokens;
       }
@@ -175,8 +162,7 @@ function getContentSummary(content: unknown): Record<string, unknown> {
         const record = block as Record<string, unknown>;
         return {
           type: record.type,
-          textLength:
-            typeof record.text === "string" ? record.text.length : undefined,
+          textLength: typeof record.text === "string" ? record.text.length : undefined,
         };
       }),
     };
@@ -203,12 +189,8 @@ function summarizeChatMessage(message: unknown): Record<string, unknown> {
 
   return {
     role: record.role,
-    content:
-      record.content !== undefined
-        ? getContentSummary(record.content)
-        : undefined,
-    tool_call_id:
-      typeof record.tool_call_id === "string" ? record.tool_call_id : undefined,
+    content: record.content !== undefined ? getContentSummary(record.content) : undefined,
+    tool_call_id: typeof record.tool_call_id === "string" ? record.tool_call_id : undefined,
     toolCalls: toolCalls?.map((toolCall) => {
       if (!toolCall || typeof toolCall !== "object" || Array.isArray(toolCall)) {
         return { type: typeof toolCall };
@@ -226,8 +208,7 @@ function summarizeChatMessage(message: unknown): Record<string, unknown> {
         id: toolCallRecord.id,
         type: toolCallRecord.type,
         name: fn.name,
-        argumentsLength:
-          typeof fn.arguments === "string" ? fn.arguments.length : undefined,
+        argumentsLength: typeof fn.arguments === "string" ? fn.arguments.length : undefined,
       };
     }),
   };
@@ -252,9 +233,7 @@ function summarizeTools(tools: unknown): unknown {
 
     const record = tool as Record<string, unknown>;
     const fn =
-      record.function &&
-      typeof record.function === "object" &&
-      !Array.isArray(record.function)
+      record.function && typeof record.function === "object" && !Array.isArray(record.function)
         ? (record.function as Record<string, unknown>)
         : {};
 
@@ -272,9 +251,7 @@ function summarizeToolChoice(toolChoice: unknown): unknown {
 
   const record = toolChoice as Record<string, unknown>;
   const fn =
-    record.function &&
-    typeof record.function === "object" &&
-    !Array.isArray(record.function)
+    record.function && typeof record.function === "object" && !Array.isArray(record.function)
       ? (record.function as Record<string, unknown>)
       : {};
 
@@ -340,9 +317,7 @@ function getResponsesBaseUrl(clientResult: ResponsesClientResult): string {
   return `${clientResult.client.baseURL}/responses`;
 }
 
-function getResponsesHeaders(
-  clientResult: ResponsesClientResult,
-): Record<string, string> {
+function getResponsesHeaders(clientResult: ResponsesClientResult): Record<string, string> {
   if (clientResult.type === "openrouter") {
     return {
       "Content-Type": "application/json",
@@ -360,9 +335,7 @@ function getResponsesHeaders(
   };
 }
 
-function getOpenRouterProviderRouting(
-  model: string,
-): { only: string[] } | undefined {
+function getOpenRouterProviderRouting(model: string): { only: string[] } | undefined {
   if (isAnthropicModel(model)) {
     return { only: ["anthropic"] };
   }
@@ -399,45 +372,31 @@ function getOpenRouterMessagesFailoverState(
   return state;
 }
 
-function setOpenRouterMessagesFailoverState(
-  model: string,
-  status: number,
-): void {
-  openRouterMessagesFailoverCache.set(
-    getOpenRouterMessagesFailoverCacheKey(model),
-    {
-      expiresAt: Date.now() + OPENROUTER_MESSAGES_FAILOVER_TTL_MS,
-      status,
-    },
-  );
+function setOpenRouterMessagesFailoverState(model: string, status: number): void {
+  openRouterMessagesFailoverCache.set(getOpenRouterMessagesFailoverCacheKey(model), {
+    expiresAt: Date.now() + OPENROUTER_MESSAGES_FAILOVER_TTL_MS,
+    status,
+  });
 }
 
 function clearOpenRouterMessagesFailoverState(model: string): void {
-  openRouterMessagesFailoverCache.delete(
-    getOpenRouterMessagesFailoverCacheKey(model),
-  );
+  openRouterMessagesFailoverCache.delete(getOpenRouterMessagesFailoverCacheKey(model));
 }
 
 function toAnthropicModelName(model: string): string {
-  return model.startsWith("anthropic/")
-    ? model.slice("anthropic/".length)
-    : model;
+  return model.startsWith("anthropic/") ? model.slice("anthropic/".length) : model;
 }
 
 function getAnthropicHeaders(requestHeaders: Headers): Record<string, string> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     "x-api-key": process.env.ANTHROPIC_API_KEY || "",
-    "anthropic-version":
-      requestHeaders.get("anthropic-version") || "2023-06-01",
+    "anthropic-version": requestHeaders.get("anthropic-version") || "2023-06-01",
   };
 
   for (const [key, value] of requestHeaders.entries()) {
     const normalizedKey = key.toLowerCase();
-    if (
-      normalizedKey.startsWith("anthropic-") &&
-      normalizedKey !== "anthropic-version"
-    ) {
+    if (normalizedKey.startsWith("anthropic-") && normalizedKey !== "anthropic-version") {
       headers[normalizedKey] = value;
     }
   }
@@ -445,9 +404,7 @@ function getAnthropicHeaders(requestHeaders: Headers): Record<string, string> {
   return headers;
 }
 
-function normalizeResponsesTools(
-  tools: ResponsesRequest["tools"],
-): unknown[] | undefined {
+function normalizeResponsesTools(tools: ResponsesRequest["tools"]): unknown[] | undefined {
   if (!tools || tools.length === 0) {
     return undefined;
   }
@@ -467,19 +424,14 @@ function normalizeResponsesTools(
         type: "function",
         name: toolRecord.name,
         description:
-          typeof toolRecord.description === "string"
-            ? toolRecord.description
-            : undefined,
+          typeof toolRecord.description === "string" ? toolRecord.description : undefined,
         parameters:
           toolRecord.parameters &&
           typeof toolRecord.parameters === "object" &&
           !Array.isArray(toolRecord.parameters)
             ? toolRecord.parameters
             : undefined,
-        strict:
-          typeof toolRecord.strict === "boolean"
-            ? toolRecord.strict
-            : undefined,
+        strict: typeof toolRecord.strict === "boolean" ? toolRecord.strict : undefined,
       };
     }
 
@@ -498,19 +450,14 @@ function normalizeResponsesTools(
       type: "function",
       name: functionRecord.name,
       description:
-        typeof functionRecord.description === "string"
-          ? functionRecord.description
-          : undefined,
+        typeof functionRecord.description === "string" ? functionRecord.description : undefined,
       parameters:
         functionRecord.parameters &&
         typeof functionRecord.parameters === "object" &&
         !Array.isArray(functionRecord.parameters)
           ? functionRecord.parameters
           : undefined,
-      strict:
-        typeof functionRecord.strict === "boolean"
-          ? functionRecord.strict
-          : undefined,
+      strict: typeof functionRecord.strict === "boolean" ? functionRecord.strict : undefined,
     };
   });
 }
@@ -537,10 +484,7 @@ function normalizeResponsesToolChoice(
   }
 
   const toolChoiceRecord = toolChoice as unknown as Record<string, unknown>;
-  if (
-    toolChoiceRecord.type === "function" &&
-    typeof toolChoiceRecord.name === "string"
-  ) {
+  if (toolChoiceRecord.type === "function" && typeof toolChoiceRecord.name === "string") {
     return {
       type: "function",
       name: toolChoiceRecord.name,
@@ -727,9 +671,7 @@ function normalizeResponsesInput(body: ResponsesRequest): unknown {
   if (body.input !== undefined) {
     const input = normalizeResponsesInputItems(body.input);
     if (Array.isArray(input) && hasChatToolTranscript(input)) {
-      return convertMessagesToResponsesInput(
-        input as AgentRequest["messages"],
-      );
+      return convertMessagesToResponsesInput(input as AgentRequest["messages"]);
     }
 
     return input;
@@ -800,8 +742,7 @@ function normalizeResponsesRequest(
   }
 
   const reasoning =
-    body.reasoning ??
-    (body.reasoning_effort ? { effort: body.reasoning_effort } : undefined);
+    body.reasoning ?? (body.reasoning_effort ? { effort: body.reasoning_effort } : undefined);
   if (reasoning !== undefined) {
     normalized.reasoning = reasoning;
   }
@@ -843,10 +784,7 @@ function normalizeResponsesRequest(
   }
 
   const withBestPractices = applyResponsesBestPractices(normalized, provider);
-  sanitizeReservedCollaborationInResponsesRequest(
-    withBestPractices,
-    body.model,
-  );
+  sanitizeReservedCollaborationInResponsesRequest(withBestPractices, body.model);
   return withBestPractices;
 }
 
@@ -869,9 +807,7 @@ function buildResponsesRequestFromChat(
         )
       : undefined;
 
-  const reasoning = body.reasoning_effort
-    ? { effort: body.reasoning_effort }
-    : undefined;
+  const reasoning = body.reasoning_effort ? { effort: body.reasoning_effort } : undefined;
 
   const normalized: Record<string, unknown> = {
     model: body.model,
@@ -899,21 +835,14 @@ function buildResponsesRequestFromChat(
   }
 
   const withBestPractices = applyResponsesBestPractices(normalized, provider);
-  sanitizeReservedCollaborationInResponsesRequest(
-    withBestPractices,
-    body.model,
-  );
+  sanitizeReservedCollaborationInResponsesRequest(withBestPractices, body.model);
   return withBestPractices;
 }
 
 function shouldRouteChatViaResponses(model: string): boolean {
   // Prefer Responses for OpenAI family only — retained reasoning is
   // OpenAI-centric; keep other providers on Chat Completions.
-  return (
-    isChatViaResponsesEnabled() &&
-    !isAnthropicModel(model) &&
-    isOpenAIFamilyModel(model)
-  );
+  return isChatViaResponsesEnabled() && !isAnthropicModel(model) && isOpenAIFamilyModel(model);
 }
 
 function normalizeCompactRequest(
@@ -924,11 +853,8 @@ function normalizeCompactRequest(
     body.input !== undefined
       ? (() => {
           const normalizedInput = normalizeResponsesInputItems(body.input);
-          return Array.isArray(normalizedInput) &&
-            hasChatToolTranscript(normalizedInput)
-            ? convertMessagesToResponsesInput(
-                normalizedInput as AgentRequest["messages"],
-              )
+          return Array.isArray(normalizedInput) && hasChatToolTranscript(normalizedInput)
+            ? convertMessagesToResponsesInput(normalizedInput as AgentRequest["messages"])
             : normalizedInput;
         })()
       : body.messages !== undefined
@@ -968,15 +894,8 @@ async function proxyResponsesUpstream(options: {
   asChatCompletion?: boolean;
   model: string;
 }): Promise<Response> {
-  const {
-    auth,
-    requestId,
-    clientResult,
-    providerRequest,
-    stream,
-    asChatCompletion,
-    model,
-  } = options;
+  const { auth, requestId, clientResult, providerRequest, stream, asChatCompletion, model } =
+    options;
   const providerName = clientResult.providerName;
   const url = getResponsesBaseUrl(clientResult);
   const headers = getResponsesHeaders(clientResult);
@@ -1054,11 +973,7 @@ async function proxyResponsesUpstream(options: {
       );
     }
 
-    return createResponsesPassthroughStream(
-      auth,
-      response,
-      upstreamTimeout,
-    );
+    return createResponsesPassthroughStream(auth, response, upstreamTimeout);
   }
 
   let responseBody: string;
@@ -1092,21 +1007,15 @@ async function proxyResponsesUpstream(options: {
 
   const clientFacing =
     parsedResponse !== null
-      ? (rewriteCollaborationNamesInResponsesPayload(
-          parsedResponse,
-        ) as Record<string, unknown>)
+      ? (rewriteCollaborationNamesInResponsesPayload(parsedResponse) as Record<string, unknown>)
       : null;
   await finalizeUsage(auth, clientFacing?.usage ?? parsedResponse?.usage);
-  return new Response(
-    clientFacing !== null ? JSON.stringify(clientFacing) : responseBody,
-    {
-      status: response.status,
-      headers: {
-        "Content-Type":
-          response.headers.get("content-type") || "application/json",
-      },
+  return new Response(clientFacing !== null ? JSON.stringify(clientFacing) : responseBody, {
+    status: response.status,
+    headers: {
+      "Content-Type": response.headers.get("content-type") || "application/json",
     },
-  );
+  });
 }
 
 function createResponsesPassthroughStream(
@@ -1137,14 +1046,8 @@ function createResponsesPassthroughStream(
           buffer = eventBlocks.pop() ?? "";
 
           for (const eventBlock of eventBlocks) {
-            usageSnapshot = collectResponsesUsageFromSseEvent(
-              eventBlock,
-              usageSnapshot,
-              auth,
-            );
-            const clientFacingEvent = rewriteCollaborationNamesInSseEventBlock(
-              eventBlock,
-            );
+            usageSnapshot = collectResponsesUsageFromSseEvent(eventBlock, usageSnapshot, auth);
+            const clientFacingEvent = rewriteCollaborationNamesInSseEventBlock(eventBlock);
             controller.enqueue(encoder.encode(`${clientFacingEvent}\n\n`));
           }
         }
@@ -1152,14 +1055,8 @@ function createResponsesPassthroughStream(
         if (cancelled) return;
         buffer += decoder.decode();
         if (buffer.trim()) {
-          usageSnapshot = collectResponsesUsageFromSseEvent(
-            buffer,
-            usageSnapshot,
-            auth,
-          );
-          const clientFacingEvent = rewriteCollaborationNamesInSseEventBlock(
-            buffer,
-          );
+          usageSnapshot = collectResponsesUsageFromSseEvent(buffer, usageSnapshot, auth);
+          const clientFacingEvent = rewriteCollaborationNamesInSseEventBlock(buffer);
           controller.enqueue(encoder.encode(clientFacingEvent));
         }
 
@@ -1194,8 +1091,7 @@ function createResponsesPassthroughStream(
   return new Response(readable, {
     status: response.status,
     headers: {
-      "Content-Type":
-        response.headers.get("content-type") || "text/event-stream",
+      "Content-Type": response.headers.get("content-type") || "text/event-stream",
       "Cache-Control": response.headers.get("cache-control") || "no-cache",
       Connection: "keep-alive",
     },
@@ -1253,20 +1149,14 @@ function createChatStreamFromResponsesUpstream(
               continue;
             }
 
-            usageSnapshot = collectResponsesUsageFromSseEvent(
-              eventBlock,
-              usageSnapshot,
-              auth,
-            );
+            usageSnapshot = collectResponsesUsageFromSseEvent(eventBlock, usageSnapshot, auth);
 
-            const chunks = convertResponsesStreamEventToChatChunks(
-              event,
-              streamState,
-            );
+            const chunks = convertResponsesStreamEventToChatChunks(event, streamState);
             for (const rawChunk of chunks) {
-              const chunk = rewriteCollaborationNamesInChatPayload(
-                rawChunk,
-              ) as Record<string, unknown>;
+              const chunk = rewriteCollaborationNamesInChatPayload(rawChunk) as Record<
+                string,
+                unknown
+              >;
               const data = JSON.stringify(chunk);
               collectChatDebugFromSseEvent(`data: ${data}\n\n`, streamDebug);
               if (chunk.usage) {
@@ -1277,8 +1167,7 @@ function createChatStreamFromResponsesUpstream(
                 Array.isArray(chunk.choices) &&
                 chunk.choices[0] &&
                 typeof chunk.choices[0] === "object" &&
-                (chunk.choices[0] as { finish_reason?: unknown })
-                  .finish_reason
+                (chunk.choices[0] as { finish_reason?: unknown }).finish_reason
               ) {
                 finished = true;
               }
@@ -1289,11 +1178,7 @@ function createChatStreamFromResponsesUpstream(
         if (cancelled) return;
         buffer += decoder.decode();
         if (buffer.trim()) {
-          usageSnapshot = collectResponsesUsageFromSseEvent(
-            buffer,
-            usageSnapshot,
-            auth,
-          );
+          usageSnapshot = collectResponsesUsageFromSseEvent(buffer, usageSnapshot, auth);
         }
 
         if (!finished) {
@@ -1313,17 +1198,11 @@ function createChatStreamFromResponsesUpstream(
             ],
             ...(usage ? { usage } : {}),
           };
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify(finalChunk)}\n\n`),
-          );
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(finalChunk)}\n\n`));
         }
 
         usageSettled = true;
-        await finalizeUsage(
-          auth,
-          streamState.usage ?? usageSnapshot,
-          false,
-        );
+        await finalizeUsage(auth, streamState.usage ?? usageSnapshot, false);
         upstreamTimeout.dispose();
         agentDebugLog("chat.stream_complete_via_responses", {
           requestId,
@@ -1355,9 +1234,8 @@ function createChatStreamFromResponsesUpstream(
       reader.cancel().catch(() => {});
       if (!usageSettled) {
         usageSettled = true;
-        return finalizeUsage(auth, streamState.usage ?? usageSnapshot, false).catch(
-          (error) =>
-            console.error("[Usage] finalize-on-cancel failed:", error),
+        return finalizeUsage(auth, streamState.usage ?? usageSnapshot, false).catch((error) =>
+          console.error("[Usage] finalize-on-cancel failed:", error),
         );
       }
     },
@@ -1467,10 +1345,7 @@ function createChatStreamDebugSummary(): ChatStreamDebugSummary {
   };
 }
 
-function collectChatDebugFromSseEvent(
-  eventBlock: string,
-  summary: ChatStreamDebugSummary,
-): void {
+function collectChatDebugFromSseEvent(eventBlock: string, summary: ChatStreamDebugSummary): void {
   // This is a debug-only second JSON.parse pass over every SSE chunk —
   // skip it entirely unless debug logging is on.
   if (!AGENT_DEBUG_LOGS_ENABLED) {
@@ -1532,15 +1407,11 @@ function collectChatDebugFromSseEvent(
             : {};
 
         summary.toolCallDeltas.push({
-          index:
-            typeof toolCallRecord.index === "number"
-              ? toolCallRecord.index
-              : undefined,
+          index: typeof toolCallRecord.index === "number" ? toolCallRecord.index : undefined,
           id: toolCallRecord.id,
           type: toolCallRecord.type,
           name: fn.name,
-          argumentsLength:
-            typeof fn.arguments === "string" ? fn.arguments.length : undefined,
+          argumentsLength: typeof fn.arguments === "string" ? fn.arguments.length : undefined,
         });
       }
     }
@@ -1582,24 +1453,12 @@ async function createAnthropicChatFailoverResponse(
   body: AgentRequest,
   hasToolResult: boolean,
 ): Promise<Response> {
-  const {
-    messages,
-    model,
-    stream,
-    temperature,
-    max_tokens,
-    top_p,
-    tools,
-    tool_choice,
-  } = body;
+  const { messages, model, stream, temperature, max_tokens, top_p, tools, tool_choice } = body;
   const anthropicModel = toAnthropicModelName(model);
   const anthropicMessages = convertMessagesToAnthropic(messages);
   const anthropicTools = convertToolsToAnthropic(tools);
   const system = extractAnthropicSystemPrompt(messages);
-  const normalizedToolChoice = normalizeAnthropicChatToolChoice(
-    tool_choice,
-    hasToolResult,
-  );
+  const normalizedToolChoice = normalizeAnthropicChatToolChoice(tool_choice, hasToolResult);
 
   // The native Anthropic API has no top-level cache_control (unlike
   // OpenRouter), so add explicit breakpoints to keep prompt caching working
@@ -1659,21 +1518,14 @@ async function createAnthropicChatFailoverResponse(
             auth.usageEstimate?.observe(event);
             if (event.type === "message_start") {
               messageId = event.message.id;
-              usageSnapshot = mergeUsageSnapshot(
-                usageSnapshot,
-                event.message.usage,
-              );
+              usageSnapshot = mergeUsageSnapshot(usageSnapshot, event.message.usage);
             }
 
             if (event.type === "message_delta" && event.usage) {
               usageSnapshot = mergeUsageSnapshot(usageSnapshot, event.usage);
             }
 
-            const chunk = convertAnthropicStreamEventToOpenAI(
-              event,
-              messageId,
-              model,
-            );
+            const chunk = convertAnthropicStreamEventToOpenAI(event, messageId, model);
             if (!chunk) {
               continue;
             }
@@ -1719,9 +1571,8 @@ async function createAnthropicChatFailoverResponse(
         // consumed, so meter what we have observed so far.
         if (!usageSettled) {
           usageSettled = true;
-          return finalizeUsage(auth, usageSnapshot, false).catch(
-            (error) =>
-              console.error("[Usage] finalize-on-cancel failed:", error),
+          return finalizeUsage(auth, usageSnapshot, false).catch((error) =>
+            console.error("[Usage] finalize-on-cancel failed:", error),
           );
         }
       },
@@ -1800,11 +1651,7 @@ async function createAnthropicMessagesFailoverResponse(
   if (!response.ok) {
     const errorBody = await response.text();
     upstreamTimeout.dispose();
-    console.error(
-      "[Anthropic messages failover error]:",
-      response.status,
-      errorBody,
-    );
+    console.error("[Anthropic messages failover error]:", response.status, errorBody);
     await releaseReservedUsage(auth);
     return publicUpstreamErrorResponse(response.status, errorBody);
   }
@@ -1830,11 +1677,7 @@ async function createAnthropicMessagesFailoverResponse(
             const eventBlocks = buffer.split(/\r?\n\r?\n/);
             buffer = eventBlocks.pop() ?? "";
             for (const eventBlock of eventBlocks) {
-              usageSnapshot = collectAnthropicUsageFromSseEvent(
-                eventBlock,
-                usageSnapshot,
-                auth,
-              );
+              usageSnapshot = collectAnthropicUsageFromSseEvent(eventBlock, usageSnapshot, auth);
             }
 
             controller.enqueue(value);
@@ -1842,11 +1685,7 @@ async function createAnthropicMessagesFailoverResponse(
 
           buffer += decoder.decode();
           if (buffer.trim()) {
-            usageSnapshot = collectAnthropicUsageFromSseEvent(
-              buffer,
-              usageSnapshot,
-              auth,
-            );
+            usageSnapshot = collectAnthropicUsageFromSseEvent(buffer, usageSnapshot, auth);
           }
 
           usageSettled = true;
@@ -1856,10 +1695,7 @@ async function createAnthropicMessagesFailoverResponse(
         } catch (error) {
           if (cancelled) return;
           upstreamTimeout.dispose();
-          console.error(
-            "[Stream Error] provider=anthropic failover (messages):",
-            error,
-          );
+          console.error("[Stream Error] provider=anthropic failover (messages):", error);
           if (!usageSettled) {
             usageSettled = true;
             await finalizeUsage(auth, usageSnapshot, false);
@@ -1876,9 +1712,8 @@ async function createAnthropicMessagesFailoverResponse(
         // consumed, so meter what we have observed so far.
         if (!usageSettled) {
           usageSettled = true;
-          return finalizeUsage(auth, usageSnapshot, false).catch(
-            (error) =>
-              console.error("[Usage] finalize-on-cancel failed:", error),
+          return finalizeUsage(auth, usageSnapshot, false).catch((error) =>
+            console.error("[Usage] finalize-on-cancel failed:", error),
           );
         }
       },
@@ -1887,8 +1722,7 @@ async function createAnthropicMessagesFailoverResponse(
     return new Response(readable, {
       status: response.status,
       headers: {
-        "Content-Type":
-          response.headers.get("content-type") || "text/event-stream",
+        "Content-Type": response.headers.get("content-type") || "text/event-stream",
         "Cache-Control": response.headers.get("cache-control") || "no-cache",
         Connection: "keep-alive",
       },
@@ -1922,99 +1756,93 @@ async function createAnthropicMessagesFailoverResponse(
  * POST /v1/agent/chat/completions
  * OpenAI-style agent endpoint using official SDKs
  */
-router.post(
-  "/agent/chat/completions",
-  validateAgentRequest,
-  validateAgentAuth,
-  async (c) => {
-    const auth = c.get("agentAuth") as AgentAuthContext;
-    const requestId = crypto.randomUUID();
+router.post("/agent/chat/completions", validateAgentRequest, validateAgentAuth, async (c) => {
+  const auth = c.get("agentAuth") as AgentAuthContext;
+  const requestId = crypto.randomUUID();
 
-    try {
-      const body = c.get("validatedBody") as AgentRequest;
-      const {
-        messages,
-        model,
-        stream,
-        temperature,
-        max_tokens,
-        top_p,
-        frequency_penalty,
-        presence_penalty,
-        reasoning_effort,
-        tools,
-        tool_choice,
-      } = body;
-      const hasToolResult = hasChatToolResult(messages);
+  try {
+    const body = c.get("validatedBody") as AgentRequest;
+    const {
+      messages,
+      model,
+      stream,
+      temperature,
+      max_tokens,
+      top_p,
+      frequency_penalty,
+      presence_penalty,
+      reasoning_effort,
+      tools,
+      tool_choice,
+    } = body;
+    const hasToolResult = hasChatToolResult(messages);
 
-      agentDebugLog("chat.request", () => ({
+    agentDebugLog("chat.request", () => ({
+      requestId,
+      model,
+      stream: stream ?? false,
+      hasToolResult,
+      toolChoice: summarizeToolChoice(tool_choice),
+      tools: summarizeTools(tools),
+      messages: summarizeChatMessages(messages),
+    }));
+
+    // model is guaranteed to exist after validateAgentAuth middleware
+    const clientResult = getClient(model);
+    if ("error" in clientResult) {
+      agentDebugLog("chat.provider_error", {
         requestId,
+        error: clientResult.error,
+      });
+      await releaseReservedUsage(auth);
+      return c.json(
+        {
+          error: {
+            message: "Internal server error",
+            type: "server_error",
+            param: null,
+            code: "missing_provider_key",
+          },
+        },
+        500,
+      );
+    }
+
+    // OpenAI recommendation: prefer Responses API (retained reasoning)
+    // for OpenAI-family models. Client-facing shape stays Chat Completions.
+    // Deni AI API's /v1/responses drops reasoning settings, so Deni-routed
+    // models stay on its /v1/chat/completions (forwarded as-is) below.
+    if (
+      shouldRouteChatViaResponses(model) &&
+      (clientResult.type === "openrouter" || clientResult.type === "openai")
+    ) {
+      const provider: ResponsesProviderKind = clientResult.type;
+      const responsesBody = buildResponsesRequestFromChat(body, provider);
+
+      agentDebugLog("chat.via_responses", {
+        requestId,
+        provider: clientResult.providerName,
         model,
         stream: stream ?? false,
-        hasToolResult,
-        toolChoice: summarizeToolChoice(tool_choice),
-        tools: summarizeTools(tools),
-        messages: summarizeChatMessages(messages),
-      }));
+      });
 
-      // model is guaranteed to exist after validateAgentAuth middleware
-      const clientResult = getClient(model);
-      if ("error" in clientResult) {
-        agentDebugLog("chat.provider_error", {
-          requestId,
-          error: clientResult.error,
-        });
-        await releaseReservedUsage(auth);
-        return c.json(
-          {
-            error: {
-              message: "Internal server error",
-              type: "server_error",
-              param: null,
-              code: "missing_provider_key",
-            },
-          },
-          500,
-        );
-      }
+      return await proxyResponsesUpstream({
+        auth,
+        requestId,
+        clientResult,
+        providerRequest: responsesBody,
+        stream: stream ?? false,
+        asChatCompletion: true,
+        model,
+      });
+    }
 
-      // OpenAI recommendation: prefer Responses API (retained reasoning)
-      // for OpenAI-family models. Client-facing shape stays Chat Completions.
-      // Deni AI API's /v1/responses drops reasoning settings, so Deni-routed
-      // models stay on its /v1/chat/completions (forwarded as-is) below.
-      if (
-        shouldRouteChatViaResponses(model) &&
-        (clientResult.type === "openrouter" || clientResult.type === "openai")
-      ) {
-        const provider: ResponsesProviderKind = clientResult.type;
-        const responsesBody = buildResponsesRequestFromChat(body, provider);
-
-        agentDebugLog("chat.via_responses", {
-          requestId,
-          provider: clientResult.providerName,
-          model,
-          stream: stream ?? false,
-        });
-
-        return await proxyResponsesUpstream({
-          auth,
-          requestId,
-          clientResult,
-          providerRequest: responsesBody,
-          stream: stream ?? false,
-          asChatCompletion: true,
-          model,
-        });
-      }
-
-      // Call OpenRouter Chat Completions directly for OpenRouter models
-      if (clientResult.type === "openrouter") {
-        const providerName = clientResult.providerName;
-        const normalizedToolChoice = normalizeOpenRouterToolChoice(
-          tool_choice,
-          hasToolResult,
-        );
-        const openrouterBody = applyAutomaticPromptCaching({
+    // Call OpenRouter Chat Completions directly for OpenRouter models
+    if (clientResult.type === "openrouter") {
+      const providerName = clientResult.providerName;
+      const normalizedToolChoice = normalizeOpenRouterToolChoice(tool_choice, hasToolResult);
+      const openrouterBody = applyAutomaticPromptCaching(
+        {
           model,
           provider: getOpenRouterProviderRouting(model),
           messages,
@@ -2025,267 +1853,14 @@ router.post(
           top_p: top_p ?? undefined,
           frequency_penalty: frequency_penalty ?? undefined,
           presence_penalty: presence_penalty ?? undefined,
-          reasoning: reasoning_effort
-            ? { effort: reasoning_effort }
-            : undefined,
+          reasoning: reasoning_effort ? { effort: reasoning_effort } : undefined,
           tools: convertToolsToOpenRouter(tools),
           tool_choice: normalizedToolChoice,
-        }, model);
-        assertNoReservedCollaborationToolsInUpstreamBody(
-          openrouterBody as unknown as Record<string, unknown>,
-          model,
-        );
-
-        agentDebugLog("chat.upstream_request", () => ({
-          requestId,
-          provider: providerName,
-          model,
-          stream: openrouterBody.stream,
-          toolChoice: summarizeToolChoice(normalizedToolChoice),
-          tools: summarizeTools(openrouterBody.tools),
-          messages: summarizeChatMessages(messages),
-        }));
-
-        const upstreamTimeout = createUpstreamTimeout();
-        let response: Response;
-        try {
-          response = await fetch(
-            "https://openrouter.ai/api/v1/chat/completions",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-                "HTTP-Referer": "https://flixa.deniai.app",
-                "X-OpenRouter-Title": "Deni AI Flixa",
-                "X-OpenRouter-Categories": "cli-agent,ide-extension",
-                "X-OpenRouter-Experimental-Metadata": "enabled",
-              },
-              body: JSON.stringify(openrouterBody),
-              signal: upstreamTimeout.signal,
-            },
-          );
-          upstreamTimeout.refresh();
-        } catch (error) {
-          upstreamTimeout.dispose();
-          throw error;
-        }
-
-        if (!response.ok) {
-          const errorBody = await response.text();
-          upstreamTimeout.dispose();
-          agentDebugLog("chat.upstream_error", {
-            requestId,
-            provider: providerName,
-            status: response.status,
-            contentType: response.headers.get("content-type"),
-            bodyLength: errorBody.length,
-          });
-
-          if (shouldFailoverToAnthropic(response.status, model)) {
-            agentDebugLog("chat.failover_start", {
-              requestId,
-              fromProvider: providerName,
-              toProvider: "anthropic",
-              status: response.status,
-            });
-            return await createAnthropicChatFailoverResponse(
-              auth,
-              requestId,
-              body,
-              hasToolResult,
-            );
-          }
-
-          await releaseReservedUsage(auth);
-          return publicUpstreamErrorResponse(response.status, errorBody);
-        }
-
-        if (stream && response.body) {
-          const reader = response.body.getReader();
-          const decoder = new TextDecoder();
-          const encoder = new TextEncoder();
-          const streamDebug = createChatStreamDebugSummary();
-          let usageSnapshot: Record<string, number> = {};
-          let usageSettled = false;
-          let cancelled = false;
-
-          const readable = new ReadableStream({
-            async start(controller) {
-              let buffer = "";
-
-              try {
-                while (true) {
-                  const { done, value } = await reader.read();
-                  if (cancelled) return;
-                  if (done) break;
-                  upstreamTimeout.refresh();
-
-                  buffer += decoder.decode(value, { stream: true });
-                  const eventBlocks = buffer.split(/\r?\n\r?\n/);
-                  buffer = eventBlocks.pop() ?? "";
-
-                  for (const eventBlock of eventBlocks) {
-                    const clientFacingEvent =
-                      rewriteCollaborationNamesInSseEventBlock(eventBlock);
-                    usageSnapshot = collectChatUsageFromSseEvent(
-                      clientFacingEvent,
-                      usageSnapshot,
-                      auth,
-                    );
-                    collectChatDebugFromSseEvent(
-                      clientFacingEvent,
-                      streamDebug,
-                    );
-                    controller.enqueue(
-                      encoder.encode(`${clientFacingEvent}\n\n`),
-                    );
-                  }
-                }
-
-                if (cancelled) return;
-                buffer += decoder.decode();
-                if (buffer.trim()) {
-                  const clientFacingEvent =
-                    rewriteCollaborationNamesInSseEventBlock(buffer);
-                  usageSnapshot = collectChatUsageFromSseEvent(
-                    clientFacingEvent,
-                    usageSnapshot,
-                    auth,
-                  );
-                  collectChatDebugFromSseEvent(
-                    clientFacingEvent,
-                    streamDebug,
-                  );
-                  controller.enqueue(encoder.encode(clientFacingEvent));
-                }
-
-                usageSettled = true;
-                await finalizeUsage(auth, usageSnapshot, false);
-                upstreamTimeout.dispose();
-                agentDebugLog("chat.stream_complete", {
-                  requestId,
-                  provider: providerName,
-                  usage: usageSnapshot,
-                  stream: streamDebug,
-                });
-                controller.close();
-              } catch (error) {
-                if (cancelled) return;
-                upstreamTimeout.dispose();
-                agentDebugLog("chat.stream_error", {
-                  requestId,
-                  provider: providerName,
-                  error: error instanceof Error ? error.message : String(error),
-                });
-                console.error(
-                  `[Stream Error] provider=${providerName}:`,
-                  error,
-                );
-                if (!usageSettled) {
-                  usageSettled = true;
-                  await finalizeUsage(auth, usageSnapshot, false);
-                }
-                controller.error(error);
-              }
-            },
-            cancel() {
-              cancelled = true;
-              upstreamTimeout.abort();
-              upstreamTimeout.dispose();
-              reader.cancel().catch(() => {});
-              // The client disconnected mid-stream; upstream tokens were
-              // still consumed, so meter what we have observed so far.
-              if (!usageSettled) {
-                usageSettled = true;
-                return finalizeUsage(auth, usageSnapshot, false).catch(
-                  (error) =>
-                    console.error("[Usage] finalize-on-cancel failed:", error),
-                );
-              }
-            },
-          });
-
-          return new Response(readable, {
-            status: response.status,
-            headers: {
-              "Content-Type":
-                response.headers.get("content-type") || "text/event-stream",
-              "Cache-Control":
-                response.headers.get("cache-control") || "no-cache",
-              Connection: "keep-alive",
-            },
-          });
-        }
-
-        let responseBody: string;
-        try {
-          responseBody = await response.text();
-        } finally {
-          upstreamTimeout.dispose();
-        }
-        let parsedResponse: Record<string, unknown> | null = null;
-
-        try {
-          parsedResponse = JSON.parse(responseBody) as Record<string, unknown>;
-        } catch {
-          parsedResponse = null;
-        }
-
-        const clientFacing =
-          parsedResponse !== null
-            ? (rewriteCollaborationNamesInChatPayload(
-                parsedResponse,
-              ) as Record<string, unknown>)
-            : null;
-        await finalizeUsage(auth, clientFacing?.usage ?? parsedResponse?.usage);
-        agentDebugLog("chat.response", () => ({
-          requestId,
-          provider: providerName,
-          status: response.status,
-          response: summarizeChatCompletionResponse(clientFacing ?? parsedResponse),
-        }));
-        return new Response(
-          clientFacing !== null ? JSON.stringify(clientFacing) : responseBody,
-          {
-            status: response.status,
-            headers: {
-              "Content-Type":
-                response.headers.get("content-type") || "application/json",
-            },
-          },
-        );
-      }
-
-      // Use OpenAI SDK for Deni AI API / voids.top (fallback)
-      const { client, providerName } = clientResult;
-      const normalizedToolChoice =
-        tools && tools.length > 0
-          ? normalizeOpenAIChatToolChoice(tool_choice, hasToolResult)
-          : undefined;
-
-      // OpenAI SDK types lag newer effort value (`max`); pass through as-is.
-      const requestParams:
-        | OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming
-        | OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming = {
+        },
         model,
-        messages,
-        stream: stream ?? false,
-        stream_options: stream ? { include_usage: true } : undefined,
-        temperature,
-        max_tokens,
-        top_p,
-        frequency_penalty,
-        presence_penalty,
-        reasoning_effort: reasoning_effort as
-          | OpenAI.ReasoningEffort
-          | undefined,
-        tools: tools && tools.length > 0 ? tools : undefined,
-        tool_choice: normalizedToolChoice,
-      };
-
+      );
       assertNoReservedCollaborationToolsInUpstreamBody(
-        requestParams as unknown as Record<string, unknown>,
+        openrouterBody as unknown as Record<string, unknown>,
         model,
       );
 
@@ -2293,59 +1868,108 @@ router.post(
         requestId,
         provider: providerName,
         model,
-        stream: requestParams.stream,
+        stream: openrouterBody.stream,
         toolChoice: summarizeToolChoice(normalizedToolChoice),
-        tools: summarizeTools(requestParams.tools),
+        tools: summarizeTools(openrouterBody.tools),
         messages: summarizeChatMessages(messages),
       }));
 
-      if (stream) {
-        const upstreamTimeout = createUpstreamTimeout();
-        let streamResponse: AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>;
-        try {
-          streamResponse = await client.chat.completions.create(
-            {
-              ...requestParams,
-              stream: true,
-            },
-            {
-              signal: upstreamTimeout.signal,
-            },
-          );
-          upstreamTimeout.refresh();
-        } catch (error) {
-          upstreamTimeout.dispose();
-          throw error;
+      const upstreamTimeout = createUpstreamTimeout();
+      let response: Response;
+      try {
+        response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+            "HTTP-Referer": "https://flixa.deniai.app",
+            "X-OpenRouter-Title": "Deni AI Flixa",
+            "X-OpenRouter-Categories": "cli-agent,ide-extension",
+            "X-OpenRouter-Experimental-Metadata": "enabled",
+          },
+          body: JSON.stringify(openrouterBody),
+          signal: upstreamTimeout.signal,
+        });
+        upstreamTimeout.refresh();
+      } catch (error) {
+        upstreamTimeout.dispose();
+        throw error;
+      }
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        upstreamTimeout.dispose();
+        agentDebugLog("chat.upstream_error", {
+          requestId,
+          provider: providerName,
+          status: response.status,
+          contentType: response.headers.get("content-type"),
+          bodyLength: errorBody.length,
+        });
+
+        if (shouldFailoverToAnthropic(response.status, model)) {
+          agentDebugLog("chat.failover_start", {
+            requestId,
+            fromProvider: providerName,
+            toProvider: "anthropic",
+            status: response.status,
+          });
+          return await createAnthropicChatFailoverResponse(auth, requestId, body, hasToolResult);
         }
 
-        // Convert OpenAI stream to SSE Response
+        await releaseReservedUsage(auth);
+        return publicUpstreamErrorResponse(response.status, errorBody);
+      }
+
+      if (stream && response.body) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
         const encoder = new TextEncoder();
+        const streamDebug = createChatStreamDebugSummary();
         let usageSnapshot: Record<string, number> = {};
         let usageSettled = false;
         let cancelled = false;
+
         const readable = new ReadableStream({
           async start(controller) {
-            const streamDebug = createChatStreamDebugSummary();
+            let buffer = "";
 
             try {
-              for await (const chunk of streamResponse) {
+              while (true) {
+                const { done, value } = await reader.read();
                 if (cancelled) return;
+                if (done) break;
                 upstreamTimeout.refresh();
-                auth.usageEstimate?.observe(chunk);
-                const clientFacingChunk = rewriteCollaborationNamesInChatPayload(
-                  chunk,
-                ) as typeof chunk;
-                if (clientFacingChunk.usage) {
-                  usageSnapshot = mergeUsageSnapshot(
+
+                buffer += decoder.decode(value, { stream: true });
+                const eventBlocks = buffer.split(/\r?\n\r?\n/);
+                buffer = eventBlocks.pop() ?? "";
+
+                for (const eventBlock of eventBlocks) {
+                  const clientFacingEvent = rewriteCollaborationNamesInSseEventBlock(eventBlock);
+                  usageSnapshot = collectChatUsageFromSseEvent(
+                    clientFacingEvent,
                     usageSnapshot,
-                    clientFacingChunk.usage,
+                    auth,
                   );
+                  collectChatDebugFromSseEvent(clientFacingEvent, streamDebug);
+                  controller.enqueue(encoder.encode(`${clientFacingEvent}\n\n`));
                 }
-                const data = JSON.stringify(clientFacingChunk);
-                collectChatDebugFromSseEvent(`data: ${data}\n\n`, streamDebug);
-                controller.enqueue(encoder.encode(`data: ${data}\n\n`));
               }
+
               if (cancelled) return;
+              buffer += decoder.decode();
+              if (buffer.trim()) {
+                const clientFacingEvent = rewriteCollaborationNamesInSseEventBlock(buffer);
+                usageSnapshot = collectChatUsageFromSseEvent(
+                  clientFacingEvent,
+                  usageSnapshot,
+                  auth,
+                );
+                collectChatDebugFromSseEvent(clientFacingEvent, streamDebug);
+                controller.enqueue(encoder.encode(clientFacingEvent));
+              }
+
               usageSettled = true;
               await finalizeUsage(auth, usageSnapshot, false);
               upstreamTimeout.dispose();
@@ -2355,7 +1979,6 @@ router.post(
                 usage: usageSnapshot,
                 stream: streamDebug,
               });
-              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
               controller.close();
             } catch (error) {
               if (cancelled) return;
@@ -2377,8 +2000,9 @@ router.post(
             cancelled = true;
             upstreamTimeout.abort();
             upstreamTimeout.dispose();
-            // The client disconnected mid-stream; upstream tokens were still
-            // consumed, so meter what we have observed so far.
+            reader.cancel().catch(() => {});
+            // The client disconnected mid-stream; upstream tokens were
+            // still consumed, so meter what we have observed so far.
             if (!usageSettled) {
               usageSettled = true;
               return finalizeUsage(auth, usageSnapshot, false).catch((error) =>
@@ -2389,221 +2013,379 @@ router.post(
         });
 
         return new Response(readable, {
-          status: 200,
+          status: response.status,
           headers: {
-            "Content-Type": "text/event-stream",
-            "Cache-Control": "no-cache",
+            "Content-Type": response.headers.get("content-type") || "text/event-stream",
+            "Cache-Control": response.headers.get("cache-control") || "no-cache",
             Connection: "keep-alive",
           },
         });
       }
 
-      // Non-streaming request
-      const upstreamTimeout = createUpstreamTimeout();
-      let response: OpenAI.Chat.Completions.ChatCompletion;
+      let responseBody: string;
       try {
-        response = await client.chat.completions.create(
+        responseBody = await response.text();
+      } finally {
+        upstreamTimeout.dispose();
+      }
+      let parsedResponse: Record<string, unknown> | null = null;
+
+      try {
+        parsedResponse = JSON.parse(responseBody) as Record<string, unknown>;
+      } catch {
+        parsedResponse = null;
+      }
+
+      const clientFacing =
+        parsedResponse !== null
+          ? (rewriteCollaborationNamesInChatPayload(parsedResponse) as Record<string, unknown>)
+          : null;
+      await finalizeUsage(auth, clientFacing?.usage ?? parsedResponse?.usage);
+      agentDebugLog("chat.response", () => ({
+        requestId,
+        provider: providerName,
+        status: response.status,
+        response: summarizeChatCompletionResponse(clientFacing ?? parsedResponse),
+      }));
+      return new Response(clientFacing !== null ? JSON.stringify(clientFacing) : responseBody, {
+        status: response.status,
+        headers: {
+          "Content-Type": response.headers.get("content-type") || "application/json",
+        },
+      });
+    }
+
+    // Use OpenAI SDK for Deni AI API / voids.top (fallback)
+    const { client, providerName } = clientResult;
+    const normalizedToolChoice =
+      tools && tools.length > 0
+        ? normalizeOpenAIChatToolChoice(tool_choice, hasToolResult)
+        : undefined;
+
+    // OpenAI SDK types lag newer effort value (`max`); pass through as-is.
+    const requestParams:
+      | OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming
+      | OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming = {
+      model,
+      messages,
+      stream: stream ?? false,
+      stream_options: stream ? { include_usage: true } : undefined,
+      temperature,
+      max_tokens,
+      top_p,
+      frequency_penalty,
+      presence_penalty,
+      reasoning_effort: reasoning_effort as OpenAI.ReasoningEffort | undefined,
+      tools: tools && tools.length > 0 ? tools : undefined,
+      tool_choice: normalizedToolChoice,
+    };
+
+    assertNoReservedCollaborationToolsInUpstreamBody(
+      requestParams as unknown as Record<string, unknown>,
+      model,
+    );
+
+    agentDebugLog("chat.upstream_request", () => ({
+      requestId,
+      provider: providerName,
+      model,
+      stream: requestParams.stream,
+      toolChoice: summarizeToolChoice(normalizedToolChoice),
+      tools: summarizeTools(requestParams.tools),
+      messages: summarizeChatMessages(messages),
+    }));
+
+    if (stream) {
+      const upstreamTimeout = createUpstreamTimeout();
+      let streamResponse: AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>;
+      try {
+        streamResponse = await client.chat.completions.create(
           {
             ...requestParams,
-            stream: false,
+            stream: true,
           },
-          { signal: upstreamTimeout.signal },
+          {
+            signal: upstreamTimeout.signal,
+          },
         );
         upstreamTimeout.refresh();
       } catch (error) {
         upstreamTimeout.dispose();
         throw error;
       }
-      upstreamTimeout.dispose();
-      const clientFacingResponse = rewriteCollaborationNamesInChatPayload(
-        response,
-      ) as typeof response;
 
-      await finalizeUsage(auth, clientFacingResponse.usage);
-      agentDebugLog("chat.response", () => ({
-        requestId,
-        provider: providerName,
-        response: summarizeChatCompletionResponse(clientFacingResponse),
-      }));
-      return c.json(clientFacingResponse, 200);
-    } catch (error) {
-      await releaseReservedUsage(auth);
-      agentDebugLog("chat.error", {
-        requestId,
-        error: error instanceof Error ? error.message : String(error),
+      // Convert OpenAI stream to SSE Response
+      const encoder = new TextEncoder();
+      let usageSnapshot: Record<string, number> = {};
+      let usageSettled = false;
+      let cancelled = false;
+      const readable = new ReadableStream({
+        async start(controller) {
+          const streamDebug = createChatStreamDebugSummary();
+
+          try {
+            for await (const chunk of streamResponse) {
+              if (cancelled) return;
+              upstreamTimeout.refresh();
+              auth.usageEstimate?.observe(chunk);
+              const clientFacingChunk = rewriteCollaborationNamesInChatPayload(
+                chunk,
+              ) as typeof chunk;
+              if (clientFacingChunk.usage) {
+                usageSnapshot = mergeUsageSnapshot(usageSnapshot, clientFacingChunk.usage);
+              }
+              const data = JSON.stringify(clientFacingChunk);
+              collectChatDebugFromSseEvent(`data: ${data}\n\n`, streamDebug);
+              controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+            }
+            if (cancelled) return;
+            usageSettled = true;
+            await finalizeUsage(auth, usageSnapshot, false);
+            upstreamTimeout.dispose();
+            agentDebugLog("chat.stream_complete", {
+              requestId,
+              provider: providerName,
+              usage: usageSnapshot,
+              stream: streamDebug,
+            });
+            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+            controller.close();
+          } catch (error) {
+            if (cancelled) return;
+            upstreamTimeout.dispose();
+            agentDebugLog("chat.stream_error", {
+              requestId,
+              provider: providerName,
+              error: error instanceof Error ? error.message : String(error),
+            });
+            console.error(`[Stream Error] provider=${providerName}:`, error);
+            if (!usageSettled) {
+              usageSettled = true;
+              await finalizeUsage(auth, usageSnapshot, false);
+            }
+            controller.error(error);
+          }
+        },
+        cancel() {
+          cancelled = true;
+          upstreamTimeout.abort();
+          upstreamTimeout.dispose();
+          // The client disconnected mid-stream; upstream tokens were still
+          // consumed, so meter what we have observed so far.
+          if (!usageSettled) {
+            usageSettled = true;
+            return finalizeUsage(auth, usageSnapshot, false).catch((error) =>
+              console.error("[Usage] finalize-on-cancel failed:", error),
+            );
+          }
+        },
       });
-      console.error("Agent error:", error);
 
-      if (error instanceof OpenAI.APIError) {
-        const statusCode = (error.status || 500) as ContentfulStatusCode;
-        return c.json(
-          {
-            error: {
-              message: publicErrorMessage(statusCode),
-              type: error.type || "api_error",
-              param: null,
-              code: error.code || null,
-            },
-          },
-          statusCode,
-        );
-      }
+      return new Response(readable, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      });
+    }
 
-      if (error instanceof Anthropic.APIError) {
-        const statusCode = (error.status || 500) as ContentfulStatusCode;
-        const apiError = error as {
-          type?: string;
-          code?: string | null;
-        };
-        return c.json(
-          {
-            error: {
-              message: publicErrorMessage(statusCode),
-              type: apiError.type || "api_error",
-              param: null,
-              code: apiError.code || null,
-            },
-          },
-          statusCode,
-        );
-      }
+    // Non-streaming request
+    const upstreamTimeout = createUpstreamTimeout();
+    let response: OpenAI.Chat.Completions.ChatCompletion;
+    try {
+      response = await client.chat.completions.create(
+        {
+          ...requestParams,
+          stream: false,
+        },
+        { signal: upstreamTimeout.signal },
+      );
+      upstreamTimeout.refresh();
+    } catch (error) {
+      upstreamTimeout.dispose();
+      throw error;
+    }
+    upstreamTimeout.dispose();
+    const clientFacingResponse = rewriteCollaborationNamesInChatPayload(
+      response,
+    ) as typeof response;
+
+    await finalizeUsage(auth, clientFacingResponse.usage);
+    agentDebugLog("chat.response", () => ({
+      requestId,
+      provider: providerName,
+      response: summarizeChatCompletionResponse(clientFacingResponse),
+    }));
+    return c.json(clientFacingResponse, 200);
+  } catch (error) {
+    await releaseReservedUsage(auth);
+    agentDebugLog("chat.error", {
+      requestId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    console.error("Agent error:", error);
+
+    if (error instanceof OpenAI.APIError) {
+      const statusCode = (error.status || 500) as ContentfulStatusCode;
       return c.json(
         {
           error: {
-            message: "Internal server error",
-            type: "server_error",
+            message: publicErrorMessage(statusCode),
+            type: error.type || "api_error",
             param: null,
-            code: null,
+            code: error.code || null,
           },
         },
-        500,
+        statusCode,
       );
     }
-  },
-);
+
+    if (error instanceof Anthropic.APIError) {
+      const statusCode = (error.status || 500) as ContentfulStatusCode;
+      const apiError = error as {
+        type?: string;
+        code?: string | null;
+      };
+      return c.json(
+        {
+          error: {
+            message: publicErrorMessage(statusCode),
+            type: apiError.type || "api_error",
+            param: null,
+            code: apiError.code || null,
+          },
+        },
+        statusCode,
+      );
+    }
+    return c.json(
+      {
+        error: {
+          message: "Internal server error",
+          type: "server_error",
+          param: null,
+          code: null,
+        },
+      },
+      500,
+    );
+  }
+});
 
 /**
  * POST /v1/agent/responses
  * OpenAI Responses API compatible endpoint with retained reasoning defaults.
  * Compaction is client-driven via POST /agent/responses/compact.
  */
-router.post(
-  "/agent/responses",
-  validateResponsesRequest,
-  validateAgentAuth,
-  async (c) => {
-    const auth = c.get("agentAuth") as AgentAuthContext;
+router.post("/agent/responses", validateResponsesRequest, validateAgentAuth, async (c) => {
+  const auth = c.get("agentAuth") as AgentAuthContext;
 
-    try {
-      const body = c.get("validatedBody") as ResponsesRequest;
-      const clientResult = getClient(body.model);
+  try {
+    const body = c.get("validatedBody") as ResponsesRequest;
+    const clientResult = getClient(body.model);
 
-      if ("error" in clientResult) {
-        await releaseReservedUsage(auth);
-        return c.json(
-          {
-            error: {
-              message: "Internal server error",
-              type: "server_error",
-              param: null,
-              code: "missing_provider_key",
-            },
-          },
-          500,
-        );
-      }
-
-      if (clientResult.type === "deni") {
-        return await proxyResponsesUpstream({
-          auth,
-          clientResult,
-          providerRequest: toDeniResponsesRequest(
-            normalizeResponsesRequest(body, "openai"),
-          ),
-          stream: body.stream ?? false,
-          model: body.model,
-        });
-      }
-
-      if (clientResult.type !== "openrouter" && clientResult.type !== "openai") {
-        await releaseReservedUsage(auth);
-        return c.json(
-          {
-            error: {
-              message: "Internal server error",
-              type: "server_error",
-              param: null,
-              code: "unsupported_provider",
-            },
-          },
-          500,
-        );
-      }
-
-      const provider: ResponsesProviderKind = clientResult.type;
-      const normalizedResponsesRequest = normalizeResponsesRequest(
-        body,
-        provider,
-      );
-
-      return await proxyResponsesUpstream({
-        auth,
-        clientResult,
-        providerRequest: normalizedResponsesRequest,
-        stream: body.stream ?? false,
-        model: body.model,
-      });
-    } catch (error) {
+    if ("error" in clientResult) {
       await releaseReservedUsage(auth);
-      console.error("Agent responses error:", error);
-
-      if (error instanceof OpenAI.APIError) {
-        const statusCode = (error.status || 500) as ContentfulStatusCode;
-        return c.json(
-          {
-            error: {
-              message: publicErrorMessage(statusCode),
-              type: error.type || "api_error",
-              param: null,
-              code: error.code || null,
-            },
-          },
-          statusCode,
-        );
-      }
-
-      if (error instanceof Anthropic.APIError) {
-        const statusCode = (error.status || 500) as ContentfulStatusCode;
-        const apiError = error as {
-          type?: string;
-          code?: string | null;
-        };
-        return c.json(
-          {
-            error: {
-              message: publicErrorMessage(statusCode),
-              type: apiError.type || "api_error",
-              param: null,
-              code: apiError.code || null,
-            },
-          },
-          statusCode,
-        );
-      }
       return c.json(
         {
           error: {
             message: "Internal server error",
             type: "server_error",
             param: null,
-            code: null,
+            code: "missing_provider_key",
           },
         },
         500,
       );
     }
-  },
-);
+
+    if (clientResult.type === "deni") {
+      return await proxyResponsesUpstream({
+        auth,
+        clientResult,
+        providerRequest: toDeniResponsesRequest(normalizeResponsesRequest(body, "openai")),
+        stream: body.stream ?? false,
+        model: body.model,
+      });
+    }
+
+    if (clientResult.type !== "openrouter" && clientResult.type !== "openai") {
+      await releaseReservedUsage(auth);
+      return c.json(
+        {
+          error: {
+            message: "Internal server error",
+            type: "server_error",
+            param: null,
+            code: "unsupported_provider",
+          },
+        },
+        500,
+      );
+    }
+
+    const provider: ResponsesProviderKind = clientResult.type;
+    const normalizedResponsesRequest = normalizeResponsesRequest(body, provider);
+
+    return await proxyResponsesUpstream({
+      auth,
+      clientResult,
+      providerRequest: normalizedResponsesRequest,
+      stream: body.stream ?? false,
+      model: body.model,
+    });
+  } catch (error) {
+    await releaseReservedUsage(auth);
+    console.error("Agent responses error:", error);
+
+    if (error instanceof OpenAI.APIError) {
+      const statusCode = (error.status || 500) as ContentfulStatusCode;
+      return c.json(
+        {
+          error: {
+            message: publicErrorMessage(statusCode),
+            type: error.type || "api_error",
+            param: null,
+            code: error.code || null,
+          },
+        },
+        statusCode,
+      );
+    }
+
+    if (error instanceof Anthropic.APIError) {
+      const statusCode = (error.status || 500) as ContentfulStatusCode;
+      const apiError = error as {
+        type?: string;
+        code?: string | null;
+      };
+      return c.json(
+        {
+          error: {
+            message: publicErrorMessage(statusCode),
+            type: apiError.type || "api_error",
+            param: null,
+            code: apiError.code || null,
+          },
+        },
+        statusCode,
+      );
+    }
+    return c.json(
+      {
+        error: {
+          message: "Internal server error",
+          type: "server_error",
+          param: null,
+          code: null,
+        },
+      },
+      500,
+    );
+  }
+});
 
 /**
  * POST /v1/agent/responses/compact
@@ -2713,21 +2495,15 @@ router.post(
 
       const clientFacing =
         parsedResponse !== null
-          ? (rewriteCollaborationNamesInResponsesPayload(
-              parsedResponse,
-            ) as Record<string, unknown>)
+          ? (rewriteCollaborationNamesInResponsesPayload(parsedResponse) as Record<string, unknown>)
           : null;
       await finalizeUsage(auth, clientFacing?.usage ?? parsedResponse?.usage);
-      return new Response(
-        clientFacing !== null ? JSON.stringify(clientFacing) : responseBody,
-        {
-          status: response.status,
-          headers: {
-            "Content-Type":
-              response.headers.get("content-type") || "application/json",
-          },
+      return new Response(clientFacing !== null ? JSON.stringify(clientFacing) : responseBody, {
+        status: response.status,
+        headers: {
+          "Content-Type": response.headers.get("content-type") || "application/json",
         },
-      );
+      });
     } catch (error) {
       await releaseReservedUsage(auth);
       console.error("Agent responses compact error:", error);
@@ -2755,22 +2531,12 @@ router.post(
  *   POST /v1/agent/messages
  *   POST /v1/agent/v1/messages
  */
-for (const messagesPath of [
-  "/messages",
-  "/agent/messages",
-  "/agent/v1/messages",
-] as const) {
-router.post(
-  messagesPath,
-  validateAnthropicRequest,
-  validateAgentAuth,
-  async (c) => {
+for (const messagesPath of ["/messages", "/agent/messages", "/agent/v1/messages"] as const) {
+  router.post(messagesPath, validateAnthropicRequest, validateAgentAuth, async (c) => {
     const auth = c.get("agentAuth") as AgentAuthContext;
 
     try {
-      const body = c.get(
-        "validatedBody",
-      ) as Anthropic.Messages.MessageCreateParams;
+      const body = c.get("validatedBody") as Anthropic.Messages.MessageCreateParams;
       const { model, stream } = body;
 
       if (!process.env.OPENROUTER_API_KEY) {
@@ -2789,37 +2555,29 @@ router.post(
       }
 
       // Prefix model with anthropic/ for OpenRouter routing.
-      const openRouterModel = model.startsWith("anthropic/")
-        ? model
-        : `anthropic/${model}`;
+      const openRouterModel = model.startsWith("anthropic/") ? model : `anthropic/${model}`;
 
-      const cachedFailoverState =
-        getOpenRouterMessagesFailoverState(openRouterModel);
-      if (
-        cachedFailoverState &&
-        isAnthropicModel(openRouterModel) &&
-        hasAnthropicFailoverKey()
-      ) {
+      const cachedFailoverState = getOpenRouterMessagesFailoverState(openRouterModel);
+      if (cachedFailoverState && isAnthropicModel(openRouterModel) && hasAnthropicFailoverKey()) {
         agentDebugLog("messages.failover_cache_hit", {
           provider: "openrouter",
           model: openRouterModel,
           status: cachedFailoverState.status,
           expiresAt: new Date(cachedFailoverState.expiresAt).toISOString(),
         });
-        return await createAnthropicMessagesFailoverResponse(
-          auth,
-          c.req.raw.headers,
-          body,
-        );
+        return await createAnthropicMessagesFailoverResponse(auth, c.req.raw.headers, body);
       }
 
       // Pass through Anthropic format, but do not keep forcing tool use after a tool result.
-      const openRouterBody = applyAutomaticPromptCaching({
-        ...body,
-        model: openRouterModel,
-        provider: getOpenRouterProviderRouting(openRouterModel),
-        tool_choice: normalizeAnthropicToolChoiceAfterToolResult(body),
-      }, openRouterModel);
+      const openRouterBody = applyAutomaticPromptCaching(
+        {
+          ...body,
+          model: openRouterModel,
+          provider: getOpenRouterProviderRouting(openRouterModel),
+          tool_choice: normalizeAnthropicToolChoiceAfterToolResult(body),
+        },
+        openRouterModel,
+      );
 
       const upstreamTimeout = createUpstreamTimeout();
       let response: Response;
@@ -2846,11 +2604,7 @@ router.post(
       if (!response.ok) {
         const errorBody = await response.text();
         upstreamTimeout.dispose();
-        console.error(
-          "[OpenRouter messages error]:",
-          response.status,
-          errorBody,
-        );
+        console.error("[OpenRouter messages error]:", response.status, errorBody);
 
         if (shouldFailoverToAnthropic(response.status, openRouterModel)) {
           setOpenRouterMessagesFailoverState(openRouterModel, response.status);
@@ -2860,11 +2614,7 @@ router.post(
             status: response.status,
             ttlMs: OPENROUTER_MESSAGES_FAILOVER_TTL_MS,
           });
-          return await createAnthropicMessagesFailoverResponse(
-            auth,
-            c.req.raw.headers,
-            body,
-          );
+          return await createAnthropicMessagesFailoverResponse(auth, c.req.raw.headers, body);
         }
 
         await releaseReservedUsage(auth);
@@ -2908,11 +2658,7 @@ router.post(
               if (cancelled) return;
               buffer += decoder.decode();
               if (buffer.trim()) {
-                usageSnapshot = collectAnthropicUsageFromSseEvent(
-                  buffer,
-                  usageSnapshot,
-                  auth,
-                );
+                usageSnapshot = collectAnthropicUsageFromSseEvent(buffer, usageSnapshot, auth);
               }
 
               usageSettled = true;
@@ -2922,10 +2668,7 @@ router.post(
             } catch (error) {
               if (cancelled) return;
               upstreamTimeout.dispose();
-              console.error(
-                "[Stream Error] provider=openrouter (messages):",
-                error,
-              );
+              console.error("[Stream Error] provider=openrouter (messages):", error);
               if (!usageSettled) {
                 usageSettled = true;
                 await finalizeUsage(auth, usageSnapshot, false);
@@ -2942,9 +2685,8 @@ router.post(
             // consumed, so meter what we have observed so far.
             if (!usageSettled) {
               usageSettled = true;
-              return finalizeUsage(auth, usageSnapshot, false).catch(
-                (error) =>
-                  console.error("[Usage] finalize-on-cancel failed:", error),
+              return finalizeUsage(auth, usageSnapshot, false).catch((error) =>
+                console.error("[Usage] finalize-on-cancel failed:", error),
               );
             }
           },
@@ -2979,8 +2721,7 @@ router.post(
       return new Response(responseBody, {
         status: response.status,
         headers: {
-          "Content-Type":
-            response.headers.get("content-type") || "application/json",
+          "Content-Type": response.headers.get("content-type") || "application/json",
         },
       });
     } catch (error) {
@@ -2998,8 +2739,7 @@ router.post(
         500,
       );
     }
-  },
-);
+  });
 }
 
 export { router as agentRouter };

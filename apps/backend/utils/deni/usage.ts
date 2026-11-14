@@ -8,14 +8,7 @@ export type UsageTier = "free" | "go" | "plus" | "pro";
 export type UsageUnit = "units";
 
 // Active billing statuses
-const ACTIVE_STATUSES = [
-  "active",
-  "trialing",
-  "past_due",
-  "incomplete",
-  "unpaid",
-  "paid",
-];
+const ACTIVE_STATUSES = ["active", "trialing", "past_due", "incomplete", "unpaid", "paid"];
 
 const BILLING_PRIORITY_ORDER = `CASE
   WHEN status IN ('active', 'trialing', 'past_due', 'incomplete', 'unpaid', 'paid') THEN 0
@@ -135,8 +128,7 @@ function shouldResetUsageRow(
   now: Date,
   tier: UsageTier,
 ): boolean {
-  const isPeriodExpired =
-    quotaRow.period_end && new Date(quotaRow.period_end) <= now;
+  const isPeriodExpired = quotaRow.period_end && new Date(quotaRow.period_end) <= now;
   const hasTierChanged = quotaRow.plan_tier !== tier;
   const hasUnitChanged = quotaRow.unit !== USAGE_UNIT;
   return Boolean(isPeriodExpired || hasTierChanged || hasUnitChanged);
@@ -147,9 +139,7 @@ function shouldResetUsageRow(
  */
 function getNextMonthFirstDay(): Date {
   const now = new Date();
-  return new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0, 0),
-  );
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0, 0));
 }
 
 /**
@@ -163,9 +153,7 @@ function determineTier(billing: BillingRow | null, isTeam: boolean): UsageTier {
   // Check if billing is active
   const isActiveStatus = ACTIVE_STATUSES.includes(status);
   const isInGracePeriod =
-    status === "canceled" &&
-    current_period_end &&
-    new Date(current_period_end) > new Date();
+    status === "canceled" && current_period_end && new Date(current_period_end) > new Date();
   const isActive = isActiveStatus || isInGracePeriod;
 
   if (!isActive) return "free";
@@ -196,10 +184,7 @@ function getBillingCacheTtlMs(): number {
 
 const BILLING_CACHE_TTL_MS = getBillingCacheTtlMs();
 const BILLING_CACHE_MAX_ENTRIES = 10_000;
-const billingProfileCache = new Map<
-  string,
-  { profile: BillingProfile; expiresAt: number }
->();
+const billingProfileCache = new Map<string, { profile: BillingProfile; expiresAt: number }>();
 const billingProfileInFlight = new Map<string, Promise<BillingProfile>>();
 
 async function hasEducationAccess(userId: string): Promise<boolean> {
@@ -207,14 +192,9 @@ async function hasEducationAccess(userId: string): Promise<boolean> {
     email: string;
     email_verified: boolean;
     is_anonymous: boolean | null;
-  }>(
-    `SELECT email, email_verified, is_anonymous FROM "user" WHERE id = $1`,
-    [userId],
-  );
+  }>(`SELECT email, email_verified, is_anonymous FROM "user" WHERE id = $1`, [userId]);
   const row = result.rows[0];
-  return Boolean(
-    row && row.email_verified && !row.is_anonymous && isEducationalEmail(row.email),
-  );
+  return Boolean(row && row.email_verified && !row.is_anonymous && isEducationalEmail(row.email));
 }
 
 /**
@@ -227,9 +207,7 @@ async function fetchBillingProfile(userId: string): Promise<BillingProfile> {
   // Fetch the highest-priority team and personal rows in one round trip. The
   // old sequential pair of queries made every billing-cache miss pay two DB
   // network round trips before quota checking could begin.
-  const billingResult = await pool.query<
-    BillingRow & { is_team: boolean }
-  >(
+  const billingResult = await pool.query<BillingRow & { is_team: boolean }>(
     `WITH team_billing AS (
        SELECT b.plan_id, b.status, b.current_period_end, b.max_mode_enabled,
               b.payment_method_fingerprint, b.card_verified_at,
@@ -297,9 +275,7 @@ async function fetchBillingProfile(userId: string): Promise<BillingProfile> {
  * caching saves two queries per agent request on hot users. Plan changes take
  * effect within BILLING_CACHE_TTL_MS.
  */
-export async function getDeniBillingProfile(
-  userId: string,
-): Promise<BillingProfile> {
+export async function getDeniBillingProfile(userId: string): Promise<BillingProfile> {
   if (BILLING_CACHE_TTL_MS > 0) {
     const cached = billingProfileCache.get(userId);
     if (cached && cached.expiresAt > Date.now()) {
@@ -361,8 +337,7 @@ export async function getDeniUsageInfo(userId: string): Promise<DeniUsageInfo> {
   // Determine Max Mode eligibility
   const maxModeEligible =
     billing?.plan_id?.startsWith("pro") === true && billing.status === "active";
-  const maxModeEnabled =
-    maxModeEligible && (billing?.max_mode_enabled ?? false);
+  const maxModeEnabled = maxModeEligible && (billing?.max_mode_enabled ?? false);
 
   // Determine period end
   const periodEnd: string | null = getNextMonthFirstDay().toISOString();

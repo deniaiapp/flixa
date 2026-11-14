@@ -1,7 +1,7 @@
-import type { UsageUnit } from './usage';
+import type { UsageUnit } from "./usage";
 
 export interface DeniUsageInfo {
-  tier: 'free' | 'go' | 'plus' | 'pro';
+  tier: "free" | "go" | "plus" | "pro";
   planId: string | null;
   status: string | null;
   hasVerifiedPaymentMethod: boolean;
@@ -13,7 +13,7 @@ export interface DeniUsageInfo {
   maxModeEnabled: boolean;
   maxModeEligible: boolean;
   usage: Array<{
-    category: 'basic' | 'premium';
+    category: "basic" | "premium";
     unit: UsageUnit;
     limit: number | null;
     used: number;
@@ -44,7 +44,7 @@ export interface BillingRow {
 
 export interface UsageQuotaRow {
   category: string;
-  plan_tier: 'free' | 'go' | 'plus' | 'pro';
+  plan_tier: "free" | "go" | "plus" | "pro";
   limit_amount: number | null;
   unit: UsageUnit;
   used: number;

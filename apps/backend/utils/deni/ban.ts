@@ -6,9 +6,7 @@ import { ban } from "./schema/flixa";
 
 export type BanReason = "missing_client_signal" | "manual" | string;
 
-export type BanResult =
-  | { banned: true; alreadyBanned: boolean }
-  | { banned: false; error: string };
+export type BanResult = { banned: true; alreadyBanned: boolean } | { banned: false; error: string };
 
 const banStatusCache = new Map<string, { banned: boolean; expiresAt: number }>();
 const banStatusInFlight = new Map<string, Promise<boolean>>();
@@ -181,10 +179,7 @@ export async function unbanUserFromFlixa(userId: string): Promise<UnbanResult> {
 
 async function findUserByEmail(
   email: string,
-): Promise<
-  | { found: true; userId: string; email: string }
-  | { found: false; error: string }
-> {
+): Promise<{ found: true; userId: string; email: string } | { found: false; error: string }> {
   const normalizedEmail = email.trim().toLowerCase();
   if (!normalizedEmail) {
     return { found: false, error: "Email is required" };
@@ -243,11 +238,7 @@ export async function banUserFromFlixaByEmail(
       };
     }
 
-    const result = await banUserFromFlixa(
-      lookup.userId,
-      reason,
-      clientHeaders,
-    );
+    const result = await banUserFromFlixa(lookup.userId, reason, clientHeaders);
     if (!result.banned) {
       return {
         banned: false,

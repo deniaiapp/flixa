@@ -38,9 +38,7 @@ export type UpstreamTimeout = {
  * Create a timeout signal that can also be cancelled by a client disconnect.
  * A value of 0 disables the timeout while retaining parent-signal support.
  */
-export function createUpstreamTimeout(
-  parentSignal?: AbortSignal,
-): UpstreamTimeout {
+export function createUpstreamTimeout(parentSignal?: AbortSignal): UpstreamTimeout {
   const controller = new AbortController();
   const timeoutMs = getUpstreamTimeoutMs();
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -55,19 +53,13 @@ export function createUpstreamTimeout(
 
   const armTimer = () => {
     clearTimer();
-    if (
-      disposed ||
-      timeoutMs <= 0 ||
-      controller.signal.aborted
-    ) {
+    if (disposed || timeoutMs <= 0 || controller.signal.aborted) {
       return;
     }
 
     timer = setTimeout(() => {
       timer = undefined;
-      controller.abort(
-        new Error(`Upstream request timed out after ${timeoutMs}ms`),
-      );
+      controller.abort(new Error(`Upstream request timed out after ${timeoutMs}ms`));
     }, timeoutMs);
   };
 

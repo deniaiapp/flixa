@@ -158,8 +158,7 @@ export function validateSilentBanCondition(
     return { ok: false, error: `conditions[${index}] must be an object` };
   }
 
-  const target =
-    typeof raw.target === "string" ? raw.target.trim() : "";
+  const target = typeof raw.target === "string" ? raw.target.trim() : "";
   if (!target || target.length > MAX_TARGET_LEN) {
     return {
       ok: false,
@@ -343,9 +342,7 @@ export function matchSilentBanRule(
 ): boolean {
   if (!rule.enabled) return false;
   if (!rule.conditions.length) return false;
-  return rule.conditions.every((c) =>
-    matchSilentBanCondition(c, headers, path, method),
-  );
+  return rule.conditions.every((c) => matchSilentBanCondition(c, headers, path, method));
 }
 
 // ── CRUD ─────────────────────────────────────────────────────────────────────
@@ -393,9 +390,7 @@ async function getEnabledRulesCached(): Promise<SilentBanRule[]> {
   return pending;
 }
 
-export async function getSilentBanRule(
-  id: string,
-): Promise<SilentBanRule | null> {
+export async function getSilentBanRule(id: string): Promise<SilentBanRule | null> {
   const [row] = await getDeniDb()
     .select()
     .from(silentBanRule)
@@ -418,13 +413,8 @@ export async function createSilentBanRule(
   const conditionsResult = validateSilentBanConditions(input.conditions);
   if (!conditionsResult.ok) return conditionsResult;
 
-  const hitsBeforeBan = clampHits(
-    input.hitsBeforeBan ?? DEFAULT_HITS_BEFORE_BAN,
-  );
-  const reason = (input.reason?.trim() || `silent_rule:${name}`).slice(
-    0,
-    MAX_REASON_LEN,
-  );
+  const hitsBeforeBan = clampHits(input.hitsBeforeBan ?? DEFAULT_HITS_BEFORE_BAN);
+  const reason = (input.reason?.trim() || `silent_rule:${name}`).slice(0, MAX_REASON_LEN);
   const enabled = input.enabled !== false;
 
   try {
@@ -468,8 +458,7 @@ export async function updateSilentBanRule(
       return { ok: false, error: "rule_not_found" };
     }
 
-    const name =
-      input.name !== undefined ? input.name.trim() : existing.name;
+    const name = input.name !== undefined ? input.name.trim() : existing.name;
     if (!name || name.length > MAX_NAME_LEN) {
       return {
         ok: false,
@@ -485,15 +474,12 @@ export async function updateSilentBanRule(
     }
 
     const hitsBeforeBan =
-      input.hitsBeforeBan !== undefined
-        ? clampHits(input.hitsBeforeBan)
-        : existing.hitsBeforeBan;
+      input.hitsBeforeBan !== undefined ? clampHits(input.hitsBeforeBan) : existing.hitsBeforeBan;
     const reason =
       input.reason !== undefined
         ? (input.reason.trim() || existing.reason).slice(0, MAX_REASON_LEN)
         : existing.reason;
-    const enabled =
-      input.enabled !== undefined ? Boolean(input.enabled) : existing.enabled;
+    const enabled = input.enabled !== undefined ? Boolean(input.enabled) : existing.enabled;
 
     const [row] = await getDeniDb()
       .update(silentBanRule)
@@ -550,10 +536,7 @@ function rowToHit(row: typeof silentBanHit.$inferSelect): SilentBanHit {
 /**
  * Atomically increment the hit counter for (user, rule). Returns the new count.
  */
-async function incrementSilentBanHit(
-  userId: string,
-  ruleId: string,
-): Promise<number> {
+async function incrementSilentBanHit(userId: string, ruleId: string): Promise<number> {
   const [row] = await getDeniDb()
     .insert(silentBanHit)
     .values({ userId, ruleId, hitCount: 1 })
@@ -577,10 +560,7 @@ export async function listSilentBanHits(options?: {
   ruleId?: string;
   limit?: number;
 }): Promise<SilentBanHit[]> {
-  const limit = Math.min(
-    Math.max(1, Math.floor(options?.limit ?? 200)),
-    1000,
-  );
+  const limit = Math.min(Math.max(1, Math.floor(options?.limit ?? 200)), 1000);
 
   const rows = await getDeniDb()
     .select()
@@ -641,8 +621,7 @@ export async function evaluateSilentBanRules(
       return { action: "none" };
     }
 
-    let lastCounted: Extract<SilentBanEvalResult, { action: "counted" }> | null =
-      null;
+    let lastCounted: Extract<SilentBanEvalResult, { action: "counted" }> | null = null;
 
     for (const rule of rules) {
       if (!matchSilentBanRule(rule, headers, path, method)) {
