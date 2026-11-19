@@ -194,6 +194,74 @@ describe("atomic usage reservations", () => {
     assert.equal(await used(), 80);
   });
 
+  test("a paid plan's pool follows its billing cycle", async () => {
+    // The billing period ends in ten days; a renewal or upgrade moves it a month on.
+    const cycleEnd = new Date(Date.now() + 10 * 24 * 60 * 60_000);
+    // A day every month has, so the month step below needs no clamping.
+    cycleEnd.setUTCDate(Math.min(cycleEnd.getUTCDate(), 28));
+    cycleEnd.setUTCMilliseconds(0);
+    const first = await reserveUsageQuota("test-user", "premium", "plus", false, 100, {
+      usageCycleEnd: cycleEnd,
+    });
+    const row = await db.query<{ period_end: Date }>(
+      "SELECT period_end FROM usage_quota WHERE user_id = 'test-user' AND category = 'premium'",
+    );
+    assert.equal(new Date(row.rows[0]!.period_end).getTime(), cycleEnd.getTime());
+
+    // The same cycle keeps the usage; its ledger rows are keyed one month before its end.
+    await reserveUsageQuota("test-user", "premium", "plus", false, 50, { usageCycleEnd: cycleEnd });
+    assert.equal(await used(), 150);
+    await settleUsageQuota(first.reservation!, 100);
+    const ledger = await db.query<{ period_start: Date }>(
+      "SELECT period_start FROM product_usage WHERE user_id = 'test-user'",
+    );
+    const key = new Date(cycleEnd);
+    key.setUTCMonth(key.getUTCMonth() - 1);
+    assert.equal(new Date(ledger.rows[0]!.period_start).getTime(), key.getTime());
+
+    // An upgrade restarts the billing cycle: a new pool.
+    const nextCycleEnd = new Date(cycleEnd.getTime() + 20 * 24 * 60 * 60_000);
+    await reserveUsageQuota("test-user", "premium", "plus", false, 80, {
+      usageCycleEnd: nextCycleEnd,
+    });
+    assert.equal(await used(), 80);
+  });
+
+  test("Deni Run spend of another usage period does not count against the pool", async () => {
+    const cycleEnd = new Date(Date.now() + 10 * 24 * 60 * 60_000);
+    // $10 of Deni Run in the calendar month, the whole Free pool; the plan started since.
+    await db.exec(`INSERT INTO product_usage (user_id, product, metric, unit, period_start, used)
+      VALUES ('test-user', 'run', 'model', 'usd_micros',
+        date_trunc('month', NOW() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC', 10000000)`);
+    assert.equal(
+      (await reserveUsageQuota("test-user", "premium", "free", false, 1)).allowed,
+      false,
+    );
+    assert.equal(
+      (
+        await reserveUsageQuota("test-user", "premium", "plus", false, 1, {
+          usageCycleEnd: cycleEnd,
+        })
+      ).allowed,
+      true,
+    );
+  });
+
+  test("a cached billing profile does not reset a row written with newer billing data", async () => {
+    const staleCycleEnd = new Date(Date.now() + 10 * 24 * 60 * 60_000);
+    const cycleEnd = new Date(Date.now() + 30 * 24 * 60 * 60_000);
+    const fetchedAt = new Date(Date.now() - 30_000);
+    // The web app already started the new period after this profile was cached.
+    await reserveUsageQuota("test-user", "premium", "plus", false, 100, {
+      usageCycleEnd: cycleEnd,
+    });
+    await reserveUsageQuota("test-user", "premium", "plus", false, 40, {
+      usageCycleEnd: staleCycleEnd,
+      fetchedAt,
+    });
+    assert.equal(await used(), 140);
+  });
+
   test("a legacy-unit quota row is reset and stored in units", async () => {
     await db.exec(`INSERT INTO usage_quota
       (user_id, category, plan_tier, limit_amount, unit, used, period_start, period_end)

@@ -473,6 +473,7 @@ export async function validateAgentAuth(c: Context, next: Next) {
     tier,
     billingProfile.hasVerifiedPaymentMethod,
     usageEstimate.reservationAmount,
+    billingProfile,
   );
   if (!quotaReservation.allowed) {
     return c.json(
